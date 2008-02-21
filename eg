@@ -14,6 +14,7 @@ use List::Util qw(min max);
 my $verbose=0;
 
 # globals :-(
+my $outfh;
 my $version = "0.5.4.alphabeticalcharactersdontbelonginversionnumbers";
 my %command;    # command=>{section, short_description} mapping
 my $section = {
@@ -245,6 +246,14 @@ Description:
 
 # Parent class preprocess, help, and run methods work for us
 
+sub postprocess {
+  my $self = shift;
+  my $output = shift;
+
+  # A very simply way to test that output capturing is working
+  print join(' ', split('', $output));
+}
+
 
 
 #*************************************************************************#
@@ -279,7 +288,12 @@ sub _execute_impl {
     $output = `$command 2>&1`;
     $ret = $?;
   } else {
-    $ret=system($command);
+    open(OUTPUT, "$command 2>&1 |");
+    while (<OUTPUT>) {
+      print $outfh $_;
+    }
+    close(OUTPUT);
+    $ret = $?;
   }
 
   #
@@ -459,24 +473,12 @@ sub launch {
   $action->preprocess() if $action->can("preprocess");
 
   if (!$action->can("postprocess")) {
+    open($outfh, ">&STDOUT")    || die "eg: Can't dup STDOUT: $!";
     $action->run();
   } else {
-    # Redirect stdout and stderr
-    pipe(my $outfh, OUTPUT);
-    open(STDOUT, ">&OUTPUT") || die "eg $job cannot reopen stdout: $!";
-    open(STDERR, ">&OUTPUT") || die "eg $job cannot reopen stderr: $!";
-    close OUTPUT;
-
-    # Run the action
+    my $output = "";
+    open($outfh, '>', \$output) || die "eg $job: cannot open \$outfh: $!";
     $action->run();
-
-    # Get the output
-    my @all_output = <$outfh>;
-    my $output = join('\n', @all_output);
-    #read($outfh, $output) || die "Couldn't read all output: $!";
-    close $outfh;
-
-    # Run the postprocess command
     $action->postprocess($output);
   }
 
