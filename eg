@@ -170,6 +170,138 @@ Description:
 }
 
 ###########################################################################
+# commit                                                                  #
+###########################################################################
+package commit;
+@commit::ISA = qw(subcommand);
+INIT {
+  $command{commit} = {
+    section => 'modification',
+    about => 'Record changes locally'
+    };
+  $alias{'checkin'} = "commit";
+  $alias{'ci'}      = "commit";
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg commit [-a|--all-tracked] [-b|--bypass-untracked-check]
+            [--staged|-d|--dirty] [-F <file> | -m <msg> | --amend]
+            [--] [<file>...]
+
+Description:
+  Records changes in locally with a log message describing the changes
+  you have made.  If no -F or -m option is supplied, an editor is
+  opened for you to enter a log message.
+
+  In order to prevent common errors, the commit will abort with a warning
+  message if there are no changes to commit or if it detects that the
+  choice of what to commit is ambiguous.  In particular, if you have any
+  untracked files present, or if you have both staged changes (i.e. changes
+  explicitly marked as ready for commit) and unstaged changes, then you
+  will get a warning rather than having the commit occur.  You can run 'eg
+  status' to get the status of various files and their changes.  These
+  commit checks can be bypassed with various options.
+
+Examples:
+  Record current changes locally, not changing anything in CVS...OR...get
+  a warning message if eg detects that the choice of what to commit is not
+  necessarily clear.
+      \$ eg commit
+
+  Record current changes, ignoring any untracked files present.
+      \$ eg commit -b
+
+  Record brand new file and current changes.
+      \$ eg add file.c
+      \$ eg commit -a
+  Note: Running 'eg add <file>' explicitly marks <file> as being ready to
+  commit.  Since you likely haven't explicitly marked your other changes as
+  ready to commit, pass the -a flag to specify that both kinds of changes
+  should be recorded.
+
+  (Advanced) Record staged changes, ignoring both unstaged changes and
+  untracked files.
+      \$ eg commit --staged
+
+Options:
+  -a|--all-tracked
+    (Could also be called --act-like-other-vcses).  Commit both staged
+    (i.e. explictly marked as ready for commit) changes and unstaged
+    changes.
+
+  -b|--bypass-untracked-check
+    Commit local changes, even if there are untracked files around.
+
+  --staged|-d|--dirty
+    Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
+    as a synonym in order to provide a short (-d) form.  The term \"dirty\"
+    is used to convey the fact that the working area will likely not be
+    \"clean\" after a commit since unstaged changes will still be present).
+
+    WARNING: Do not try to use -s as a shorthand for --staged; -s has a
+    different meaning (see 'git commit --help')
+
+  -F <file>
+    Use the contents of <file> as the commit message
+
+  -m <msg>
+    Use <msg> as the commit message.
+
+  --amend
+    Amend the last commit on the current branch.
+";
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+  my ($all_tracked, $bypass_untracked, $staged) = (0, 0, 0);
+  my $result = main::GetOptions(
+    "--help"                      => sub { $self->help() },
+    "all-tracked|a"               => \$all_tracked,
+    "bypass-untracked-check|b"    => \$bypass_untracked,
+    "staged|staged|d"             => \$staged,
+    );
+
+  #
+  # Set up flags based on options, do sanity checking of options
+  #
+  my ($check_untracked, $check_mixed);
+  $self->{'commit_flags'} = "";
+  die "Cannot specify both --all-tracked (-a) and --staged (-d)!\n" if
+    $all_tracked && $staged;
+  die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
+  $check_untracked = !$bypass_untracked && !$staged && !@$files;
+  $check_mixed     = !$all_tracked      && !$staged && !@$files;
+  $self->{'commit_flags'} .= " -a" if $all_tracked;
+
+  #
+  # Lots of sanity checks
+  #
+  my $status = RepoUtil::commit_checks($package_name,
+                                       {no_changes       => 1,
+                                        untracked        => $check_untracked,
+                                        partially_staged => $check_mixed});
+  if (!$all_tracked && 
+      $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
+    $self->{'commit_flags'} .= " -a";
+  }
+
+  push(@ARGV, $self->{'commit_flags'}) if $self->{'commit_flags'};
+}
+
+###########################################################################
 # diff                                                                    #
 ###########################################################################
 package diff;
@@ -644,9 +776,9 @@ sub commit_checks {
   my %status;
 
   my ($ret, $output) = ExecUtil::execute_captured("eg status");
-  $status{has_untracked_files}  = ($output =~ /^# Untracked files:$/m);
-  $status{has_unstaged_changes} = ($output =~ /^# Changed but not updated:$/m);
-  $status{has_staged_changes}   = ($output =~ /^# Changes to be committed:$/m);
+  $status{has_untracked_files}  = ($output =~ /^Untracked files:$/m);
+  $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
+  $status{has_staged_changes}   = ($output =~ /^Changes ready to be commit/m);
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
 
