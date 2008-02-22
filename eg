@@ -82,7 +82,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  ExecUtil::execute("git $package_name @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("git $package_name @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -198,6 +198,47 @@ sub preprocess {
   
   exit $self->{exit_status};
 }
+
+###########################################################################
+# log                                                                     #
+###########################################################################
+package log;
+@log::ISA = qw(subcommand);
+INIT {
+  $command{log} = {
+    section => 'discovery',
+    about => 'Show history of recorded changes'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  mr log
+
+Description:
+  Shows a history of recorded changes.  Displays commit identifiers,
+  the authors of the changes, and commit messages.
+";
+  return $self;
+}
+
+sub run {
+  my $head_ref=RepoUtil::current_branch();
+  chomp($head_ref);
+  open(INPUT, "git log @ARGV | git name-rev --stdin --refs=$head_ref |");
+  open(OUTPUT, "| less");
+  while (<INPUT>) {
+    print OUTPUT;
+  }
+  close(INPUT);
+  close(OUTPUT);
+}
+
+# Parent class preprocess, help, and run methods work for us
 
 ###########################################################################
 # status                                                                  #
@@ -397,23 +438,19 @@ sub _execute_impl {
     }
   }
 
-  # Return OK/ABORT/FAILED and optionally the command output
-  return $options{capture_output} ? $output : undef;
+  return $options{capture_output} ? ($ret, $output) : $ret;
 }
 
 # executes a command, capturing its output (both STDOUT and STDERR)
 sub execute_captured {
   my ($command, @options) = @_;
-
-  my $output = _execute_impl($command, capture_output => 1, @options);
-  return $output;
+  return _execute_impl($command, capture_output => 1, @options);
 }
 
 # executes a command (output not captured)
 sub execute {
   my ($command, @options) = @_;
-
-  _execute_impl($command, @options);  
+  return _execute_impl($command, @options);
 }
 
 ###########################################################################
@@ -432,6 +469,14 @@ sub uncommitted_changes {
                               undef, "ignore retval");
   # $ret == 0 => there are uncommitted changes.  $ret == 1 => opposite
   return !$ret;
+}
+
+# current_branch: Get the currently active branch
+sub current_branch {
+  my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
+  return undef if $ret != 0;
+  chomp($output);
+  return $output;
 }
 
 sub commit_checks {
