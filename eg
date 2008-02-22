@@ -227,19 +227,28 @@ Description:
      Untracked
        Files that are not explicitly ignored (i.e. do not appear in an
        ignore list such as a .gitignore file) but whose contents are still
-       not tracked by git.  These files can become tracked by running
-       'eg add <filename>'.
+       not tracked by git.
 
-     Changed but not updated
-       Files whose contents have been modified in the working copy.  If you
-       have explicitly staged changes (i.e. marked them as ready to be
-       committed by running eg add), then those changes will not cause the
-       filename to appear in this list.
+       These files can become tracked by running 'eg add <filename>', or
+       ignored by having their name added to a .gitignore file.
 
-     Changes to be committed
-       Files with contents that have been marked as ready to be committed
-       (also known as 'staged').  Files enter this state through the use of
-       'eg add'. See 'eg help topic index' to learn about the staging area.
+     Changed but not updated (\"unstaged\")
+       Files whose contents have been modified in the working copy.
+
+       (Advanced usage note) If you explicitly mark all the changes in a
+       file as ready to be committed, then the file will not appear in this
+       list and will instead appear in the \"staged\" list (see below).
+       However, a file can appear in both the unstaged and staged lists if
+       only part of the changes in the file are marked as ready for commit.
+
+     Changes ready to be committed (\"staged\")
+       Files with content changes that have explicitly been marked as ready
+       to be committed.  This state only typically appears in advanced
+       usage.
+
+       Files enter this state through the use of 'eg add'.  Files can
+       return to the unstaged state by running 'eg reset HEAD <file>'.  See
+       'eg help topic staging' to learn about the staging area.
 ";
   return $self;
 }
@@ -250,8 +259,79 @@ sub postprocess {
   my $self = shift;
   my $output = shift;
 
-  # A very simply way to test that output capturing is working
-  print join(' ', split('', $output));
+  my $branch;
+  my %files = ( untracked => undef, unstaged => undef, staged => undef );
+
+  my @lines = split('\n', $output);
+  my $cur_state = 0;
+  while (@lines) {
+    my $line = shift @lines;
+    my $section = undef;
+
+    if ($line =~ m/^# On branch (.*)$/) {
+      $branch = $1;
+    } elsif ($line =~ m/^# Untracked files:$/) {
+      $cur_state = 1;
+      $section = 'untracked';
+      $title = "Untracked files:";
+    } elsif ($line =~ m/^# Changes to be committed:$/) {
+      $cur_state = 2;
+      $section = 'staged';
+      $title = 'Changes ready to be committed ("staged"):';
+    } elsif ($line =~ m/^# Changed but not updated:$/) {
+      $cur_state = 2;
+      $section = 'unstaged';
+      $title = 'Changed but not updated ("unstaged"):';
+    }
+
+    # If we're inside a section type, parse it
+    if ($cur_state > 0) {
+      my @section_files;
+      my $hint = shift @lines;
+      shift @lines; # Get rid of blank line
+
+      $line = shift @lines;
+      while (defined $line && $line =~ m/^#.+$/) {
+        if ($cur_state == 1) {
+          if ($line =~ m/^#(\s+)(.*)/) { 
+            my $file = $2;
+            push @section_files, "$1$file";
+          }
+        } elsif ($cur_state == 2) {
+          if ($line =~ m/^#(\s+.*:\s+)(.*)/) {
+            my $file = $2;
+            push(@section_files, "$1$file");
+          }
+        }
+        $line = shift @lines;
+      }
+
+      if (defined($files{$section})) {
+        push(@{$files{$section}{'file_list'}}, @section_files);
+      } else {
+        $files{$section} = { title     => $title,
+                             hint      => $hint,
+                             file_list => \@section_files };
+      }
+
+      # Record that we finished parsing this section
+      $cur_state = 0;
+    }
+  }
+
+  # Print out the branch we are on
+  print "(On branch $branch)\n";
+
+  # Print out all the various changes
+  foreach my $section (sort keys %files) {
+    if (defined($files{$section})) {
+      print "$files{$section}{'title'}\n";
+      foreach my $fileline (@{$files{$section}{'file_list'}}) {
+        print "$fileline\n";
+      }
+    }
+  }
+
 }
 
 
