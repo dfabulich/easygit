@@ -309,8 +309,8 @@ Examples:
   Show which topics have available help
       \$ eg help topic
 
-  Show the help for the index (staging area) topic
-      \$ eg help topic index
+  Show the help for the staging topic
+      \$ eg help topic staging
 ";
   return $self;
 }
@@ -337,7 +337,7 @@ sub preprocess {
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
     print "$section->{$name}{desc}\n";
-    foreach my $c (keys %command) {
+    foreach my $c (sort keys %command) {
       next if $command{$c}{section} ne $name;
       printf "  eg %-15s %s\n", $c, $command{$c}{about};
     }
@@ -619,7 +619,7 @@ sub execute {
 package RepoUtil;
 
 # Return whether or not there are uncommitted changes in the repository.
-# Only counts indexed changes, unless the -a flag is passed as an argument
+# Only counts staged changes, unless the -a flag is passed as an argument
 sub uncommitted_changes {
   my $flags = shift;
 
