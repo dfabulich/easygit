@@ -194,9 +194,9 @@ Usage:
             [--] [<file>...]
 
 Description:
-  Records changes in locally with a log message describing the changes
-  you have made.  If no -F or -m option is supplied, an editor is
-  opened for you to enter a log message.
+  Records changes locally along with a log message describing the
+  changes you have made.  If no -F or -m option is supplied, an editor
+  is opened for you to enter a log message.
 
   In order to prevent common errors, the commit will abort with a warning
   message if there are no changes to commit or if it detects that the
