@@ -404,12 +404,15 @@ sub _execute_impl {
   if ($options{capture_output}) {
     $output = `$command 2>&1`;
     $ret = $?;
-  } else {
+  } elsif (defined $outfh) {
     open(OUTPUT, "$command 2>&1 |");
     while (<OUTPUT>) {
       print $outfh $_;
     }
     close(OUTPUT);
+    $ret = $?;
+  } else {
+    system($command);
     $ret = $?;
   }
 
@@ -594,7 +597,6 @@ sub launch {
   $action->preprocess() if $action->can("preprocess");
 
   if (!$action->can("postprocess")) {
-    open($outfh, ">&STDOUT")    || die "eg: Can't dup STDOUT: $!";
     $action->run();
   } else {
     my $output = "";
