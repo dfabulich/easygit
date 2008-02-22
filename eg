@@ -167,7 +167,7 @@ sub preprocess {
     my $subcommand_obj = $subcommand->new();
     $subcommand_obj->help();
   } elsif (@ARGV > 1) {
-    @$self{'exit_status', 'be_a_jerk'} = (1, 0);
+    $self->{exit_status} = 1;
     print STDERR "Too many arguments to help.\n";
   }
 
@@ -217,7 +217,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  mr log
+  eg log
 
 Description:
   Shows a history of recorded changes.  Displays commit identifiers,
@@ -237,8 +237,6 @@ sub run {
   close(INPUT);
   close(OUTPUT);
 }
-
-# Parent class preprocess, help, and run methods work for us
 
 ###########################################################################
 # status                                                                  #
@@ -293,8 +291,6 @@ Description:
 ";
   return $self;
 }
-
-# Parent class preprocess, help, and run methods work for us
 
 sub postprocess {
   my $self = shift;
@@ -466,7 +462,7 @@ sub uncommitted_changes {
   $flags = "" if !defined $flags;
 
   my $ret = ExecUtil::execute("git status $flags > /dev/null",
-                              undef, "ignore retval");
+                              ignore_ret => 1);
   # $ret == 0 => there are uncommitted changes.  $ret == 1 => opposite
   return !$ret;
 }
@@ -566,7 +562,7 @@ sub git_rev_parse {
   my @args = @_;
 
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git rev-parse @ARGV", undef, "ignore-ret");
+    ExecUtil::execute_captured("git rev-parse @ARGV", ignore_ret => 1);
   if ($ret != 0) {
     $output =~ /^(fatal:.*)$/m   && print STDERR "$1\n";
     $output =~ /^(Use '--'.*)$/m && print STDERR "$1\n";
