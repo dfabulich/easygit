@@ -112,7 +112,111 @@ Description:
   return $self;
 }
 
-# Parent class preprocess, help, and run methods work for us
+###########################################################################
+# diff                                                                    #
+###########################################################################
+package diff;
+@diff::ISA = qw(subcommand);
+INIT {
+  $command{diff} = {
+    section => 'discovery',
+    about => 'Show changes to file contents'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg diff [--unstaged|--staged] [<commit>] [<commit>]
+
+Description:
+  Shows differences between different versions of the project.  By default,
+  it shows the differences between the last locally recorded version and the
+  version in the working copy.
+
+Examples:
+  Show local unrecorded changes
+      \$ eg diff
+
+  In a project with the current branch being 'master', show the differences
+  between the version before the last recorded commit and the working copy.
+      \$ eg diff master~1
+  Or do the same using \"HEAD\" which is a synonym for the current branch:
+      \$ eg diff HEAD~1
+
+  Show changes between 10 versions before last recorded commit and the last
+  recorded commit (assumes the current branch is 'master').
+      \$ eg diff master~10 master
+
+  (Advanced) Show changes between staged (ready-to-be-committed) version of
+  files and the working copy (use 'eg add' to stage files).  In other
+  words, show the unstaged changes.
+      \$ eg diff --unstaged
+
+  (Advanced) Show changes between last recorded copy and the staged (ready-
+  to-be-committed) version of files (use 'eg add' to stage files).  In
+  other words, show the staged changes.
+      \$ eg diff --staged
+
+  (Advanced) Show changes between 5 versions before the last recorded
+  commit and the currently staged (ready-to-be-committed) version of the
+  repository.  (Use 'eg add' to stage files).
+      \$ eg diff --staged HEAD~5
+
+Options:
+  <commit>
+    A reference to a recorded version of the repository.  Valid versions
+    are typically of the form <branch> or <branch>~<n>, though 40-character
+    hexadecimal \"commit identifiers\" are allowed too.  See the 'commit'
+    line in the output of 'eg log' for examples.
+
+  --staged|--cached
+    Show changes between the last commit and the staged copy of files.
+    Cannot be used when two <commit>s have been specified.
+
+  --unstaged
+    Show changes between the staged copy of files and the current working
+    directory.  Cannot be used when a <commit> is specified.
+";
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+
+  #
+  # Parse options
+  #
+  $self->{'opts'} = "";
+  @ARGV = @$opts;
+  my ($staged, $unstaged) = (0, 0);
+  my $result = main::GetOptions(
+    "--help"         => sub { $self->help() },
+    "staged|cached"  => \$staged,
+    "unstaged"       => \$unstaged,
+    );
+  die "Cannot specify both --staged and --unstaged!\n" if $staged && $unstaged;
+  $self->{'opts'} .= " --cached" if $staged;
+
+  #
+  # Parse revs
+  #
+  die "eg diff: Too many revisions specified.\n" if (scalar @$revs > 2);
+  die "eg diff: Cannot specify '--staged' with more than 1 revision.\n"
+    if ($staged && scalar @$revs > 1);
+  die "eg diff: Cannot specify '--unstaged' with any revisions.\n"
+    if ($unstaged && scalar @$revs > 0);
+  # 'eg diff' (without arguments) should act like 'git diff HEAD'
+  push(@$revs, "HEAD") if (!@$revs && !$unstaged && !$staged);
+
+  @ARGV = "$self->{opts} @$revs @$files"
+}
 
 ###########################################################################
 # help                                                                    #
