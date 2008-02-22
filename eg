@@ -86,6 +86,63 @@ sub run {
 }
 
 ###########################################################################
+# add                                                                     #
+###########################################################################
+package add;
+@add::ISA = qw(subcommand);
+INIT {
+  $command{add} = {
+    section => 'modification',
+    about => 'Mark content in files as being ready for commit'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg add [--] <PATH> ...
+
+Description:
+  Marks the contents of the specified files as being ready to commit,
+  scheduling them for addition to the repository.  (This is also known as
+  staging.)  When a directory is passed, all files in that directory or any
+  subdirectory are recursively added.
+
+Examples:
+  Create a new file, and mark it for addition to the repository.
+      \$ echo hi > there
+      \$ eg add there
+
+  (Advanced) Mark some changes as good, add some verbose sanity checking code,
+  then commit just the good changes.
+      Implement some cool new feature in somefile.C
+      \$ eg add somefile.C
+      Add some verbose sanity checking code to somefile.C
+      Decide to commit the new feature code but not the sanity checking code:
+      \$ eg commit --staged
+
+  (Advanced) Show changes in a file, split by those that you have marked as
+  good and those that you haven't:
+      Make various edits
+      \$ eg add file1 file2
+      Make more edits, include some to file1
+      \$ eg diff            # Look at all the changes
+      \$ eg diff --staged   # Look at the \"ready to be committed\" changes
+      \$ eg diff --unstaged # Look at the changes not ready to be commited
+
+Options:
+  --
+    This option can be used to separate command-line options from the list
+    of files, (useful when filenames might be mistaken for command-line
+    options).
+";
+  return $self;
+}
+
+###########################################################################
 # branch                                                                  #
 ###########################################################################
 package branch;
