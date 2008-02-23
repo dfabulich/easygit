@@ -68,6 +68,15 @@ sub help {
   open(OUTPUT, "|less");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
   print OUTPUT $self->{'help'};
+  print OUTPUT "\nDifferences from git $package_name:";
+  print OUTPUT "\n  None.\n" if !defined $self->{'differences'};
+  print OUTPUT $self->{'differences'} if defined $self->{'differences'};
+  print OUTPUT "\nSee also\n";
+  print OUTPUT <<EOF;
+  Run 'man git-$package_name' for a comprehensive list of options available.
+  eg $package_name is designed to accept the same options with the same
+  meanings (unless specified otherwise in the above "Differences" section).
+EOF
   close(OUTPUT);
   exit 0;
 }
@@ -234,6 +243,9 @@ Options:
     (i.e. explictly marked as ready for commit) changes and unstaged
     changes.
 
+    Incompatible with explicitly specifying files to commit on the command
+    line, and incompatible with the --staged option.
+
   -b|--bypass-untracked-check
     Commit local changes, even if there are untracked files around.
 
@@ -246,6 +258,9 @@ Options:
     WARNING: Do not try to use -s as a shorthand for --staged; -s has a
     different meaning (see 'git commit --help')
 
+    Incompatible with explicitly specifying files to commit on the command
+    line, and incompatible with the --all-tracked option.
+
   -F <file>
     Use the contents of <file> as the commit message
 
@@ -255,6 +270,27 @@ Options:
   --amend
     Amend the last commit on the current branch.
 ";
+  $self->{'differences'} = '
+  The "--staged" (and "-d" and "--dirty" aliases) are unique to eg commit;
+  git commit behavior differs from eg commit in that it acts by default
+  like the --staged flag was passed UNLESS either the -a option is passed
+  or files are explicitly listed on the command line.
+
+  The "-b" and "--bypass-untracked-check" are unique to eg commit; git
+  commit behavior differs by always turning on this functionality -- there
+  is no way to have git commit do an untracked files sanity check for you.
+  Yes, I know I need to add a configuration option to make this the default
+  in eg commit too.  I am just utterly sick of people forgetting to commit
+  new files they create...
+
+  "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
+  has the same behavior in both, but the "smart" behavior of eg commit
+  means it is only rarely needed.
+
+  The "--all-tracked" alias for "-a" is known as "--all" to git-commit; I
+  find the latter confusing and misleading and thus renamed to the former
+  for eg commit.
+';
   return $self;
 }
 
@@ -370,6 +406,23 @@ Options:
     Show changes between the staged copy of files and the current working
     directory.  Cannot be used when a <commit> is specified.
 ";
+  $self->{'differences'} = '
+  The following illustrate the two changed defaults of eg diff:
+    eg diff            <=> git diff HEAD
+    eg diff --unstaged <=> git diff
+  In more detail:
+
+  The "--unstaged" option is unique to eg diff; to get the same behavior
+  with git diff you simply list no revisions and omit the "--cached" flag.
+
+  When neither --staged nor --unstaged are specified to eg diff and no
+  revisions are given, eg diff will pass along the revision "HEAD" to git
+  diff.
+
+  The "--staged" option is an alias for "--cached" unique to eg diff (the
+  purpose of the alias is to reduce the number of different names in git
+  used to refer to the same concept.)
+';
   return $self;
 }
 
@@ -444,6 +497,19 @@ Examples:
   Show the help for the staging topic
       \$ eg help topic staging
 ";
+  $self->{'differences'} = '
+  "git help <command>" simply calls "man git-<command>".  The git man pages
+  are really nice for people who are experts with git; they are
+  comprehensive and detailed.  However, new users tend to get lost in a sea
+  of details and advanced topics (among other problems).  "eg help
+  <command>" provides much simpler pages of its own and refers to the
+  manpages for more details.  They also list any differences between the eg
+  commands and the git ones, to allow users to easily learn git.
+
+  Ignore the lie below about seeing "man git-help" for more details.  The
+  help command of eg is completely different than the help command of git.
+  ';
+
   return $self;
 }
 
@@ -516,6 +582,19 @@ Description:
   Shows a history of recorded changes.  Displays commit identifiers,
   the authors of the changes, and commit messages.
 ";
+  $self->{'differences'} = '
+  eg log output differs from git log output by showing simpler revision
+  identifiers that will be easier for new users to understand and use.
+  In detail:
+    eg log
+  is the same as
+    git log | git name-rev --stdin --refs=$(git symbolic-ref HEAD) | less
+
+  If I could figure out how to make git log show references relative to
+  "HEAD" when not working on any (named) branch (i.e. "when the HEAD is
+  detached", to put it in gitspeak), I would do that too.  Unfortunately, I
+  have not figured that out yet.
+  ';
   return $self;
 }
 
@@ -582,6 +661,15 @@ Description:
        return to the unstaged state by running 'eg reset HEAD <file>'.  See
        'eg help topic staging' to learn about the staging area.
 ";
+  $self->{'differences'} = '
+  eg status output is essentially just a streamlined and cleaned version of
+  git status output.  The streamlining serves to avoid information overload
+  to new users (which is only possible with a less error prone "commit"
+  command) and the cleaning (removal of leading hash marks) serves to make
+  the system more inviting to new users.  There are slight changes to the
+  section names to reinforce consistent naming when referring to the same
+  concept, but the changes are very slight.
+  ';
   return $self;
 }
 
