@@ -58,12 +58,23 @@ sub new {
   my $class = shift;
   my $self = {@_};  # Hashref initialized as we're told
   bless($self, $class);
+
+  # We allow direct instantiation of the subcommand class only if they
+  # provide a command name for us to pass to git.
+  if (ref($class) eq "subcommand" && !defined $self->{command}) {
+    die "Invalid subcommand usage"
+  }
+
   return $self;
 }
 
 sub help {
   my $self = shift;
   my $package_name = ref($self);
+
+  if ($package_name eq "subcommand") {
+    exit ExecUtil::execute("git $self->{command} --help")
+  }
 
   open(OUTPUT, "|less");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
@@ -91,7 +102,10 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  return ExecUtil::execute("git $package_name @ARGV", ignore_ret => 1);
+  my $subcommand = 
+    $package_name eq "subcommand" ? $self->{'command'} : $package_name;
+
+  return ExecUtil::execute("git $subcommand @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -523,6 +537,14 @@ sub preprocess {
   if (@ARGV == 1) {
     die "Oops, there's a bug.\n" if $self->{exit_status} != 0;
     my $subcommand = shift @ARGV;
+
+    if (!$subcommand->can("new")) {
+      print "$subcommand is not modified by eg.  Will try running 'git help " .
+            "$subcommand' in 2\nseconds...\n";
+      sleep 2;
+      exit ExecUtil::execute("git help $subcommand");
+    }
+
     my $subcommand_obj = $subcommand->new();
     $subcommand_obj->help();
   } elsif (@ARGV > 1) {
@@ -974,7 +996,9 @@ package main;
 sub launch {
   my $job=shift;
 
-  my $action=$job->new();
+  my $action;
+  $action = $job->new()                      if  $job->can("new");
+  $action = subcommand->new(command => $job) if !$job->can("new");
   $action->preprocess() if $action->can("preprocess");
 
   if (!$action->can("postprocess")) {
