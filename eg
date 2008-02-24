@@ -927,16 +927,22 @@ Options:
   return $self;
 }
 
+sub preprocess {
+  my $self = shift;
+
+  # Don't let them try to use eg switch to check out older revisions of files;
+  # this is just supposed to be a subset of git checkout
+  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+  die "Use revert or checkout to obtain older versions of files.\n" if @$files;
+
+  $self->SUPER::preprocess();
+}
+
 sub run {
-  my $head_ref=RepoUtil::current_branch();
-  chomp($head_ref);
-  open(INPUT, "git log @ARGV | git name-rev --stdin --refs=$head_ref |");
-  open(OUTPUT, "| less");
-  while (<INPUT>) {
-    print OUTPUT;
-  }
-  close(INPUT);
-  close(OUTPUT);
+  my $self = shift;
+  my $package_name = ref($self);
+
+  return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
 }
 
 
