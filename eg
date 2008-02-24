@@ -1067,6 +1067,7 @@ sub main {
                         );
   help("eg: Error parsing arguments.") if !$result;
   help("eg: No subcommand specified.") if @ARGV < 1;
+  help("eg: Invalid argument '$ARGV[0]'.") if ($ARGV[0] !~ m#^[a-z]#);
 
   #
   # Set up an interrupt signal handler
