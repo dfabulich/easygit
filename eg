@@ -113,10 +113,6 @@ INIT {
       section => 'timesavers',
       about => 'Save and revert local changes, or apply stashed changes',
       },
-    switch => {
-      section => 'projects',
-      about => 'Switch the working copy to another branch'
-      },
     tag => {
       extra => 1,
       section => 'modification',
@@ -144,6 +140,10 @@ sub new {
   my $self = {@_};  # Hashref initialized as we're told
   bless($self, $class);
 
+  # Our "see also" section in help usually references the same subsection
+  # as our class name.
+  $self->{git_equivalent} = ref($class) if !defined $self->{git_equivalent};
+
   # We allow direct instantiation of the subcommand class only if they
   # provide a command name for us to pass to git.
   if (ref($class) eq "subcommand" && !defined $self->{command}) {
@@ -156,6 +156,7 @@ sub new {
 sub help {
   my $self = shift;
   my $package_name = ref($self);
+  my $git_equiv = $self->{git_equivalent};
 
   if ($package_name eq "subcommand") {
     exit ExecUtil::execute("git $self->{command} --help")
@@ -169,7 +170,7 @@ sub help {
   print OUTPUT $self->{'differences'} if defined $self->{'differences'};
   print OUTPUT "\nSee also\n";
   print OUTPUT <<EOF;
-  Run 'man git-$package_name' for a comprehensive list of options available.
+  Run 'man git-$git_equiv' for a comprehensive list of options available.
   eg $package_name is designed to accept the same options with the same
   meanings (unless specified otherwise in the above "Differences" section).
 EOF
@@ -873,6 +874,69 @@ sub postprocess {
     }
   }
 
+}
+
+###########################################################################
+# switch                                                                  #
+###########################################################################
+package switch;
+@switch::ISA = qw(subcommand);
+INIT {
+  $command{switch} = {
+    section => 'projects',
+    about => 'Switch the working copy to another branch'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => 'checkout');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg switch [-b] <branch>
+
+Description:
+  Switches to another branch (an operation that can be done locally, without
+  any network connectivity).  Creates the branch first if the -b option is
+  passed.
+
+Examples:
+  Switch to the 4.8 branch
+      \$ mr switch 4.8
+
+  Create a new branch called new_whizbang_feature and switch to it.
+      \$ mr switch -b new_whizbang_feature
+
+Options:
+  -b
+    Specifies that the branch should first be created (an error will be shown
+    if the specified branch already exists).
+";
+  $self->{'differences'} = '
+  eg switch is a subset of the functionality of git checkout; the abilities
+  and flags for creating and switching branches are identical between the
+  two, just the name of the function is different.
+
+  The ability of git checkout to get older versions of files is not part of
+  eg switch; instead that ability can be found with eg revert.
+
+  (One can also use eg checkout identically to git checkout for backwards
+   compatibility; it simply is not an advertised function.)
+  ';
+  return $self;
+}
+
+sub run {
+  my $head_ref=RepoUtil::current_branch();
+  chomp($head_ref);
+  open(INPUT, "git log @ARGV | git name-rev --stdin --refs=$head_ref |");
+  open(OUTPUT, "| less");
+  while (<INPUT>) {
+    print OUTPUT;
+  }
+  close(INPUT);
+  close(OUTPUT);
 }
 
 
