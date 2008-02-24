@@ -20,7 +20,7 @@ my %command;    # command=>{section, short_description} mapping
 my $section = {
   'creation' =>
     { order => 1,
-      desc  => 'Creating and updating projects and project containers',
+      desc  => 'Creating repositories',
     },
   'discovery' =>
     { order => 2,
@@ -32,13 +32,98 @@ my $section = {
     },
   'projects' =>
     { order => 4,
-      desc  => 'Managing multiple projects (branches) & collaboration'
+      desc  => 'Managing branches',
+    },
+  'collaboration' =>
+    { order => 5,
+      desc  => 'Collaboration'
+    },
+  'timesavers' =>
+    { order => 6,
+      desc  => 'Time saving commands'
+    },
+  'compatibility' =>
+    { order => 7,
+      extra => 1,
+      desc  => 'Commands provided for compatibility with other SCMs'
     },
   'misc' =>
-    { order => 5,
+    { order => 8,
       desc  => 'Miscellaneous'
     },
   };
+## Commands to list in help even though we haven't overridden the git versions
+INIT {
+  %command = (
+    blame => {
+      extra => 1,
+      section => 'discovery',
+      about => 'Show what version and author last modified each line of a file'
+      },
+    bisect => {
+      section => 'timesavers',
+      about => 'Find the change that introduced a bug by binary search'
+      },
+    clone => {
+      section => 'creation',
+      about => 'Clone a repository into a new directory'
+      },
+    gc => {
+      extra => 1,
+      section => 'timesavers',
+      about => 'Optimize the local repository to make later operations faster',
+      },
+    grep => {
+      extra => 1,
+      section => 'discovery',
+      about => 'Print lines of tracked files matching a pattern'
+      },
+    init => {
+      section => 'creation',
+      about => 'Create a new empty repository'
+      },
+    merge => {
+      section => 'projects',
+      about => 'Join two or more development histories (branches) together'
+      },
+    mv => {
+      section => 'modification',
+      about => 'Move or rename files (or directories or symlinks)'
+      },
+    pull => {
+      section => 'collaboration',
+      about => 'Get updates from another repository and merge them'
+      },
+    push => {
+      section => 'collaboration',
+      about => 'Update a remote mirror of the local repository'
+      },
+    rebase => {
+      extra => 1,
+      section => 'timesavers',
+      about => "Port local commits, making them be based on a different\n" .
+               "                repository version"
+      },
+    rm => {
+      extra => 1,
+      section => 'modification',
+      about => 'Remove files'
+      },
+    stash => {
+      section => 'timesavers',
+      about => 'Save and revert local changes, or apply stashed changes',
+      },
+    switch => {
+      section => 'projects',
+      about => 'Switch the working copy to another branch'
+      },
+    tag => {
+      extra => 1,
+      section => 'modification',
+      about => 'Provide a name for a specific version of the repository'
+      },
+  );
+}
 
 
 
@@ -173,7 +258,7 @@ package branch;
 INIT {
   $command{branch} = {
     section => 'projects',
-    about => 'List existing projects (branches)'
+    about => 'List, create, or delete branches'
     };
 }
 
