@@ -492,7 +492,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg help [<subtopic>]
+  eg help [<command>]
+  eg help topic [<topic>]
 
 Description:
   Shows general help for eg, for one of its subcommands, or for a
@@ -531,7 +532,14 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  my $result=main::GetOptions("--help" => sub { $self->help() });
+  $self->{all} = 0;
+  my $result=main::GetOptions("--help" => sub { $self->help() },
+                              "--all"  => \$self->{all});
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
 
   # Check if we were asked to get help on a subtopic rather than toplevel help
   if (@ARGV == 1) {
@@ -553,29 +561,37 @@ sub preprocess {
   }
 
   # Print valid subcommands sorted by section
+  open(OUTPUT, "|less");
   foreach my $name (sort
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
-    print "$section->{$name}{desc}\n";
+    next if $section->{$name}{extra} && !$self->{all};
+    print OUTPUT "$section->{$name}{desc}\n";
     foreach my $c (sort keys %command) {
       next if $command{$c}{section} ne $name;
-      printf "  eg %-15s %s\n", $c, $command{$c}{about};
+      next if $command{$c}{extra} && !$self->{all};
+      printf OUTPUT "  eg %-10s %s\n", $c, $command{$c}{about};
     }
-    print "\n";
+    print OUTPUT "\n";
   }
 
   # Check to see if someone added a command with an invalid section
   my $broken_commands = "";
   foreach my $c (keys %command) {
     next if defined $section->{$command{$c}{section}};
-    printf "    -%15s %s\n", $c, $command{$c}{about};
+    printf OUTPUT "    -%10s %s\n", $c, $command{$c}{about};
   }
   if ($broken_commands) {
-    print "Broken (typo in classification?) commands:\n$broken_commands";
+    print OUTPUT "Broken (typo in classification?) commands:\n" .
+                 $broken_commands;
   }
 
   # And let them know how to get more detailed help...
-  print "Type 'eg help <command>' to get more help on <command>.\n";
+  print OUTPUT "Additional help:\n";
+  print OUTPUT "  eg help <command>  Get more help on <command>.\n";
+  print OUTPUT "  eg help --all      List more commands (not really all)\n";
+  print OUTPUT "  eg help topic      List specialized help topics.\n";
+  close(OUTPUT);
   
   exit $self->{exit_status};
 }
