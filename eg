@@ -964,10 +964,10 @@ Description:
 
 Examples:
   Switch to the 4.8 branch
-      \$ mr switch 4.8
+      \$ eg switch 4.8
 
   Create a new branch called new_whizbang_feature and switch to it.
-      \$ mr switch -b new_whizbang_feature
+      \$ eg switch -b new_whizbang_feature
 
 Options:
   -b
