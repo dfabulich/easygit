@@ -796,6 +796,139 @@ sub run {
 }
 
 ###########################################################################
+# reset                                                                   #
+###########################################################################
+package reset;
+@reset::ISA = qw(subcommand);
+INIT {
+  $command{reset} = {
+    extra => 1,
+    section => 'modification',
+    about => 'Forget local commits and (optionally) undo their changes'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg reset [--working-copy | --no-unstaging] [<commit>]
+
+Description:
+  Forgets local commits for the active branch and (optionally) undoes their
+  changes in the working copy.  If you have staged changes (changes you
+  explictly marked as ready for commit) this function also unstages them by
+  default.  See 'eg help topic staging' to learn about the staging area.
+
+  From a computer science point of view, eg reset moves the current branch
+  tip pointer to point at an older commit, and also optionally changes the
+  working copy and staging area to match the version of the repository
+  recorded in the older commit.
+
+  Note that this function should be used with caution; it is often used to
+  discard unwanted data or to modify recent local \"history\" of commits.
+  You want to be careful to not also discard wanted data, and modifying
+  history is a bad idea if someone has already obtained a copy of that
+  local history from you (rewriting history makes merging and updating
+  problematic).
+
+Examples:
+  Throw away all changes since the last commit
+      \$ eg reset --working-copy HEAD
+  Note that HEAD is always a pointer to the current branch, and the current
+  branch always points to its last commit.
+
+  Throw away the last three commits and all current changes (this is a bad
+  idea if someone has gotten a copy of these commits from you; this should
+  only be done for truly local changes that you no longer want).
+      \$ eg reset --working-copy HEAD~3
+
+  Unrecord the last two commits, but keep the changes corresponding to these
+  commits in the working copy.  (This can be used to fix a set of \"broken\"
+  commits.)
+      \$ eg reset HEAD~2
+
+  While working on the \"stable\" branch, you decide that the last 5 commits
+  should have been part of a separate branch.  Here's how you retroactively
+  make it so:
+      <Verify that your working copy is clean>
+      \$ eg branch difficult_bugfix
+      \$ eg reset --working-copy HEAD~5
+      \$ eg switch difficult_bugfix
+  The first step creates a new branch that initially could be considered an
+  alias for the stable branch, but does not switch to it.  The second step
+  moves the stable branch tip back 5 commits and modifies the working copy
+  to match.  The last step switches to the difficult_bugfix branch, which
+  updates the working copy with the contents of that branch.  Thus, in the
+  end, the working copy will have the same contents as before you executed
+  these three steps (unless you had local changes when you started, in
+  which case those local changes will be gone).
+
+  Stage files (mark changes in them as good and ready for commit but
+  without yet committing them), then change your mind and unstage all
+  files.
+      \$ eg add foo.c bla.h
+      \$ eg reset HEAD
+  Note that using HEAD as the commit means to forget all commits since HEAD
+  (always an empty set) and undo any staged changes since that commit.
+
+Options:
+  --working-copy
+    Also make the working tree match the version of the repository recorded
+    in the specified commit.  If this option is not present, the working
+    copy will not be modified.
+
+  --no-unstaging
+    Do not modify the staging area; only change the current branch
+    pointer to the older commit.
+
+  <commit>
+    A reference to a recorded version of the repository, defaulting to HEAD
+    (meaning the most recent commit on the current branch).  See 'eg help
+    topic commit-ids' for more details.
+
+";
+  $self->{'differences'} = '
+  The only differences between eg reset and git reset are cosmetic;
+  further, eg reset accepts all options and flags that git reset accepts.
+
+  git reset uses option names of --soft, --mixed, and --hard.  While eg
+  reset will accept these option names for compatibility, it provides
+  alternative names that are more meaningful:
+    --working-copy     <=> --hard
+    --no-unstaging     <=> --soft
+  There is no alternate name for --mixed, since it is the default and thus
+  does not need to appear on the command line at all.
+
+  The modified revert command of eg is encouraged for reverting specific
+  files, though eg reset has the same file-specific reverting that git
+  reset does.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  my ($hard, $soft) = (0, 0);
+  my $result = main::GetOptions(
+    "--help"         => sub { $self->help() },
+    "--working-copy" => \$hard,
+    "--no-unstaging" => \$soft,
+    );
+  die "Cannot specify both --working-copy and --no-unstaging!\n"
+    if $hard && $soft;
+  unshift(@ARGV, "--hard") if $hard;
+  unshift(@ARGV, "--soft") if $soft;
+}
+
+###########################################################################
 # status                                                                  #
 ###########################################################################
 package status;
