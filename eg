@@ -68,11 +68,6 @@ INIT {
       section => 'creation',
       about => 'Clone a repository into a new directory'
       },
-    gc => {
-      extra => 1,
-      section => 'timesavers',
-      about => 'Optimize the local repository to make later operations faster',
-      },
     grep => {
       extra => 1,
       section => 'discovery',
@@ -589,6 +584,41 @@ sub preprocess {
   push(@$revs, "HEAD") if (!@$revs && !$unstaged && !$staged);
 
   @ARGV = "$self->{opts} @$revs @$files"
+}
+
+###########################################################################
+# gc                                                                      #
+###########################################################################
+package gc;
+@gc::ISA = qw(subcommand);
+INIT {
+  $command{gc} = {
+    extra => 1,
+    section => 'timesavers',
+    about => 'Optimize the local repository to make later operations faster',
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg gc
+
+Description:
+  Optimizes the local repository; in particular, this command compresses
+  file revisions to reduce disk space and increase performance.
+
+  This command is occasionally called during normal git usage, making
+  explicit usage of this command unnecessary for many users.  However, the
+  automatic calls of this command only do simple and quick optimizations,
+  so some users (particularly those with many revisions) may benefit from
+  manually invoking this command periodically (such as from nightly or
+  weekly cron scripts).
+";
+  return $self;
 }
 
 ###########################################################################
