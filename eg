@@ -269,11 +269,42 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg branch
+  eg branch [-r]
+  eg branch <branchname> [<startpoint>]
+  eg branch -d <branchname>
 
 Description:
-  List the existing branches that you can switch to, with the
-  currently active branch marked with an asterisk.
+  List the existing branches that you can switch to, create a new (local)
+  branch, or delete an existing (local) branch.
+
+  Note that creation of branches in a remote repository can be accomplished
+  by first creating a local branch and then pushing your changes to the
+  remote repository using eg push.
+
+Examples
+  List the available local branches
+      \$ eg branch
+
+  Create a new local branch named random_stuff, based off the last commit.
+      \$ eg branch random_stuff
+
+  Create a new local branch named sec_48 based off the local 4.8 branch
+      \$ eg branch sec_48 4.8
+
+  Create a new local branch named bling, based off the remote branch of the
+  same name (see 'eg help topic storage' for more details)
+      \$ eg branch bling origin/bling
+
+  Delete the local branch named bling
+      \$ eg branch -d bling
+
+Options:
+  -d
+    Delete specified branch
+
+  -r
+    List remote tracking branches (see 'eg help topic storage') for
+    more details.
 ";
   return $self;
 }
