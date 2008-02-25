@@ -1216,6 +1216,37 @@ sub run {
   return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
 }
 
+###########################################################################
+# version                                                                 #
+###########################################################################
+package version;
+@version::ISA = qw(subcommand);
+
+# Override help because we don't want to both definining $command{help}
+sub help {
+  my $self = shift;
+
+  $self->{'help'} = "
+Usage:
+  eg version
+
+Description:
+  Show the current version of eg.
+";
+
+  open(OUTPUT, "|less");
+  print OUTPUT $self->{'help'};
+  close(OUTPUT);
+  exit 0;
+}
+
+sub run {
+  my $self = shift;
+
+  print "eg version $version\n";
+  $self->SUPER::run();
+}
+
 
 
 #*************************************************************************#
