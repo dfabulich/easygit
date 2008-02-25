@@ -142,7 +142,7 @@ sub new {
 
   # Our "see also" section in help usually references the same subsection
   # as our class name.
-  $self->{git_equivalent} = ref($class) if !defined $self->{git_equivalent};
+  $self->{git_equivalent} = ref($self) if !defined $self->{git_equivalent};
 
   # We allow direct instantiation of the subcommand class only if they
   # provide a command name for us to pass to git.
