@@ -163,12 +163,14 @@ sub help {
   print OUTPUT "\nDifferences from git $package_name:";
   print OUTPUT "\n  None.\n" if !defined $self->{'differences'};
   print OUTPUT $self->{'differences'} if defined $self->{'differences'};
-  print OUTPUT "\nSee also\n";
-  print OUTPUT <<EOF;
-  Run 'man git-$git_equiv' for a comprehensive list of options available.
-  eg $package_name is designed to accept the same options with the same
-  meanings (unless specified otherwise in the above "Differences" section).
+  if ($git_equiv) {
+    print OUTPUT "\nSee also\n";
+    print OUTPUT <<EOF;
+    Run 'man git-$git_equiv' for a comprehensive list of options available.
+    eg $package_name is designed to accept the same options with the same
+    meanings (unless specified otherwise in the above "Differences" section).
 EOF
+  }
   close(OUTPUT);
   exit 0;
 }
@@ -744,6 +746,81 @@ sub run {
 }
 
 ###########################################################################
+# info                                                                    #
+###########################################################################
+package info;
+@info::ISA = qw(subcommand);
+INIT {
+  $command{info} = {
+    section => 'discovery',
+    about => 'Show some basic information about the current repository'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => '');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg info
+
+Description:
+  Shows information about the current repository.
+";
+  $self->{'differences'} = '
+  eg info is unique to eg; git does not have a similar command.  It is mostly
+  intended to do something nice if svn converts happen to try this command
+  out.
+  ';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+
+  die "eg info does not yet accept any arguments.\n" if @ARGV;
+}
+
+sub run {
+  my $self=shift;
+
+  my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
+  my $num_dirs = ExecUtil::output(
+                    "git ls-tree -r --full-name --name-only HEAD " .
+                    " | grep '/'" .
+                    " | sed -e \"s#\(.*\)/.*#\1#\" " .
+                    " | sort " .
+                    " | uniq " .
+                    " | wc -l");
+
+  my $command = "git ls-tree -r --full-name --name-only HEAD";
+  my $size_of_files = "xargs ls -l | awk '{print \$5 \" (\" \$9 \")\"}'";
+  my $biggest = "sort -n | tail -n 1";
+  my $biggest_file = ExecUtil::output("$command | $size_of_files | $biggest");
+
+  my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
+  my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
+  my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
+  my $current_branch = ExecUtil::output("git symbolic-ref HEAD |sed -e s#.*/##");
+  my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
+
+  # Other possibilities:
+  #   Disk space used by respository (du -hs .git, or packfile size?)
+  #   Disk space used by working copy (???)
+  #   Somthing about remote tracking branches?
+
+  print "Current commit: $current_commit\n";
+  print "Number of contributors: $contributors\n";
+  print "Total commits: $total_commits\n";
+  print "Current branch: $current_branch\n";
+  print "Number of files: $num_files\n";
+  print "Number of directories: $num_dirs\n";
+  print "Biggest file size (bytes): $biggest_file\n";
+  print "Commits in current branch: $branch_depth\n";
+}
+
+###########################################################################
 # log                                                                     #
 ###########################################################################
 package log;
@@ -1212,6 +1289,15 @@ sub _execute_impl {
 sub execute_captured {
   my ($command, @options) = @_;
   return _execute_impl($command, capture_output => 1, @options);
+}
+
+# executes a command, returning its chomped output
+sub output {
+  my ($command, @options) = @_;
+  my ($ret, $output) = execute_captured($command, @options);
+  die "Failed executing '$command'!\n" if $ret != 0;
+  chomp($output);
+  return $output
 }
 
 # executes a command (output not captured)
