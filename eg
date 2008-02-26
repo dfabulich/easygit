@@ -58,75 +58,104 @@ my $section = {
 INIT {
   %command = (
     blame => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       extra => 1,
       section => 'discovery',
       about => 'Show what version and author last modified each line of a file'
       },
     bisect => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'timesavers',
       about => 'Find the change that introduced a bug by binary search'
       },
     clone => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'creation',
       about => 'Clone a repository into a new directory'
       },
     grep => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       extra => 1,
       section => 'discovery',
       about => 'Print lines of tracked files matching a pattern'
       },
     init => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'creation',
       about => 'Create a new empty repository'
       },
     merge => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'projects',
       about => 'Join two or more development histories (branches) together'
       },
     mv => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'modification',
       about => 'Move or rename files (or directories or symlinks)'
       },
     pull => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'collaboration',
       about => 'Get updates from another repository and merge them'
       },
     push => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'collaboration',
       about => 'Update a remote mirror of the local repository'
       },
     rebase => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       extra => 1,
       section => 'timesavers',
       about => "Port local commits, making them be based on a different\n" .
                "                repository version"
       },
     rm => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       extra => 1,
       section => 'modification',
       about => 'Remove files'
       },
     stash => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       section => 'timesavers',
       about => 'Save and revert local changes, or apply stashed changes',
       },
     tag => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
       extra => 1,
       section => 'modification',
       about => 'Provide a name for a specific version of the repository'
       },
 
     cat => {  # Will just call show
+      new_command => 1,
       extra => 1,
       section => 'compatibility',
       about => 'Output the current or specified version of files'
       },
     resolved => { # Will just call add
+      new_command => 1,
       extra => 1,
       section => 'compatibility',
       about => 'Declare conflicts resolved and mark file as ready for commit'
       },
     update => { # ???  pull --rebase, maybe?
+      new_command => 1,
       extra => 1,
       section => 'compatibility',
       about => '???'
@@ -216,6 +245,7 @@ package add;
 @add::ISA = qw(subcommand);
 INIT {
   $command{add} = {
+    unmodified_behavior => 1,
     section => 'modification',
     about => 'Mark content in files as being ready for commit'
     };
@@ -273,6 +303,7 @@ package branch;
 @branch::ISA = qw(subcommand);
 INIT {
   $command{branch} = {
+    unmodified_behavior => 1,
     section => 'projects',
     about => 'List, create, or delete branches'
     };
@@ -322,6 +353,67 @@ Options:
     more details.
 ";
   return $self;
+}
+
+###########################################################################
+# changes                                                                 #
+###########################################################################
+package changes;
+@changes::ISA = qw(subcommand);
+INIT {
+  $command{changes} = {
+    new_command => 1,
+    section => 'misc',
+    about => 'Provide an overview of the changes from git to eg'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => '');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg changes
+";
+  $self->{'differences'} = '
+  eg changes is unique to eg; git does not have a similar command.
+  ';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $result=main::GetOptions("--help" => sub { $self->help() });
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  # Print valid subcommands sorted by section
+  open(OUTPUT, "|less");
+  print OUTPUT "Modified Behavior:\n";
+  foreach my $c (sort keys %command) {
+    next if $command{$c}{unmodified_behavior};
+    next if $command{$c}{new_command};
+    printf OUTPUT "  $c\n";
+  }
+  print OUTPUT "New commands:\n";
+  foreach my $c (sort keys %command) {
+    next if !$command{$c}{new_command};
+    printf OUTPUT "  $c\n";
+  }
+  print OUTPUT "Modified Help Only:\n";
+  foreach my $c (sort keys %command) {
+    next if $command{$c}{unmodified_help};
+    next if !$command{$c}{unmodified_behavior};
+    next if $command{$c}{new_command};
+    printf OUTPUT "  $c\n";
+  }
+  close(OUTPUT);
 }
 
 ###########################################################################
@@ -625,6 +717,7 @@ package gc;
 @gc::ISA = qw(subcommand);
 INIT {
   $command{gc} = {
+    unmodified_behavior => 1,
     extra => 1,
     section => 'timesavers',
     about => 'Optimize the local repository to make later operations faster',
@@ -782,6 +875,7 @@ package info;
 @info::ISA = qw(subcommand);
 INIT {
   $command{info} = {
+    new_command => 1,
     section => 'compatibility',  # or maybe 'discovery'?
     extra => 1,
     about => 'Show some basic information about the current repository'
@@ -910,6 +1004,7 @@ package reset;
 @reset::ISA = qw(subcommand);
 INIT {
   $command{reset} = {
+    unmodified_behavior => 1,
     extra => 1,
     section => 'modification',
     about => 'Forget local commits and (optionally) undo their changes'
@@ -1374,6 +1469,7 @@ package switch;
 @switch::ISA = qw(subcommand);
 INIT {
   $command{switch} = {
+    new_command => 1,
     section => 'projects',
     about => 'Switch the working copy to another branch'
     };
