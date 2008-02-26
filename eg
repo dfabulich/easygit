@@ -436,6 +436,11 @@ Options:
   The "--all-tracked" alias for "-a" is known as "--all" to git-commit; I
   find the latter confusing and misleading and thus renamed to the former
   for eg commit.
+
+  It would be really nice if I could add some way to automatically
+  ignore untracked files that were ignored in a previous commit.  Then
+  people would not be annoyed by the -b flag and it would still catch
+  common mistakes.  I have not done that yet, though.
 ';
   return $self;
 }
