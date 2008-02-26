@@ -760,7 +760,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(exit_status => 0, @_);
+  my $self = $class->SUPER::new(exit_status => 0, git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -785,16 +785,18 @@ Examples:
       \$ eg help topic staging
 ";
   $self->{'differences'} = '
+  eg help uses its own help system, ignoring the one from git help...except
+  that eg help will call git help if asked for help on a subcommand it does
+  not recognize.
+
   "git help <command>" simply calls "man git-<command>".  The git man pages
   are really nice for people who are experts with git; they are
   comprehensive and detailed.  However, new users tend to get lost in a sea
   of details and advanced topics (among other problems).  "eg help
   <command>" provides much simpler pages of its own and refers to the
-  manpages for more details.  They also list any differences between the eg
-  commands and the git ones, to allow users to easily learn git.
-
-  Ignore the lie below about seeing "man git-help" for more details.  The
-  help command of eg is completely different than the help command of git.
+  manpages for more details.  The eg help pages also list any differences
+  between the eg commands and the git ones, to allow users to easily learn
+  git.
   ';
 
   return $self;
