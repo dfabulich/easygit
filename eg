@@ -460,7 +460,10 @@ Examples:
   necessarily clear.
       \$ eg commit
 
-  Record current changes, ignoring any untracked files present.
+  Record current changes, ignoring any untracked files present.  Also
+  remember the list of untracked files so that their existence will not
+  trigger future \"You have new untracked files present\" warnings when not
+  using the -b flag.
       \$ eg commit -b
 
   Record brand new file and current changes.
