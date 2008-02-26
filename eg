@@ -488,7 +488,7 @@ sub preprocess {
     open(OUTPUT, "> .git/info/ignored-untracked");
     my @untracked_files = `git ls-files --others --directory`;
     foreach my $file (@untracked_files) {
-      print OUTPUT "$file\n";
+      print OUTPUT $file;
     }
     close(OUTPUT);
   }
