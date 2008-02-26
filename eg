@@ -1006,6 +1006,195 @@ sub preprocess {
 }
 
 ###########################################################################
+# revert                                                                  #
+###########################################################################
+package revert;
+@revert::ISA = qw(subcommand);
+INIT {
+  $command{revert} = {
+    extra => 1,
+    section => 'modification',
+    about => 'Revert local changes and/or changes in previous commits'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg revert [--commit | --no-commit] [-m <parent-number>] [--staged]
+            [--in | --since] [<commit>] [--] [<path>...]
+
+Description:
+  Undoes previous changes, optionally also immediately making a commit once
+  the old version of the files are obtained (by default, no commit is
+  performed).  This command has many options for exactly what to revert,
+  and it may be useful to skip to the examples section below and then come
+  back and read the description.
+
+  By default, changes made by this command are only performed in the
+  working copy.  As an advanced option, one can instead have the reverting
+  be applied to the staging area (the area tracking content explicitly
+  marked by you as ready to be committted).
+
+  This command has the ability to either revert changes *since* a given
+  commit, or to revert the changes *in* a given commit.  When a commit is
+  specified, either the --since or --in flags must also be specified to
+  make it clear which behavior is desired.  If no commit is specified and
+  neither --since nor --in is provided, then the changes since the last
+  commit on the current branch will be reverted (i.e. it behaves like
+  \"--since HEAD\" was passed).
+
+  When reverting the changes made *in* a merge commit, the revert command
+  needs to know which parent of the merge the revert should be relative to.
+  This can be specified using the -m option.
+
+  Finally, revert can operate on a subset of paths if specified.
+
+  To avoid accidental loss of local changes, nothing will be done when no
+  arguments are specified.
+
+Examples:
+  Undo changes since the last commit on the current branch to bar.h and foo.c.
+  This can be done with any of the following three methods (method #3 only
+  works if you are in the toplevel directory, though):
+      \$ eg revert bar.h foo.c                      # Method #1
+      \$ eg revert --since HEAD bar.h foo.c         # Method #2, more explicit
+      \$ eg diff bar.h foo.c | patch -p1 -R         # Method #3, using diff
+
+  While on the bling branch, revert the changes in the last 3 commits (as
+  well as any local changes).  This can be done with either of (assuming you
+  are in the toplevel directory for method #2):
+      \$ eg revert --since bling~3                  # Method #1
+      \$ eg diff bling~3 | patch -p1 -R             # Method #2, using diff
+
+  While on the stable branch, you determine that the seventh commit prior
+  to the most recent was faulty and you simply want to undo it.  This can
+  be accomplished by either of (assuming you are in the toplevel directory
+  for method #2):
+      \$ eg revert --in stable~7                    # Method #1
+      \$ eg diff stable~8 stable~7 | patch -p1 -R   # Method #2, using diff
+
+  You decide that all changes to foobar.cpp in your working copy and in the
+  last 2 commits are bad and want to revert them.  This is done by either
+  of (assuming you are in the toplevel directory for method #2):
+      \$ eg revert --since HEAD~2 -- foobar.c       # Method #1
+      \$ eg diff HEAD~2 foobar.c | patch -p1 -R     # Method #2, using diff
+
+  You decide that some of the changes in the merge commit HEAD~4 are bad.
+  You would like to revert the changes in HEAD~4 relative to its second
+  parent.  This can be accomplished as follows (the second method only
+  works if you are in the toplevel directory):
+      \$ eg revert -m 2 --in HEAD~4                 # Method #1
+      \$ eg diff HEAD~4^2 HEAD~4 | patch -p1 -R     # Method #2, using diff
+  
+  (Advanced) Undo a previous add, marking foo.c as not being ready for
+  commit.  The second form could also use eg instead of git, but that usage
+  of eg reset is not advertised and exists only for backwards compatibility.
+      \$ eg revert --staged foo.c                   # Method #1
+      \$ git reset --mixed HEAD foo.c               # Method #2, using git
+
+  (Advanced) You decide that the changes to abracadabra.xml made in commit
+  HEAD~8 are bad.  You want to revert those changes in the version of
+  abracadabra.xml currently in the staging area.  This is done by:
+      \$ eg revert --staged --in HEAD~8 -- abracadabra.xml
+
+Options:
+  --commit
+    Commit your files immediately after reverting.  There must be no local
+    changes prior to running revert if this option is used.  --commit is not
+    the default.
+
+  --no-commit
+    The opposite of --commit, this flag is the default and exists just for
+    completeness.
+
+  -m <parent-number>
+    When reverting the changes made in a merge commit, the revert command
+    needs to know which parent of the merge the revert should be relative
+    to.  Use this flag with the parent number (1, 2, 3...) to specify which
+    parent commit to revert relative to.
+
+    Can only be used with the --in option.
+
+  --staged
+    Instead of changing files in the working copy, change staged files.
+
+  --in
+    Revert the changes made in the specified commit.  This takes the
+    difference between the parent of the specified commit and the specified
+    commit and reverse applies it.
+
+  --since
+    Revert the changes made since the specified commit, including any local
+    changes.  This takes the difference between the specified commit and
+    the current version of the files and reverses these changes.
+
+  <commit>
+    A reference to a recorded version of the repository, defaulting to HEAD
+    (meaning the most recent commit on the current branch).  See 'eg help
+    topic commit-ids' for more details.
+
+  --
+    This option can be used to separate command-line options and commits
+    from the list of files, (useful when filenames might be mistaken for
+    command-line options or be mistaken as a branch or tag name).
+
+  <path>...
+    One or more files or directories.  The changes reverted will be limited
+    to the listed files or files below the listed directories.
+";
+  $self->{'differences'} = '
+  git revert is a strict subset of the capabilities of eg revert; eg revert
+  also contains part of the abilities of the git checkout and git reset
+  commands (namely, the second form of each), as well as a couple new
+  things to round it all out.
+
+  Due to these changes, eg revert should be much more welcoming to users of
+  svn, hg, bzr, or darcs (all of which assume the --since behavior for
+  revert), while also still having the capabilities of git revert (which
+  assumes the --in behavior of revert).  This also makes the reset and
+  checkout/switch subcommands of eg easier to understand by limiting their
+  scope instead of each having two very different capabilities.
+  (Technically, eg reset and eg checkout still have those capabilities for
+  backwards compatibility, I just omit them in the documentation.)
+
+  The biggest surprises for users of git revert are:
+    1) They have to specify the --in flag
+    2) No commit is made by default; --commit must be specified to get one
+  Neither of these will cause data loss; they will just require a bit more
+  work.
+
+  It seems that perhaps eg revert should be extended further, to accept
+  things like
+      \$ eg revert --in HEAD~8..HEAD~5
+  to allow reverting changes made in a range of commits.  The --in could
+  even be optional in such a case, since the range makes it clear.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  if (!@ARGV) {
+    die "fatal: You must specify arguments to revert to have local changes\n" .
+        "reverted (and lost).  To revert all local changes in the working\n" .
+        "copy, use\n" .
+        "  eg revert --since HEAD\n"
+  }
+
+  my $result = main::GetOptions(
+    "--help"         => sub { $self->help() }
+    );
+
+  die "Sorry, eg revert has not yet been implemented.\n";
+}
+
+###########################################################################
 # status                                                                  #
 ###########################################################################
 package status;
