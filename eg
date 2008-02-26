@@ -521,10 +521,9 @@ Examples:
 
 Options:
   <commit>
-    A reference to a recorded version of the repository.  Valid versions
-    are typically of the form <branch> or <branch>~<n>, though 40-character
-    hexadecimal \"commit identifiers\" are allowed too.  See the 'commit'
-    line in the output of 'eg log' for examples.
+    A reference to a recorded version of the repository, defaulting to HEAD
+    (meaning the most recent commit on the current branch).  See 'eg help
+    topic commit-ids' for more details.
 
   --staged|--cached
     Show changes between the last commit and the staged copy of files.
