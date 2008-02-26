@@ -1583,10 +1583,21 @@ sub current_branch {
   return $output;
 }
 
+sub git_dir {
+  my ($ret, $output) = ExecUtil::execute_captured("git rev-parse --git-dir");
+  die "Must run within a git repository.\n" if $ret != 0;
+  chomp($output);
+
+  return $output;
+}
+
 sub commit_checks {
   my ($commit_type, $check_for) = @_;
   my %status;
 
+  #
+  # Determine which types of changes are present
+  #
   my ($ret, $output) = ExecUtil::execute_captured("eg status");
   $status{has_untracked_files}  = ($output =~ /^Untracked files:$/m);
   $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
@@ -1594,21 +1605,21 @@ sub commit_checks {
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
 
-  # We want to limit the untracked files check to "newly created" untracked
-  # files.
+  #
+  # Determine which untracked files are "newly created"
+  #
   my @new_untracked = `git ls-files --others --directory`;
-  my $git_dir;
-  ($ret, $git_dir) = ExecUtil::execute_captured("git rev-parse --git-dir");
-  die "Must run within a git repository.\n" if $ret != 0;
-  chomp($git_dir);
+  my $git_dir = git_dir();
   if ($check_for->{untracked} && $status{has_untracked_files} &&
       -f "$git_dir/info/ignored-untracked") {
     my @old_untracked_files = `cat .git/info/ignored-untracked`;
-    @new_untracked =
-      Util::difference(\@new_untracked, \@old_untracked_files);
+    @new_untracked = Util::difference(\@new_untracked, \@old_untracked_files);
     $status{has_untracked_files} = (scalar(@new_untracked) > 0);
   }
 
+  #
+  # Perform the relevant checks and spew any necessary warning messages
+  #
   if ($check_for->{no_changes} && $status{has_no_changes}) {
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
     exit 1;
