@@ -752,6 +752,7 @@ package info;
 INIT {
   $command{info} = {
     section => 'discovery',
+    extra => 1,
     about => 'Show some basic information about the current repository'
     };
 }
