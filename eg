@@ -356,11 +356,11 @@ Description:
   In order to prevent common errors, the commit will abort with a warning
   message if there are no changes to commit or if it detects that the
   choice of what to commit is ambiguous.  In particular, if you have any
-  untracked files present, or if you have both staged changes (i.e. changes
-  explicitly marked as ready for commit) and unstaged changes, then you
-  will get a warning rather than having the commit occur.  You can run 'eg
-  status' to get the status of various files and their changes.  These
-  commit checks can be bypassed with various options.
+  \"newly created\" untracked files present, or if you have both staged
+  changes (i.e. changes explicitly marked as ready for commit) and unstaged
+  changes, then you will get a warning rather than having the commit occur.
+  You can run 'eg status' to get the status of various files and their
+  changes.  These commit checks can be bypassed with various options.
 
 Examples:
   Record current changes locally, not changing anything in CVS...OR...get
@@ -393,7 +393,10 @@ Options:
     line, and incompatible with the --staged option.
 
   -b|--bypass-untracked-check
-    Commit local changes, even if there are untracked files around.
+    Commit local changes, even if there are untracked files around.  If
+    this flag is not used and untracked files are currently present that
+    were not present the last time the -b flag was used, then the commit
+    will be aborted with a warning message.
 
   --staged|-d|--dirty
     Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
@@ -425,9 +428,6 @@ Options:
   The "-b" and "--bypass-untracked-check" are unique to eg commit; git
   commit behavior differs by always turning on this functionality -- there
   is no way to have git commit do an untracked files sanity check for you.
-  Yes, I know I need to add a configuration option to make this the default
-  in eg commit too.  I am just utterly sick of people forgetting to commit
-  new files they create...
 
   "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
   has the same behavior in both, but the "smart" behavior of eg commit
@@ -436,11 +436,6 @@ Options:
   The "--all-tracked" alias for "-a" is known as "--all" to git-commit; I
   find the latter confusing and misleading and thus renamed to the former
   for eg commit.
-
-  It would be really nice if I could add some way to automatically
-  ignore untracked files that were ignored in a previous commit.  Then
-  people would not be annoyed by the -b flag and it would still catch
-  common mistakes.  I have not done that yet, though.
 ';
   return $self;
 }
@@ -483,6 +478,19 @@ sub preprocess {
   if (!$all_tracked && 
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
     $self->{'commit_flags'} .= " -a";
+  }
+
+  #
+  # Record the set of untracked files we ignored with -b, so the -b flag isn't
+  # needed next time.
+  #
+  if ($bypass_untracked) {
+    open(OUTPUT, "> .git/info/ignored-untracked");
+    my @untracked_files = `git ls-files --others --directory`;
+    foreach my $file (@untracked_files) {
+      print OUTPUT "$file\n";
+    }
+    close(OUTPUT);
   }
 
   push(@ARGV, $self->{'commit_flags'}) if $self->{'commit_flags'};
@@ -1585,6 +1593,21 @@ sub commit_checks {
   $status{has_staged_changes}   = ($output =~ /^Changes ready to be commit/m);
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
+
+  # We want to limit the untracked files check to "newly created" untracked
+  # files.
+  my $git_dir;
+  ($ret, $git_dir) = ExecUtil::execute_captured("git rev-parse --git-dir");
+  die "Must run within a git repository.\n" if $ret != 0;
+  chomp($git_dir);
+  if ($check_for->{untracked} && $status{has_untracked_files} &&
+      -f "$git_dir/info/ignored-untracked") {
+    my @old_untracked_files = `cat .git/info/ignored-untracked`;
+    my @untracked_files = `git ls-files --others --directory`;
+    my @new_untracked =
+      Util::difference(\@old_untracked_files, \@untracked_files);
+    $status{has_untracked_files} = (scalar(@new_untracked) > 0);
+  }
 
   if ($check_for->{no_changes} && $status{has_no_changes}) {
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
