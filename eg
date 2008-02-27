@@ -128,12 +128,6 @@ INIT {
       section => 'modification',
       about => 'Remove files'
       },
-    stash => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'timesavers',
-      about => 'Save and revert local changes, or apply stashed changes',
-      },
     tag => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -1323,6 +1317,209 @@ sub preprocess {
     );
 
   die "Sorry, eg revert has not yet been implemented.\n";
+}
+
+###########################################################################
+# stash                                                                   #
+###########################################################################
+package stash;
+@stash::ISA = qw(subcommand);
+INIT {
+  $command{stash} = {
+    section => 'timesavers',
+    about => 'Save and revert local changes, or apply stashed changes',
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg stash (list [--details] | save <description> | apply [<description>] |
+            show [<description>] | clear)
+  eg stash
+
+Description:
+  This command can be used to remove any changes since the last commit,
+  stashing these changes away so they can be reapplied later.  It can also
+  be used to apply any previously stashed away changes.  This command can
+  be used multiple times to have multiple sets of changes stashed away.
+
+  Untracked files (files which you have never run 'eg add' on) are
+  unaffected; they will not be stashed away or reverted.
+
+  When no arguments are specified to eg stash, the current changes are
+  saved away with a default description.
+
+Examples:
+  You have lots of changes that you're working on, then get an important
+  but simple bug report.  You can stash away your current changes, fix the
+  important bug, and then reapply the stashed changes:
+      \$ eg stash
+      fix, fix, fix, build, test, etc.
+      \$ eg commit
+      \$ eg stash apply
+
+  You can provide a description of the changes being stashed away, and
+  apply previous stashes by their description (or a unique substring of the
+  description).
+      make lots of changes
+      \$ eg stash save incomplete refactoring work
+      work on something else that you think will be a quick fix
+      \$ eg stash save longer fix than I thought
+      fix some important but one-liner bug
+      \$ eg commit
+      \$ eg stash list
+      \$ eg stash apply incomplete refactoring work
+      finish off the refactoring
+      \$ eg commit
+      \$ eg stash apply fix than I
+      etc., etc.
+
+Options:
+  list [--details]
+    Show the saved stash descriptions.  If the --details flag is present,
+    provide more information about each stash.
+
+  save <description>
+    Save current changes with the specified description
+
+  apply [<description>]
+    Apply the stashed changes with the specified description.  If no
+    description is specified, and more than one stash has been saved, an
+    error message will be shown.  The description cannot start with \"--\".
+
+  show [<description>]
+    Show the stashed changes with the specified description.  If no
+    description is specified, and more than one stash has been saved, an
+    error message will be shown.  The description cannot start with \"--\".
+
+  clear
+    Delete all stashed changes.
+";
+  $self->{'differences'} = '
+  eg stash is only cosmetically different than git stash, and is fully
+  backwards compatible.
+
+  eg stash list, by default, only shows the saved description -- not
+  the reflog syntax or branch the change was made on.
+
+  eg stash apply and eg stash show also accept any string and will
+  apply or show the stash whose description contains that string.
+  While stash and apply accept reflog syntax like their git stash
+  counterparts, i.e. while
+      $ eg stash apply stash@{3}
+  will work, I think it will be easier for the user to run
+      $ eg stash apply rudely interrupted changes
+  ';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  my @args;
+  my $result=main::GetOptions("--help" => sub { $self->help() });
+
+  # Get the (sub)subcommand
+  if (scalar @ARGV == 0) {
+    $self->{subcommand} = 'save';
+  } else {
+    $self->{subcommand} = shift @ARGV;
+    push(@args, $self->{subcommand});
+
+    if ($self->{subcommand} eq 'apply' && @ARGV > 0 && $ARGV[0] eq '--index') {
+      push(@args, shift @ARGV);
+    }
+  }
+
+  # Show a help message if they picked a bad stash subaction.
+  if (! grep {$_ eq $self->{subcommand}} qw(list show apply clear save)) {
+    $self->help();
+  }
+
+  # Translate the description passed to apply or show into a reflog reference
+  if ((grep {$_ eq $self->{subcommand}} qw(apply show)) && scalar @ARGV > 0) {
+    my $stash_description = "@ARGV";
+    if ($stash_description !~ m#^stash\@{[^{]+}$#) {
+
+      # Will need to compare arguments to existing stash descriptions...
+      my ($retval, $output) =
+        ExecUtil::execute_captured("eg stash list --refs");
+      my @lines = split('\n', $output);
+      my %refs;
+      my %bad_refs;
+      while (@lines) {
+        my $desc = shift @lines;
+        my $ref = shift @lines;
+        $bad_refs{$desc}++ if defined $refs{$desc};
+        $refs{$desc} = $ref;
+      }
+
+      # See if the stash description matches zero, one, or more existing
+      # stash descriptions; convert it to a reflog entry if only one
+      my @matches = grep {$_ =~ m#\Q$stash_description\E#} (keys %refs);
+      if (scalar @matches == 0) {
+        die "No stash matching '$stash_description' exists!  Aborting.\n";
+      } elsif (scalar @matches == 1) {
+        # Only one regex match; use it
+        $stash_description = $matches[0];
+      } else {
+        # See if our string matches one stash description exactly; if so,
+        # we can use it.
+        if (!grep {$_ eq $stash_description} (keys %refs)) {
+          die "Stash description '$stash_description' matches multiple " .
+              "stashes:\n  " . join("\n  ", @matches) . "\n" .
+              "Aborting.\n";
+        }
+      }
+      die "Stash description '$stash_description' matches multiple stashes.\n"
+        if $bad_refs{$stash_description};
+
+      push(@args, $refs{$stash_description});
+    }
+  } elsif ($self->{subcommand} eq 'list' && @ARGV) {
+    my $arg = shift @ARGV;
+    if ($arg eq '--refs') {
+      $self->{show_refs} = 1;
+    } elsif ($arg eq '--details') {
+      $self->{show_details} = 1;
+    } else {
+      unshift(@ARGV, $arg);
+    }
+  }
+
+  @ARGV = @args;
+}
+
+sub postprocess {
+  my $self = shift;
+  my $output = shift;
+
+  my @lines = split('\n', $output);
+  if ($self->{subcommand} eq 'list') {
+    my $regex = 
+      qr#(stash\@{[^}]+}): (?:WIP )?[Oo]n [^ ]*: (?:[0-9a-f]+\.\.\. )?#;
+    foreach my $line (@lines) {
+      if ($self->{show_details}) {
+        print "$line\n";
+      } else {
+        $line =~ s/$regex//;
+        print "$line\n";
+        print "$1\n" if $self->{show_refs};
+      }
+    }
+  } else {
+    foreach my $line (@lines) {
+      print "$line\n";
+    }
+  }
 }
 
 ###########################################################################
