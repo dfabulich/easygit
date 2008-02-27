@@ -147,7 +147,7 @@ INIT {
       new_command => 1,
       extra => 1,
       section => 'compatibility',
-      about => '???'
+      about => 'Use antiquated workflow for refreshing working copy, if safe'
       },
   );
 }
