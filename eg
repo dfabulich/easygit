@@ -898,6 +898,7 @@ sub run {
     next if $section->{$name}{extra} && !$self->{all};
     print OUTPUT "$section->{$name}{desc}\n";
     foreach my $c (sort keys %command) {
+      next if !defined $command{$c}{section};
       next if $command{$c}{section} ne $name;
       next if $command{$c}{extra} && !$self->{all};
       printf OUTPUT "  eg %-10s %s\n", $c, $command{$c}{about};
@@ -908,12 +909,14 @@ sub run {
   # Check to see if someone added a command with an invalid section
   my $broken_commands = "";
   foreach my $c (keys %command) {
+    next if !defined $command{$c}{section};
     next if defined $section->{$command{$c}{section}};
-    printf OUTPUT "    -%10s %s\n", $c, $command{$c}{about};
+    my $tmp = sprintf("  eg %-10s %s\n", $c, $command{$c}{about});
+    $broken_commands .= $tmp;
   }
   if ($broken_commands) {
     print OUTPUT "Broken (typo in classification?) commands:\n" .
-                 $broken_commands;
+                 "$broken_commands\n";
   }
 
   # And let them know how to get more detailed help...
