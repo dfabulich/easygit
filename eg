@@ -9,7 +9,6 @@ package main;
 use warnings;
 use Getopt::Long;
 use Cwd qw(getcwd abs_path);
-use List::Util qw(min max);
 
 # configurables
 my $verbose=0;
@@ -350,7 +349,7 @@ Options:
 package cat;
 @cat::ISA = qw(subcommand);
 INIT {
-  $command{branch} = {
+  $command{cat} = {
     new_command => 1,
     extra => 1,
     section => 'compatibility',
@@ -2067,19 +2066,6 @@ sub execute {
 # RepoUtil                                                                #
 ###########################################################################
 package RepoUtil;
-
-# Return whether or not there are uncommitted changes in the repository.
-# Only counts staged changes, unless the -a flag is passed as an argument
-sub uncommitted_changes {
-  my $flags = shift;
-
-  $flags = "" if !defined $flags;
-
-  my $ret = ExecUtil::execute("git status $flags > /dev/null",
-                              ignore_ret => 1);
-  # $ret == 0 => there are uncommitted changes.  $ret == 1 => opposite
-  return !$ret;
-}
 
 # current_branch: Get the currently active branch
 sub current_branch {
