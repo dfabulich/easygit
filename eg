@@ -470,6 +470,118 @@ sub run {
 }
 
 ###########################################################################
+# checkout                                                                #
+###########################################################################
+package checkout;
+@checkout::ISA = qw(subcommand);
+INIT {
+  $command{checkout} = {
+    about => 'Compatibility wrapper that duplicates other functions'
+  };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg checkout [--depth <depth>] <repository> [<directory>]
+  eg checkout [-b] <branch>
+  eg checkout [<commit>] <paths>...
+
+Description:
+  eg checkout exists to make users of other version control systems feel
+  more at home, and to retain as much backward compatibility with git as
+  possible.  All of its functionality can be handled by other commands.
+
+  The first usage form of eg checkout is used to get a new project based on
+  a (usually remote) repository.  Users are encouraged to use eg clone
+  instead, though eg checkout accepts all parameters that eg clone does.
+
+  The second usage form of eg checkout is used to switch to a different
+  branch (optionally also creating it first).  This is something that can
+  be done with no network connectivity in git and thus eg.  Users can find
+  identical functionality in eg switch.
+
+  The third usage form of eg checkout is used to replace files in the
+  working copy with versions from an older commit, i.e. to revert files to
+  an older version.  Users can find the same functionality (as well as many
+  other capabilities) in eg revert.
+
+Examples:
+  Get a local copy of cairo
+      \$ eg checkout git://git.cairographics.org/git/cairo
+
+  Switch to the stable branch
+      \$ eg checkout stable
+
+  Replace foo.c with the third to last version before the most recent
+  commit (Note that HEAD always refers to the current branch, and the
+  current branch always refers to its most recent commit)
+      \$ eg checkout HEAD~3 foo.c
+";
+  $self->{'differences'} = '
+  eg checkout accepts all parameters that git checkout accepts with the
+  same meanings and same output (eg checkout merely calls git checkout in
+  such cases).
+
+  The only difference between eg and git regarding checkout is that eg
+  checkout will also accept all arguments to git clone, and then call git
+  clone.
+';
+  return $self;
+}
+
+sub _looks_like_git_repo {
+  my $path = shift;
+
+  my $clone_protocol = qr#^(?:git|ssh|http|https|rsync)://#;
+  my $git_dir = RepoUtil::git_dir();
+  my $in_git_dir = defined $git_dir ? 1 : 0;
+
+  # If the path looks like a git, ssh, http, https, or rsync url, then it
+  # looks like we're being given a url to a git repo
+  if ($path =~ /$clone_protocol/) {
+    return 1;
+  }
+
+  # If the path isn't a clone_protocol url and isn't a directory, it can't be
+  # a git repo
+  if (! -d $path) {
+    return 0;
+  }
+
+  my $path_is_absolute = ($path =~ m#^/#);
+  return (!$in_git_dir || ($in_git_dir && $path_is_absolute));
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $result = main::GetOptions("--help" => sub { $self->help() });
+  $self->{command} = 'checkout';
+  die "eg checkout requires at least one argument.\n" if !@ARGV;
+
+  #
+  # Determine whether this should be a call to git clone or git checkout
+  #
+  my $clone_protocol = qr#^(?:git|ssh|http|https|rsync)://#;
+  if (_looks_like_git_repo($ARGV[-1]) ||
+      (! -d $ARGV[-1] && @ARGV > 1 && _looks_like_git_repo($ARGV[-2]))
+     ) {
+    $self->{command} = 'clone';
+  }
+}
+
+sub run {
+  my $self = shift;
+
+  return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
+}
+
+###########################################################################
 # commit                                                                  #
 ###########################################################################
 package commit;
@@ -642,118 +754,6 @@ sub preprocess {
   }
 
   push(@ARGV, $self->{'commit_flags'}) if $self->{'commit_flags'};
-}
-
-###########################################################################
-# checkout                                                                #
-###########################################################################
-package checkout;
-@checkout::ISA = qw(subcommand);
-INIT {
-  $command{checkout} = {
-    about => 'Compatibility wrapper that duplicates other functions'
-  };
-}
-
-sub new {
-  my $class = shift;
-  my $self = $class->SUPER::new();
-  bless($self, $class);
-  $self->{'help'} = "
-Usage:
-  eg checkout [--depth <depth>] <repository> [<directory>]
-  eg checkout [-b] <branch>
-  eg checkout [<commit>] <paths>...
-
-Description:
-  eg checkout exists to make users of other version control systems feel
-  more at home, and to retain as much backward compatibility with git as
-  possible.  All of its functionality can be handled by other commands.
-
-  The first usage form of eg checkout is used to get a new project based on
-  a (usually remote) repository.  Users are encouraged to use eg clone
-  instead, though eg checkout accepts all parameters that eg clone does.
-
-  The second usage form of eg checkout is used to switch to a different
-  branch (optionally also creating it first).  This is something that can
-  be done with no network connectivity in git and thus eg.  Users can find
-  identical functionality in eg switch.
-
-  The third usage form of eg checkout is used to replace files in the
-  working copy with versions from an older commit, i.e. to revert files to
-  an older version.  Users can find the same functionality (as well as many
-  other capabilities) in eg revert.
-
-Examples:
-  Get a local copy of cairo
-      \$ eg checkout git://git.cairographics.org/git/cairo
-
-  Switch to the stable branch
-      \$ eg checkout stable
-
-  Replace foo.c with the third to last version before the most recent
-  commit (Note that HEAD always refers to the current branch, and the
-  current branch always refers to its most recent commit)
-      \$ eg checkout HEAD~3 foo.c
-";
-  $self->{'differences'} = '
-  eg checkout accepts all parameters that git checkout accepts with the
-  same meanings and same output (eg checkout merely calls git checkout in
-  such cases).
-
-  The only difference between eg and git regarding checkout is that eg
-  checkout will also accept all arguments to git clone, and then call git
-  clone.
-';
-  return $self;
-}
-
-sub _looks_like_git_repo {
-  my $path = shift;
-
-  my $clone_protocol = qr#^(?:git|ssh|http|https|rsync)://#;
-  my $git_dir = RepoUtil::git_dir();
-  my $in_git_dir = defined $git_dir ? 1 : 0;
-
-  # If the path looks like a git, ssh, http, https, or rsync url, then it
-  # looks like we're being given a url to a git repo
-  if ($path =~ /$clone_protocol/) {
-    return 1;
-  }
-
-  # If the path isn't a clone_protocol url and isn't a directory, it can't be
-  # a git repo
-  if (! -d $path) {
-    return 0;
-  }
-
-  my $path_is_absolute = ($path =~ m#^/#);
-  return (!$in_git_dir || ($in_git_dir && $path_is_absolute));
-}
-
-sub preprocess {
-  my $self = shift;
-  my $package_name = ref($self);
-
-  my $result = main::GetOptions("--help" => sub { $self->help() });
-  $self->{command} = 'checkout';
-  die "eg checkout requires at least one argument.\n" if !@ARGV;
-
-  #
-  # Determine whether this should be a call to git clone or git checkout
-  #
-  my $clone_protocol = qr#^(?:git|ssh|http|https|rsync)://#;
-  if (_looks_like_git_repo($ARGV[-1]) ||
-      (! -d $ARGV[-1] && @ARGV > 1 && _looks_like_git_repo($ARGV[-2]))
-     ) {
-    $self->{command} = 'clone';
-  }
-}
-
-sub run {
-  my $self = shift;
-
-  return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
