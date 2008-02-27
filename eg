@@ -136,12 +136,6 @@ INIT {
       about => 'Provide a name for a specific version of the repository'
       },
 
-    cat => {  # Will just call show
-      new_command => 1,
-      extra => 1,
-      section => 'compatibility',
-      about => 'Output the current or specified version of files'
-      },
     resolved => { # Will just call add
       new_command => 1,
       extra => 1,
@@ -350,6 +344,78 @@ Options:
 }
 
 ###########################################################################
+# cat                                                                     #
+###########################################################################
+package cat;
+@cat::ISA = qw(subcommand);
+INIT {
+  $command{branch} = {
+    new_command => 1,
+    extra => 1,
+    section => 'compatibility',
+    about => 'Output the current or specified version of files'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => 'show');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg cat [<revision>:]<file>...
+
+Description:
+  Output the specified file(s) as of the given revisions.
+
+  Note that this basically just a compatibility alias provided for
+  users of other SCMs.  You should consider using 'git show' instead.
+
+Examples
+  Output the most recently committed version of foo.c
+      \$ eg cat foo.c
+
+  Output the version of bar.h from the 5th to last commit on the
+  ugly_fixes branch
+      \$ eg cat ugly_fixes~5:bar.h
+
+  Concatenate the version of hello.c from two commits ago and the
+  version of world.h from the branch timbuktu, and output the result:
+      \$ eg cat HEAD~1:hello.c timbuktu:world.h
+";
+  $self->{'differences'} = '
+  The output of "git show <file>" is probably confusing to users at first.
+  Thus, "eg cat <file>" calls "git show HEAD:<file>".
+  ';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $result=main::GetOptions("--help" => sub { $self->help() });
+
+  my @args;
+  foreach my $arg (@ARGV) {
+    if ($arg !~ /:/) {
+      push(@args, "HEAD:$arg");
+    } else {
+      push(@args, $arg);
+    }
+  }
+
+  @ARGV = @args;
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  return ExecUtil::execute("git show @ARGV", ignore_ret => 1);
+}
+
+###########################################################################
 # changes                                                                 #
 ###########################################################################
 package changes;
@@ -374,13 +440,6 @@ Usage:
   eg changes is unique to eg; git does not have a similar command.
   ';
   return $self;
-}
-
-sub preprocess {
-  my $self = shift;
-  my $package_name = ref($self);
-
-  my $result=main::GetOptions("--help" => sub { $self->help() });
 }
 
 sub run {
