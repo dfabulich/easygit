@@ -1147,7 +1147,7 @@ sub run {
   print "  Number of contributors: $contributors\n";
   print "  Number of files: $num_files\n";
   print "  Number of directories: $num_dirs\n";
-  print "  Biggest file size (bytes): $biggest_file\n";
+  print "  Biggest file size, in bytes: $biggest_file\n";
   print "  Commits: $branch_depth\n";
 }
 
