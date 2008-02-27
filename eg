@@ -50,6 +50,7 @@ my $section = {
     },
   'misc' =>
     { order => 8,
+      extra => 1,
       desc  => 'Miscellaneous'
     },
   };
