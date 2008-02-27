@@ -1093,8 +1093,7 @@ sub run {
   my @abbrev_remotes = `git remote`;
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
-    my $url=`git remote show $remote | grep URL | sed -e "s/^.*: //"`;
-    chomp($url);
+    my $url = ExecUtil::output("git config --get remote.$remote.url");
     push(@remotes, $url);
   }
 
