@@ -168,7 +168,7 @@ INIT {
 package subcommand;
 sub new {
   my $class = shift;
-  my $self = {@_};  # Hashref initialized as we're told
+  my $self = {git_repo_needed => 1, @_};  # Hashref initialized as we're told
   bless($self, $class);
 
   # Our "see also" section in help usually references the same subsection
@@ -179,6 +179,12 @@ sub new {
   # provide a command name for us to pass to git.
   if (ref($class) eq "subcommand" && !defined $self->{command}) {
     die "Invalid subcommand usage"
+  }
+
+  # Most commands must be run inside a git working directory
+  unless (!$self->{git_repo_needed}) {
+    $self->{git_dir} = RepoUtil::git_dir();
+    die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
   }
 
   return $self;
@@ -483,7 +489,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(git_repo_needed => 0);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -578,6 +584,14 @@ sub preprocess {
 
 sub run {
   my $self = shift;
+
+  # If this operation isn't a clone, then we should have checked for whether
+  # we are in a git directory.  But we didn't do that, just in case it was a
+  # clone.  So, do it now if needed.
+  if ($self->{command} ne 'clone') {
+    $self->{git_dir} = RepoUtil::git_dir();
+    die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
+  }
 
   return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
 }
@@ -929,7 +943,10 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(exit_status => 0, git_equivalent => '', @_);
+  my $self = $class->SUPER::new(exit_status => 0,
+                                git_equivalent => '',
+                                git_repo_needed => 0,
+                                @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1084,9 +1101,6 @@ sub preprocess {
 sub run {
   my $self=shift;
 
-  my $git_dir = RepoUtil::git_dir();
-  die "Must be run inside a git repository!\n" if !defined $git_dir;
-
   my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
 
   my @remotes;
@@ -1133,7 +1147,7 @@ sub run {
 
   print "Total commits: $total_commits\n";
 
-  print "Local repository: $git_dir\n";
+  print "Local repository: $self->{git_dir}\n";
   if (scalar @remotes == 1) {
     print "Remote repository: $remotes[0]\n";
   } elsif (@remotes > 1) {
@@ -2023,6 +2037,12 @@ sub run {
 ###########################################################################
 package version;
 @version::ISA = qw(subcommand);
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_repo_needed => 0);
+  bless($self, $class);
+}
 
 # Override help because we don't want to both definining $command{help}
 sub help {
