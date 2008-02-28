@@ -202,9 +202,9 @@ sub help {
   if ($git_equiv) {
     print OUTPUT "\nSee also\n";
     print OUTPUT <<EOF;
-    Run 'man git-$git_equiv' for a comprehensive list of options available.
-    eg $package_name is designed to accept the same options with the same
-    meanings (unless specified otherwise in the above "Differences" section).
+  Run 'man git-$git_equiv' for a comprehensive list of options available.
+  eg $package_name is designed to accept the same options with the same
+  meanings (unless specified otherwise in the above "Differences" section).
 EOF
   }
   close(OUTPUT);
