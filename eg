@@ -597,7 +597,6 @@ package clone;
 @clone::ISA = qw(subcommand);
 INIT {
   $command{clone} = {
-    unmodified_behavior => 1,
     section => 'creation',
     about => 'Clone a repository into a new directory'
   };
@@ -609,7 +608,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg clone [--depth <depth>] <repository> [<directory>]
+  eg clone [--depth <depth>] [--noisy] <repository> [<directory>]
 
 Description:
   Obtains a copy of a remote repository, including all history by
@@ -630,8 +629,43 @@ Examples:
   the most recent 20 commits instead of all history, and storing it in
   the local directory mydir
       \$ eg clone --depth 20 http://www.random.machine/path/to/git.repo mydir
+
+Options:
+  --depth <depth>
+    Only download the <depth> most recent commits instead of all history
+
+  --noisy
+    Output more information during some clone operations.
 ";
+  $self->{'differences'} = '
+  eg clone and git clone are identical other than output (the -q or --noisy
+  flags).
+
+  eg clone passes the -q option to git clone by default (it is unfortunate
+  that the -q option for git clone feels almost like a lie; it is still too
+  verbose).  However, this can be turned off by the --noisy flag of eg
+  clone.
+';
   return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  $self->{quiet} = 1;
+  my $result = main::GetOptions(
+    "--help"  => sub { $self->help() },
+    "--noisy" => sub { $self->{quiet} = 0 },
+    );
+}
+
+sub run {
+  my $self = shift;
+
+  my $extra_args = "";
+  $extra_args = "-q" if $self->{quiet};
+  return ExecUtil::execute("git clone $extra_args @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
