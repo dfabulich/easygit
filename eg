@@ -1243,11 +1243,19 @@ Usage:
 Description:
   Publishes a copy of the current repository on a remote machine.  Note
   that local changes will be ignored; only committed changes will be
-  published.  The remote directory should be specified using rsync syntax,
-  even if the remote repository will be accessed by some other protocol.
-  (See examples below, or see the rsync(1) manpage.)  If any files or
+  published.  You must have ssh access to the remote machine and must have
+  both rsync and ssh installed on your local machine (every modern distro
+  or OS installs both by default).
+
+  The remote directory should be specified using rsync syntax, even if the
+  remote repository will be accessed by some other protocol.  Typical rsync
+  syntax for a (usually remote) directory is
+     [[<user>@]<machine>:]<path>
+  If <path> is not absolute and <machine> is specified, it is taken as
+  relative to the user's home directory on <machine>.  See the examples
+  below for more detail, or the rsync(1) manpage.  If any files or
   directories exist below the specified remote directory, they will be
-  removed.
+  removed or replaced.
 
   Note that if git is not installed on the remote machine, you will be
   unable to push updates to the remote repository (however, you can
@@ -1288,10 +1296,33 @@ Examples:
   return $self;
 }
 
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  die "eg publish takes exactly one argument (the remote directory).\n"
+    if @ARGV != 1;
+
+  $self->SUPER::preprocess();
+}
+
 sub run {
   my $self = shift;
 
-  die "Sorry, eg publish has not yet been implemented.\n";
+  my $orig_dir = main::getcwd();
+  chdir($self->{git_dir});
+  ExecUtil::execute("touch git-daemon-export-ok");
+  print "Optimizing local repository and compressing it...\n";
+  ExecUtil::execute("git gc");
+  ExecUtil::execute("git --bare update-server-info");
+  ExecUtil::execute("chmod u+x hooks/post-update");
+  print "Copy local repository to remote location...\n";
+  ExecUtil::execute("rsync -e ssh -az --delete ./ @ARGV");
+
+  # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
+  # the files that 'man git-update-server-info' says it creates.
+
+  chdir($orig_dir);
 }
 
 ###########################################################################
