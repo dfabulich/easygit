@@ -131,12 +131,6 @@ INIT {
       about => 'Provide a name for a specific version of the repository'
       },
 
-    resolved => { # Will just call add
-      new_command => 1,
-      extra => 1,
-      section => 'compatibility',
-      about => 'Declare conflicts resolved and mark file as ready for commit'
-      },
     update => { # ???  pull --rebase, maybe?
       new_command => 1,
       extra => 1,
@@ -1529,6 +1523,51 @@ sub preprocess {
     if $hard && $soft;
   unshift(@ARGV, "--hard") if $hard;
   unshift(@ARGV, "--soft") if $soft;
+}
+
+###########################################################################
+# resolved                                                                #
+###########################################################################
+package resolved;
+@resolved::ISA = qw(subcommand);
+INIT {
+  $command{resolved} = {
+    new_command => 1,
+    extra => 1,
+    section => 'compatibility',
+    about => 'Declare conflicts resolved and mark file as ready for commit'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => 'add');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg resolved <path>...
+
+Description:
+  Declare conflicts resolved for the specified paths, and mark contents of
+  those files as ready for commit.
+
+Examples
+  After fixing any update or merge conflicts in foo.c, declare the fixing to
+  be done and the contents ready to commit.
+      \$ eg resolved foo.c
+";
+  $self->{'differences'} = '
+  eg resolved is a command new to eg that is not part of git; however, it
+  simply calls git add.
+  ';
+  return $self;
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
