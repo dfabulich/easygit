@@ -545,7 +545,7 @@ sub _looks_like_git_repo {
 
   my $clone_protocol = qr#^(?:git|ssh|http|https|rsync)://#;
   my $git_dir = RepoUtil::git_dir();
-  my $in_git_dir = defined $git_dir ? 1 : 0;
+  my $in_working_copy = defined $git_dir ? 1 : 0;
 
   # If the path looks like a git, ssh, http, https, or rsync url, then it
   # looks like we're being given a url to a git repo
@@ -560,7 +560,7 @@ sub _looks_like_git_repo {
   }
 
   my $path_is_absolute = ($path =~ m#^/#);
-  return (!$in_git_dir || ($in_git_dir && $path_is_absolute));
+  return (!$in_working_copy || ($in_working_copy && $path_is_absolute));
 }
 
 sub preprocess {
