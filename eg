@@ -71,12 +71,6 @@ INIT {
       section => 'timesavers',
       about => 'Find the change that introduced a bug by binary search'
       },
-    clone => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'creation',
-      about => 'Clone a repository into a new directory'
-      },
     grep => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -594,6 +588,30 @@ sub run {
   }
 
   return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
+}
+
+###########################################################################
+# clone                                                                   #
+###########################################################################
+package clone;
+@clone::ISA = qw(subcommand);
+INIT {
+  $command{clone} = {
+    unmodified_help => 1,
+    unmodified_behavior => 1,
+    section => 'creation',
+    about => 'Clone a repository into a new directory'
+  };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_repo_needed => 0);
+  bless($self, $class);
+  $self->{'help'} = "
+See 'man git-clone', and then bug me to write this section, Dave.
+";
+  return $self;
 }
 
 ###########################################################################
