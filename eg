@@ -597,7 +597,6 @@ package clone;
 @clone::ISA = qw(subcommand);
 INIT {
   $command{clone} = {
-    unmodified_help => 1,
     unmodified_behavior => 1,
     section => 'creation',
     about => 'Clone a repository into a new directory'
@@ -609,7 +608,28 @@ sub new {
   my $self = $class->SUPER::new(git_repo_needed => 0);
   bless($self, $class);
   $self->{'help'} = "
-See 'man git-clone', and then bug me to write this section, Dave.
+Usage:
+  eg clone [--depth <depth>] <repository> [<directory>]
+
+Description:
+  Obtains a copy of a remote repository, including all history by
+  default.  A --depth option can be passed to only include a specified
+  number of recent commits instead of all history (however, this
+  option exists mostly due to the fact that users of other SCMs fail
+  to understand that all history can be compressed into a size that is
+  often smaller than the working copy).
+
+Examples:
+  Get a local clone of cairo
+      \$ eg clone git://git.cairographics.org/git/cairo
+
+  Get a clone of a local project in a new directory 'mycopy'
+      \$ eg clone /path/to/existing/repo mycopy
+
+  Get a clone of a project hosted on someone's website, asking for only
+  the most recent 20 commits instead of all history, and storing it in
+  the local directory mydir
+      \$ eg clone --depth 20 http://www.random.machine/path/to/git.repo mydir
 ";
   return $self;
 }
