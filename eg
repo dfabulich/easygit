@@ -1205,6 +1205,82 @@ sub run {
 }
 
 ###########################################################################
+# publish                                                                 #
+###########################################################################
+package publish;
+@publish::ISA = qw(subcommand);
+INIT {
+  $command{publish} = {
+    extra => 1,
+    new_command => 1,
+    section => 'collaboration',
+    about => 'Publish a copy of the current repository on a remote machine'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => '');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg publish <remote directory>
+
+Description:
+  Publishes a copy of the current repository on a remote machine.  Note
+  that local changes will be ignored; only committed changes will be
+  published.  The remote directory should be specified using rsync syntax,
+  even if the remote repository will be accessed by some other protocol.
+  (See examples below, or see the rsync(1) manpage.)  If any files or
+  directories exist below the specified remote directory, they will be
+  removed.
+
+  Note that if git is not installed on the remote machine, you will be
+  unable to push updates to the remote repository (however, you can
+  republish over the top of the previous copy).
+
+Examples:
+  Publish a copy of the current repository on the machine myserver.com in
+  the directory /var/scratch/git-stuff/my-repo.git.  Then immediately
+  make a clone of the remote repository
+      \$ eg publish myserver.com:/var/scratch/git-stuff/my-repo.git
+      \$ cd
+      \$ eg clone myserver.com:/var/scratch/git-stuff/my-repo.git
+
+  Publish a copy of the current repository on the machine www.gnome.org, in
+  the public_html/myproj subdirectory of the home directory of the remote
+  user fake, then immediately clone it again into a separate directory
+  named another-myproj.
+      \$ eg publish fake\@www.gnome.org:public_html/myproj
+      \$ cd 
+      \$ eg clone http://www.gnome.org/~fake/myproj another-myproj
+";
+  $self->{'differences'} = '
+  eg publish is unique to eg; git makes publishing repositories annoyingly
+  painful.  The steps that eg publish performs are (assuming one is in the
+  toplevel directory and that GIT_DIR=.git):
+      touch .git/git-daemon-export-ok
+      git gc
+      cd .git
+      git --bare update-server-info
+      chmod u+x hooks/post-update
+      cd ..
+      rsync -e ssh -az --delete .git <remote directory>
+  Since this does make some minor changes to the local repository that are
+  unnecessary after the rsync command has completed, I might add some code
+  to try to clean the .git directory back up.  I doubt any of it will hurt
+  if I do not get around to it, though.
+  ';
+  return $self;
+}
+
+sub run {
+  my $self = shift;
+
+  die "Sorry, eg publish has not yet been implemented.\n";
+}
+
+###########################################################################
 # reset                                                                   #
 ###########################################################################
 package reset;
