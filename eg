@@ -1233,15 +1233,16 @@ sub run {
   # method I could find that would work given the corner case filenames
   # (spaces and unicode chars) in the git.git repo (Try eg info on repo
   # from 'git clone git://git.kernel.org/pub/scm/git/git.git').
-  my @files = `git ls-tree -r --full-name --name-only HEAD`;
+  my @files = `git ls-tree -r -l --full-name HEAD`;
   my %biggest = (name => '', size => 0);
-  foreach my $file (@files) {
-    chomp($file);
-    if (! -f $file) { $file = eval "$file" };
-    my $size = -s $file;
-    if ($size >= $biggest{size}) {
-      $biggest{name} = $file;
-      $biggest{size} = $size;
+  foreach my $line (@files) {
+    if ($line =~ m#^[0-9]+ [a-z]+ [0-9a-f]+[ ]*(\d+)[ \t]*(.*)$#) {
+      my ($size, $file) = ($1, $2);
+      if ($file =~ m#^\".*\"#) { $file = eval "$file" };  # Unicode fix
+      if ($size >= $biggest{size}) {
+        $biggest{name} = $file;
+        $biggest{size} = $size;
+      }
     }
   }
   my $biggest_file = "$biggest{size} ($biggest{name})";
