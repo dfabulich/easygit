@@ -1167,8 +1167,15 @@ sub preprocess {
 sub run {
   my $self=shift;
 
+  #
+  # Print total commits
+  #
   my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
+  print "Total commits: $total_commits\n";
 
+  #
+  # Print local and remote repos
+  #
   my @remotes;
   my @abbrev_remotes = `git remote`;
   foreach $remote (@abbrev_remotes) {
@@ -1176,6 +1183,20 @@ sub run {
     my $url = ExecUtil::output("git config --get remote.$remote.url");
     push(@remotes, $url);
   }
+
+  print "Local repository: $self->{git_dir}\n";
+  if (scalar @remotes == 1) {
+    print "Remote repository: $remotes[0]\n";
+  } elsif (@remotes > 1) {
+    print "Remote repositories:\n";
+    foreach my $remote (@remotes) {
+      print "  $remote\n";
+    }
+  }
+
+  #
+  # File and directory stats...
+  #
 
   # File & directory stats only work if we're in the toplevel directory
   my $orig_dir = main::getcwd();
@@ -1188,9 +1209,17 @@ sub run {
   chdir($topdir);
 
   my $current_branch = ExecUtil::output("git symbolic-ref HEAD |sed -e s#.*/##");
+  print "Current branch: $current_branch\n";
+
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
+  print "  Cryptographic checksum (sha1sum): $current_commit\n";
+
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
+  print "  Number of contributors: $contributors\n";
+
   my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
+  print "  Number of files: $num_files\n";
+
   my $num_dirs = ExecUtil::output(
                     "git ls-tree -r --full-name --name-only HEAD " .
                     " | grep '/'" .
@@ -1198,38 +1227,33 @@ sub run {
                     " | sort " .
                     " | uniq " .
                     " | wc -l");
+  print "  Number of directories: $num_dirs\n";
 
-  my $command = "git ls-tree -r --full-name --name-only HEAD";
-  my $size_of_files = "xargs ls -l | awk '{print \$5 \" (\" \$9 \")\"}'";
-  my $biggest = "sort -n | tail -n 1";
-  my $biggest_file = ExecUtil::output("$command | $size_of_files | $biggest");
+  # Some ugly, nasty code to get the biggest file.  Seems to be the only
+  # method I could find that would work given the corner case filenames
+  # (spaces and unicode chars) in the git.git repo (Try eg info on repo
+  # from 'git clone git://git.kernel.org/pub/scm/git/git.git').
+  my @files = `git ls-tree -r --full-name --name-only HEAD`;
+  my %biggest = (name => '', size => 0);
+  foreach my $file (@files) {
+    chomp($file);
+    if (! -f $file) { $file = eval "$file" };
+    my $size = -s $file;
+    if ($size >= $biggest{size}) {
+      $biggest{name} = $file;
+      $biggest{size} = $size;
+    }
+  }
+  my $biggest_file = "$biggest{size} ($biggest{name})";
+  print "  Biggest file size, in bytes: $biggest_file\n";
 
   my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
+  print "  Commits: $branch_depth\n";
 
   # Other possibilities:
   #   Disk space used by respository (du -hs .git, or packfile size?)
   #   Disk space used by working copy (???)
   #   Somthing about remote tracking branches?
-
-  print "Total commits: $total_commits\n";
-
-  print "Local repository: $self->{git_dir}\n";
-  if (scalar @remotes == 1) {
-    print "Remote repository: $remotes[0]\n";
-  } elsif (@remotes > 1) {
-    print "Remote repositories:\n";
-    foreach my $remote (@remotes) {
-      print "  $remote\n";
-    }
-  }
-
-  print "Current branch: $current_branch\n";
-  print "  Cryptographic checksum (sha1sum): $current_commit\n";
-  print "  Number of contributors: $contributors\n";
-  print "  Number of files: $num_files\n";
-  print "  Number of directories: $num_dirs\n";
-  print "  Biggest file size, in bytes: $biggest_file\n";
-  print "  Commits: $branch_depth\n";
 }
 
 ###########################################################################
