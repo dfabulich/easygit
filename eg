@@ -187,7 +187,7 @@ sub help {
     exit ExecUtil::execute("git $self->{command} --help")
   }
 
-  open(OUTPUT, "|less");
+  open(OUTPUT, ">&STDOUT");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
   print OUTPUT $self->{'help'};
   print OUTPUT "\nDifferences from git $package_name:";
@@ -442,7 +442,7 @@ sub run {
   my $package_name = ref($self);
 
   # Print valid subcommands sorted by section
-  open(OUTPUT, "|less");
+  open(OUTPUT, ">&STDOUT");
   print OUTPUT "Modified Behavior:\n";
   foreach my $c (sort keys %command) {
     next if $command{$c}{unmodified_behavior};
@@ -1087,7 +1087,7 @@ sub run {
   }
 
   # Print valid subcommands sorted by section
-  open(OUTPUT, "|less");
+  open(OUTPUT, ">&STDOUT");
   foreach my $name (sort
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
@@ -2223,7 +2223,7 @@ Description:
   Show the current version of eg.
 ";
 
-  open(OUTPUT, "|less");
+  open(OUTPUT, ">&STDOUT");
   print OUTPUT $self->{'help'};
   close(OUTPUT);
   exit 0;
