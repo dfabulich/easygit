@@ -788,7 +788,7 @@ sub preprocess {
   #
   # Parse options
   #
-  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
   my ($all_tracked, $bypass_untracked, $staged) = (0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
@@ -929,7 +929,7 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
 
   #
   # Parse options
@@ -2186,7 +2186,7 @@ sub preprocess {
 
   # Don't let them try to use eg switch to check out older revisions of files;
   # this is just supposed to be a subset of git checkout
-  my ($files, $opts, $revs) = Util::git_rev_parse(@ARGV);
+  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
   die "Use revert or checkout to obtain older versions of files.\n" if @$files;
 
   $self->SUPER::preprocess();
@@ -2463,11 +2463,11 @@ sub git_rev_parse {
     $output =~ /^(Use '--'.*)$/m && print STDERR "$1\n";
     exit 1;
   }
-  my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
   my @opts  = split('\n', `git rev-parse --no-revs --flags    @ARGV`);
   my @revs  = split('\n', `git rev-parse --revs-only          @ARGV`);
+  my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
 
-  return (\@files, \@opts, \@revs);
+  return (\@opts, \@revs, \@files);
 }
 
 
