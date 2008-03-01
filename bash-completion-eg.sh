@@ -118,6 +118,18 @@ _eg_reset ()
   __gitcomp "$(__git_refs)"
 }
 
+_eg_revert ()
+{
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "$cur" in
+  --*)
+    __gitcomp "--commit --no-commit --staged --in --since"
+    return
+    ;;
+  esac
+  __git_complete_file
+}
+
 _eg ()
 {
   local i c=1 command __git_dir
@@ -181,6 +193,7 @@ _eg ()
   rebase)      _git_rebase ;;
   remote)      _git_remote ;;
   reset)       _eg_reset ;;
+  revert)      _eg_revert ;;
   shortlog)    _git_shortlog ;;
   show)        _git_show ;;
   show-branch) _git_log ;;
