@@ -2035,8 +2035,8 @@ Description:
        usage.
 
        Files enter this state through the use of 'eg add'.  Files can
-       return to the unstaged state by running 'eg reset HEAD <file>'.  See
-       'eg help topic staging' to learn about the staging area.
+       return to the unstaged state by running 'eg revert --staged <file>'.
+       See 'eg help topic staging' to learn about the staging area.
 ";
   $self->{'differences'} = '
   eg status output is essentially just a streamlined and cleaned version of
