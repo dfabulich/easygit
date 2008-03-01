@@ -1604,7 +1604,7 @@ INIT {
   $command{revert} = {
     extra => 1,
     section => 'modification',
-    about => 'Revert local changes and/or changes in previous commits'
+    about => 'Revert local changes and/or changes from previous commits'
     };
 }
 
@@ -1646,45 +1646,37 @@ Description:
   To avoid accidental loss of local changes, nothing will be done when no
   arguments are specified.
 
+  Note that eg revert is really only a shortcut for calling eg diff and
+  sending its output to eg apply (and optionally also calling eg commit).
+
 Examples:
   Undo changes since the last commit on the current branch to bar.h and foo.c.
-  This can be done with any of the following three methods (method #3 only
-  works if you are in the toplevel directory, though):
+  This can be done with either of the following methods:
       \$ eg revert bar.h foo.c                      # Method #1
       \$ eg revert --since HEAD bar.h foo.c         # Method #2, more explicit
-      \$ eg diff bar.h foo.c | patch -p1 -R         # Method #3, using diff
 
   While on the bling branch, revert the changes in the last 3 commits (as
-  well as any local changes).  This can be done with either of (assuming you
-  are in the toplevel directory for method #2):
-      \$ eg revert --since bling~3                  # Method #1
-      \$ eg diff bling~3 | patch -p1 -R             # Method #2, using diff
+  well as any local changes).  This can be done by:
+      \$ eg revert --since bling~3
 
   While on the stable branch, you determine that the seventh commit prior
   to the most recent was faulty and you simply want to undo it.  This can
-  be accomplished by either of (assuming you are in the toplevel directory
-  for method #2):
-      \$ eg revert --in stable~7                    # Method #1
-      \$ eg diff stable~8 stable~7 | patch -p1 -R   # Method #2, using diff
+  be accomplished by:
+      \$ eg revert --in stable~7
 
   You decide that all changes to foobar.cpp in your working copy and in the
-  last 2 commits are bad and want to revert them.  This is done by either
-  of (assuming you are in the toplevel directory for method #2):
-      \$ eg revert --since HEAD~2 -- foobar.c       # Method #1
-      \$ eg diff HEAD~2 foobar.c | patch -p1 -R     # Method #2, using diff
+  last 2 commits are bad and want to revert them.  This is done by:
+  of:
+      \$ eg revert --since HEAD~2 -- foobar.c
 
   You decide that some of the changes in the merge commit HEAD~4 are bad.
   You would like to revert the changes in HEAD~4 relative to its second
-  parent.  This can be accomplished as follows (the second method only
-  works if you are in the toplevel directory):
-      \$ eg revert -m 2 --in HEAD~4                 # Method #1
-      \$ eg diff HEAD~4^2 HEAD~4 | patch -p1 -R     # Method #2, using diff
+  parent.  This can be accomplished as follows:
+      \$ eg revert -m 2 --in HEAD~4
   
   (Advanced) Undo a previous add, marking foo.c as not being ready for
-  commit.  The second form could also use eg instead of git, but that usage
-  of eg reset is not advertised and exists only for backwards compatibility.
-      \$ eg revert --staged foo.c                   # Method #1
-      \$ git reset --mixed HEAD foo.c               # Method #2, using git
+  commit:
+      \$ eg revert --staged foo.c
 
   (Advanced) You decide that the changes to abracadabra.xml made in commit
   HEAD~8 are bad.  You want to revert those changes in the version of
@@ -1770,6 +1762,7 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
+  # Safety check
   if (!@ARGV) {
     die "fatal: You must specify arguments to revert to have local changes\n" .
         "reverted (and lost).  To revert all local changes in the working\n" .
@@ -1777,11 +1770,61 @@ sub preprocess {
         "  eg revert --since HEAD\n"
   }
 
+  # Parsing opts
+  my ($commit, $staged, $in) = (0, 0, 0);
+  my $m;
   my $result = main::GetOptions(
-    "--help"         => sub { $self->help() }
+    "--help"         => sub { $self->help() },
+    "--commit"       => \$commit,
+    "--no-commit"    => sub { $commit = 0 },
+    "-m=i"           => \$m,
+    "--staged"       => \$staged,
+    "--in"           => \$in,
+    "--since"        => sub { $in = 0 },
     );
 
-  die "Sorry, eg revert has not yet been implemented.\n";
+  # Parsing revs and files
+  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
+
+  # Sanity checks
+  die "Cannot specify -m without specifying --in.\n" if !$in && defined($m);
+  die "Unrecognized options: @$opts\n" if @$opts;
+  die "Can only specify one revision\n" if @$revs > 1;
+
+  # Set up flags to pass to diff/apply/commit
+  $self->{commit} = $commit;
+  $self->{staged} = '';
+  $self->{staged} = '--staged' if $staged;
+  $self->{revs} = "@$revs";
+  $self->{revs} = "HEAD" if !@$revs;
+  if ($in) {
+    # One more sanity check
+    my $links = ExecUtil::output(
+                  "git rev-list --parents --max-count=1 $self->{revs}");
+    my @list = split(' ', $links);  # commit id + parent ids
+    die "Cannot revert a merge commit without specifying a parent!\n"
+      if !defined($m) && @list > 2;
+
+    # Get the parent revision for diffing against it
+    my $first_rev = $self->{revs};
+    my $parent = $m || 1;
+    $first_rev .= "^$parent";
+    $self->{revs} = "$first_rev $self->{revs}";
+  }
+  $self->{files} = "";
+  $self->{files} = "-- " if @$files;
+  $self->{files} .= "@$files";
+}
+
+sub run {
+  my $self = shift;
+
+  print "Unimplemented; not executing:\n" .
+    "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
+    "  eg apply $self->{staged} -R\n";
+  if ($self->{commit}) {
+    print "Also not executing: eg commit $self->{staged}\n";
+  }
 }
 
 ###########################################################################
