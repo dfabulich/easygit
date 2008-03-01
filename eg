@@ -1866,11 +1866,11 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  print "Unimplemented; not executing:\n" .
+  ExecUtil::execute(
     "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
-    "  eg apply $self->{staged} -R\n";
+    "  eg apply $self->{staged} -R");
   if ($self->{commit}) {
-    print "Also not executing: eg commit $self->{staged}\n";
+    ExecUtil::execute("eg commit $self->{staged}");
   }
 }
 
