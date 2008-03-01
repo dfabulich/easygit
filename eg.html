@@ -1,0 +1,69 @@
+<center>Easy GIT -- <i>git for mere mortals</i></center>
+
+<p>
+Easy GIT is a wrapper for <a href="http://git.or.cz/">git</a>, designed to
+make git easy to use.  It is mostly meant as a brainstorming session about
+what git could be, hopefully as a means to spark discussion about
+simplifying its UI.  But it may also well serve as "training wheels for
+git" in the meantime.  If nothing else, I think it is a useful exercise for
+me.
+</p>
+
+<h3>Motivation</h3>
+
+<p>
+My purpose is to demonstrate that a version of git could be written that
+achieves the following goals:
+<ul>
+  <li> <i>Easy</i>: I want it to be easy to use...and as easy for people to
+       transition to from other VCSes, as switching from cvs to svn
+       was. (Not seamless, but not difficult)</li>
+  <li> <i>Capable</i>: I want it to be something that git lovers would still
+       love to use.  Many suggestions to "fix" git's UI often curtail its
+       power (<i>git add -p</i> is one of my favorite features and you
+       better not take it away or make using it more difficult).</li>
+  <li> <i>Friendly</i>: I want it to "feel friendly" to new users and
+       converts from other systems, as well as to long time users.  A lot
+       of things in git are beautiful from an architectural point of view
+       once you understand all the internals, but much of git's UI
+       just <i>feels</i> sharp and uninviting.  Perhaps I am just still
+       missing some details of its internals or capabilities, but I don't
+       believe that the sharpness is actually necessary.</li>
+</ul>
+</p>
+
+<h3>Switching</h3>
+
+<p>
+I would really like to have a tool that
+<ul>
+  <li> SVN, bzr, or hg users can pick up and use almost immediately.</li>
+  <li> git users can pick up and use almost immediately.</li>
+</ul>
+Some may scoff, but I think it is not farfetched.  I think the biggest
+surprise in eg so far for git users is:
+<pre>
+    git diff      <=> eg diff --unstaged
+    git diff HEAD <=> eg diff
+</pre>
+</p>
+
+<h3>Try it out</h3>
+
+<p>
+First, you need to install <a href="http://git.or.cz/">git</a> (eg is just
+a wrapper; it usually just passes its arguments to git though sometimes it
+massages things...particularly the help pages).  Then run
+<blockquote>
+    <b>git clone http://www.gnome.org/~newren/eg/eg.git eg</b>
+</blockquote>
+Stick the eg directory in your path and you're ready to go.
+
+<h3>Work in progress</h3>
+
+<p>
+Unfortunately, eg is not complete; it's just a preliminary version of a
+work in progress.  For example, you may find it referring to help pages
+that don't yet exist.  Sorry about that.  However, it is good enough for
+daily use already...at least for me.
+</p>
