@@ -540,9 +540,9 @@ Usage:
   eg checkout [<commit>] <paths>...
 
 Description:
-  eg checkout exists to make users of other version control systems feel
-  more at home, and to retain as much backward compatibility with git as
-  possible.  All of its functionality can be handled by other commands.
+  eg checkout simulates the checkout command from both git and svn - if you
+  are not used to checkout from those systems, you should use eg clone, eg
+  switch, or eg revert and ignore eg checkout.
 
   The first usage form of eg checkout is used to get a new project based on
   a (usually remote) repository.  Users are encouraged to use eg clone
