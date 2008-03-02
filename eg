@@ -78,12 +78,6 @@ INIT {
       section => 'discovery',
       about => 'Print lines of tracked files matching a pattern'
       },
-    init => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'creation',
-      about => 'Create a new empty repository'
-      },
     merge => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -203,9 +197,9 @@ sub help {
   warned, many a brave knight hath been slain at the foot of the
   treacherous dragons.
 
-  eg $package_name is designed to accept the same options as git
-  $git_equiv, and with the same meanings unless specified otherwise in the
-  above "Differences" section.
+  eg $package_name is designed to accept the same options as git $git_equiv, and
+  with the same meanings unless specified otherwise in the above
+  "Differences" section.
 EOF
   }
   close(OUTPUT);
@@ -1309,6 +1303,74 @@ sub run {
   #   Disk space used by respository (du -hs .git, or packfile size?)
   #   Disk space used by working copy (???)
   #   Somthing about remote tracking branches?
+}
+
+###########################################################################
+# init                                                                    #
+###########################################################################
+package init;
+@init::ISA = qw(subcommand);
+INIT {
+  $command{init} = {
+    unmodified_behavior => 1,
+    section => 'creation',
+    about => 'Create a new repository'
+  };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_repo_needed => 0);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg init [--shared[=<permissions>]]
+
+Description:
+  Creates a new repository.
+
+  If you want to publish a copy of an existing repository so that others
+  can access it, use eg publish instead.
+
+Examples:
+  Create a new blank repository, then use it by creating and adding a file
+  to it:
+      \$ mkdir project
+      \$ cd project
+      \$ eg init
+      <Create and edit a file called foo.py>
+      \$ eg add foo.py
+      \$ eg commit
+
+  Create a repository to track further changes to an existing project.  Then
+  start using it right away
+      \$ cd cool-program
+      \$ eg init
+      \$ eg add .           # Recursively adds all files
+      \$ eg commit -m \"Initial import of all files\"
+      <Make more changes to fix a bug or add a new feature or...>
+      \$ eg commit
+
+  (Advanced) Create a new blank repository meant to be used in a
+  centralized fashion, i.e. a repository for many users to commit to.
+      \$ mkdir new-project
+      \$ cd new-project
+      \$ eg init --shared
+
+Options:
+  --shared[=<permissions>]
+    Set up a repository to be shared amongst several users, giving all of
+    them permission to write to the repository.
+
+    Possible choices for <permissions> are
+      --shared=group
+        Make the repository group-writable, the default when --shared is
+        specified.
+
+      --shared=world
+        Make the repository world-writable.
+";
+  return $self;
 }
 
 ###########################################################################
