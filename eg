@@ -96,12 +96,6 @@ INIT {
       section => 'collaboration',
       about => 'Get updates from another repository and merge them'
       },
-    push => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'collaboration',
-      about => 'Update a remote mirror of the local repository'
-      },
     rebase => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -1530,6 +1524,177 @@ sub run {
   # the files that 'man git-update-server-info' says it creates.
 
   chdir($orig_dir);
+}
+
+###########################################################################
+# push                                                                    #
+###########################################################################
+package push;
+@push::ISA = qw(subcommand);
+INIT {
+  $command{push} = {
+    section => 'collaboration',
+    about => 'Push local commits to a published repository'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg push [--branch <branch>] [--tag <tag>] [--all-branches] [--all-tags] 
+          [--mirror] [<repository>]
+
+Description:
+  Push committed changes in the current repository to a published remote
+  repository.  The push can fail if the remote repository has commits not
+  in the current repository; this can be fixed by pulling and merging
+  changes from the remote repository (use eg pull for this) and then
+  repeating the push.
+
+  Branches and tags are typically considered private; thus only branches
+  that exist in both the current and remote repositories will be involved
+  by default (no tags will be sent).  The --all-branches, --all-tags, and
+  --mirror options exist to extend the list of changes included.  The
+  --branch and --tag options can be used to narrow the changes sent to
+  those explicitly specified.
+
+  See 'eg help topic remote-urls' for valid syntax for remote repositories.
+  If the repository to push the changes to is not specified, the last
+  repository specified will be reused.  Run 'eg info' to be reminded which
+  repository this is.
+
+Examples:
+  Push commits in common branches
+      \$ eg push myserver.com:git-stuff/my-repo.git
+
+  Push commits in all branches, including branches that do not already
+  exist remotely, and all tags to the last repository we pushed to 
+      \$ eg push --all-branches --all-tags
+
+  Push all local branches and tags and delete anything on the remote end
+  that is not in the current repository
+      \$ eg push --mirror ssh://jim\@host.xz:22/~jim/project/published.repo
+
+  Create a two new tags locally, then push both
+      \$ eg tag MY_PROJECT_1_0
+      \$ eg tag USELESS_ALIAS_FOR_1_0
+      \$ eg push --tag MY_PROJECT_1_0 --tag USELESS_ALIAS_FOR_1_0
+
+  Push the changes in just the stable branch
+      \$ eg push --branch stable 
+
+Options
+  --branch <branch>
+    Push commits in the specified branch.  May be reused multiple times to
+    push commits in multiple branches.
+
+    As an advanced option, one can use the syntax <local>:<remote> for
+    <branch>.  For example, \"--branch my_bugfix:stable\" would mean to use
+    the my_bugfix branch of the current repository to update the stable
+    branch of the remote repository.
+
+  --tag <tag>
+    Push the specified tag to the remote repository.
+
+  --all-branches
+    Push commits from all branches, including branches that do not yet
+    exist in the remote repository.
+
+  --all-tags
+    Push all tags to the remote repository.
+
+  --mirror
+    Make the remote repository a mirror of the local one.  This turns on
+    both --all-branches and --all-tags, but it also means that tags and
+    branches that do not exist in the local repository will be deleted from
+    the remote repository.
+";
+  $self->{'differences'} = '
+  eg push tries to simplify git push considerably.  refspecs are
+  essentially done away with, --all becomes the more specific
+  --all-branches, and eg push uses a saner default (the last pushed-to
+  repository rather than "origin").
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  $self->{args} = "";
+  my $record_arg  = sub { $self->{args} .= " --$_[0]"; };
+  my $record_args = sub { $self->{args} .= " --@_"; };
+  my ($all_branches, $all_tags, $mirror, $thin, $repo) = (0, 0, 0, 0);
+  my @branches;
+  my @tags;
+  my $result = main::GetOptions(
+    "--help"           => sub { $self->help() },
+    "--branch=s"       => sub { push(@branches, $_[2]) },
+    "--tag=s"          => sub { push(@tags, $_[2]) },
+    "--all-branches"   => \$all_branches,
+    "--all-tags"       => \$all_tags,
+    "--mirror"         => \$mirror,
+    "--dry-run"        => sub { &$record_arg(@_) },
+    "--receive-pack=s" => sub { &$record_args(@_) },
+    "force|f"          => sub { &$record_arg(@_) },
+    "repo=s"           => \$repo,
+    "thin"             => sub { &$record_arg(@_) },
+    "no-thin"          => sub { &$record_arg(@_) },
+    "verbose|v"        => sub { &$record_arg(@_) },
+    );
+  die "Cannot specify individual branches and request all branches too!\n"
+    if @branches && ($all_branches || $mirror);
+  die "Cannot specify individual tags and request all tags too!\n"
+    if @tags && ($all_tags || $mirror);
+  my $repository = shift @ARGV;
+  my @git_refspecs = @ARGV;
+
+  # Get the default, fallback repository to push too
+  if (!$repository) {
+    if (!$repo) {
+      my ($ret, $output) = 
+        ExecUtil::execute_captured("git config --get core.lastpushurl",
+                                   ignore_ret => 1);
+      if ($ret == 0) {
+        chomp($output);
+        $repo = $output;
+      } else {
+        $repo = "origin";
+      }
+    }
+    $self->{args} .= " --repo=$repo";
+  }
+
+  $self->{args} .= " --all"    if $all_branches;
+  $self->{args} .= " --tags"   if $all_tags;
+  $self->{args} .= " --mirror" if $mirror;
+
+  $self->{args} .= " $repository" if $repository;
+
+  foreach my $branch (@branches) {
+    my ($local, $remote) = split(/:/, $branch, 2);
+    $remote = $local if !defined $remote;
+    $self->{args} .= " refs/heads/$local:refs/heads/$remote";
+  }
+  foreach my $tag (@tags) {
+    $self->{args} .= " tag $tag";
+  }
+  $self->{args} .= " @git_refspecs";
+
+  $self->{args} =~ s/^\s+//;
+}
+
+sub run {
+  my $self = shift;
+
+  return ExecUtil::execute("git push $self->{args}", ignore_ret => 1);
 }
 
 ###########################################################################
