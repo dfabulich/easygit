@@ -423,7 +423,7 @@ Examples
   $self->{'differences'} = '
   The output of "git show <file>" is probably confusing to users at first.
   Thus, "eg cat <file>" calls "git show HEAD:<file>".
-  ';
+';
   return $self;
 }
 
@@ -475,7 +475,7 @@ Usage:
 ";
   $self->{'differences'} = '
   eg changes is unique to eg; git does not have a similar command.
-  ';
+';
   return $self;
 }
 
@@ -1091,7 +1091,7 @@ Examples:
   manpages for more details.  The eg help pages also list any differences
   between the eg commands and the git ones, to allow users to easily learn
   git.
-  ';
+';
 
   return $self;
 }
@@ -1197,7 +1197,7 @@ Description:
   eg info is unique to eg; git does not have a similar command.  It is mostly
   intended to do something nice if svn converts happen to try this command
   out.
-  ';
+';
   return $self;
 }
 
@@ -1417,7 +1417,7 @@ Description:
   "HEAD" when not working on any (named) branch (i.e. "when the HEAD is
   detached", to put it in gitspeak), I would do that too.  Unfortunately, I
   have not figured that out yet.
-  ';
+';
   return $self;
 }
 
@@ -1508,7 +1508,7 @@ Examples:
   unnecessary after the rsync command has completed, I might add some code
   to try to clean the .git directory back up.  I doubt any of it will hurt
   if I do not get around to it, though.
-  ';
+';
   return $self;
 }
 
@@ -1881,7 +1881,7 @@ Examples
   $self->{'differences'} = '
   eg resolved is a command new to eg that is not part of git; however, it
   simply calls git add.
-  ';
+';
   return $self;
 }
 
@@ -2218,7 +2218,7 @@ Options:
       $ eg stash apply stash@{3}
   will work, I think it will be easier for the user to run
       $ eg stash apply rudely interrupted changes
-  ';
+';
   return $self;
 }
 
@@ -2386,7 +2386,7 @@ Description:
   the system more inviting to new users.  There are slight changes to the
   section names to reinforce consistent naming when referring to the same
   concept, but the changes are very slight.
-  ';
+';
   return $self;
 }
 
@@ -2517,7 +2517,7 @@ Options:
 
   (One can also use eg checkout identically to git checkout for backwards
    compatibility; it simply is not an advertised function.)
-  ';
+';
   return $self;
 }
 
