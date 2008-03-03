@@ -1695,6 +1695,7 @@ sub preprocess {
   $self->{args} .= " --mirror" if $mirror;
 
   $self->{args} .= " $repository" if $repository;
+  ExecUtil::execute("git config core.lastpushurl @ARGV") if $repository;
 
   foreach my $branch (@branches) {
     my ($local, $remote) = split(/:/, $branch, 2);
