@@ -1489,6 +1489,7 @@ Examples:
       chmod u+x hooks/post-update
       cd ..
       rsync -e ssh -az --delete .git <remote directory>
+      git config core.lastpushurl <remote directory>
   Since this does make some minor changes to the local repository that are
   unnecessary after the rsync command has completed, I might add some code
   to try to clean the .git directory back up.  I doubt any of it will hurt
@@ -1519,6 +1520,7 @@ sub run {
   ExecUtil::execute("chmod u+x hooks/post-update");
   print "Copy local repository to remote location...\n";
   ExecUtil::execute("rsync -e ssh -az --delete ./ @ARGV");
+  ExecUtil::execute("git config core.lastpushurl @ARGV");
 
   # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
   # the files that 'man git-update-server-info' says it creates.
@@ -1616,7 +1618,7 @@ Options
   eg push tries to simplify git push considerably.  refspecs are
   essentially done away with, --all becomes the more specific
   --all-branches, and eg push uses a saner default (the last pushed-to
-  repository rather than "origin").
+  repository from core.lastpushurl rather than "origin").
 ';
   return $self;
 }
