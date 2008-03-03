@@ -1115,10 +1115,9 @@ sub run {
     my $subcommand = shift @ARGV;
 
     if (!$subcommand->can("new")) {
-      print "$subcommand is not modified by eg.  Will try running 'git help " .
-            "$subcommand' in 2\nseconds...\n";
-      sleep 2;
-      exit ExecUtil::execute("git help $subcommand");
+      die "Sorry, $subcommand is not overridden or modified for eg, and no\n" .
+          "help has been written for it.  If you're feeling brave, you may\n" .
+          "want to try running 'git help $subcommand'.\n";
     }
 
     my $subcommand_obj = $subcommand->new();
