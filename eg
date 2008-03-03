@@ -1631,10 +1631,10 @@ Options
     the remote repository.
 ";
   $self->{'differences'} = '
-  eg push tries to simplify git push considerably.  refspecs are
-  essentially done away with, --all becomes the more specific
-  --all-branches, and eg push uses a saner default (the last pushed-to
-  repository from core.lastpushurl rather than "origin").
+  eg push tries to simplify git push considerably.  refspecs are hidden,
+  --all becomes the more specific --all-branches, and eg push uses a saner
+  default (the last pushed-to repository from core.lastpushurl rather than
+  "origin").
 ';
   return $self;
 }
