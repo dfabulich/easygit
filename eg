@@ -471,7 +471,12 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg changes
+  eg changes [--details]
+
+Options
+  --details
+    In addition to the summary of which commands were changed, list the
+    changes to each command.
 ";
   $self->{'differences'} = '
   eg changes is unique to eg; git does not have a similar command.
@@ -479,29 +484,61 @@ Usage:
   return $self;
 }
 
+sub preprocess {
+  my $self = shift;
+
+  $self->{details} = 0;
+  my $result = main::GetOptions(
+    "--help"    => sub { $self->help() },
+    "--details" => \$self->{details},
+    );
+  die "Unrecognized arguments: @ARGV\n" if @ARGV;
+}
+
 sub run {
   my $self = shift;
   my $package_name = ref($self);
 
   # Print valid subcommands sorted by section
-  open(OUTPUT, ">&STDOUT");
-  print OUTPUT "Modified Behavior:\n";
+  my $indent = "  ";
+  my $header_indent = "";
+  open(OUTPUT, "|less");
+
+  if ($self->{details}) {
+    print OUTPUT "Summary of changes:\n";
+    $indent = "    ";
+    $header_indent = "  ";
+  }
+  print OUTPUT "${header_indent}Modified Behavior:\n";
   foreach my $c (sort keys %command) {
     next if $command{$c}{unmodified_behavior};
     next if $command{$c}{new_command};
-    printf OUTPUT "  $c\n";
+    print OUTPUT "$indent$c\n";
   }
-  print OUTPUT "New commands:\n";
+  print OUTPUT "${header_indent}New commands:\n";
   foreach my $c (sort keys %command) {
     next if !$command{$c}{new_command};
-    printf OUTPUT "  $c\n";
+    print OUTPUT "$indent$c\n";
   }
-  print OUTPUT "Modified Help Only:\n";
+  print OUTPUT "${header_indent}Modified Help Only:\n";
   foreach my $c (sort keys %command) {
     next if $command{$c}{unmodified_help};
     next if !$command{$c}{unmodified_behavior};
     next if $command{$c}{new_command};
-    printf OUTPUT "  $c\n";
+    print OUTPUT "$indent$c\n";
+  }
+
+  if ($self->{details}) {
+    foreach my $c (sort keys %command) {
+      next if $command{$c}{unmodified_help} || $command{$c}{unmodified_behavior};
+
+      next if !$c->can("new");
+      my $obj = $c->new();
+      $obj->{differences} =~ s/^\n//;
+
+      print OUTPUT "Changes to $c:\n";
+      print OUTPUT $obj->{differences};
+    }
   }
   close(OUTPUT);
 }
