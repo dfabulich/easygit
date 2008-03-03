@@ -1183,14 +1183,15 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '');
+  my $self = $class->SUPER::new(git_equivalent => '', git_repo_needed => 0);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg info
+  eg info [/path/to/repository]
 
 Description:
-  Shows information about the current repository.
+  Shows information about the specified repository, or the current repository
+  none is specified.
 ";
   $self->{'differences'} = '
   eg info is unique to eg; git does not have a similar command.  It is mostly
@@ -1203,7 +1204,20 @@ Description:
 sub preprocess {
   my $self = shift;
 
-  die "eg info does not yet accept any arguments.\n" if @ARGV;
+  my $path = shift @ARGV;
+  die "Aborting: Too many arguments to eg info.\n" if @ARGV;
+
+  if ($path) {
+    die "$path does not look like a directory.\n" if ! -d $path;
+    my ($ret, $useless_output) =
+      ExecUtil::execute_captured("git ls-remote $path");
+    die "$path does not appear to be a git archive.\n" if $ret != 0;
+    chdir($path);
+  }
+
+  # Set to set git_dir
+  $self->{git_dir} = RepoUtil::git_dir();
+  die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
 }
 
 sub run {
