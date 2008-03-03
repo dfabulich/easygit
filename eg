@@ -1332,13 +1332,21 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg init [--shared[=<permissions>]]
+  eg init [--shared]
 
 Description:
   Creates a new repository.
 
   If you want to publish a copy of an existing repository so that others
   can access it, use eg publish instead.
+
+  Note for cvs/svn users: With cvs or svn it is common to create an empty
+  repository on \"the server\", then check it out locally and start adding
+  files and committing.  With eg, it is more natural to create a repository
+  on your local machine and start creating and adding files, then later
+  (possibly as soon as one commit later) publishing your work to \"the
+  server\".  git (and thus eg) does not currently allow cloning empty
+  repositories, so for now you must change habits.
 
 Examples:
   Create a new blank repository, then use it by creating and adding a file
@@ -1364,19 +1372,14 @@ Examples:
       \$ mkdir new-project
       \$ cd new-project
       \$ eg init --shared
+      <Check repository ownership and user groups to ensure they are right>
 
 Options:
-  --shared[=<permissions>]
-    Set up a repository to be shared amongst several users, giving all of
-    them permission to write to the repository.
-
-    Possible choices for <permissions> are
-      --shared=group
-        Make the repository group-writable, the default when --shared is
-        specified.
-
-      --shared=world
-        Make the repository world-writable.
+  --shared
+    Set up a repository that will shared amongst several users; note that
+    you are responsible for creating a common group for developers so that
+    they can all write to the repository.  Ask your sysadmin or see the
+    groupadd(8), usermod(8), chgrp(1), and chmod(1) manpages.
 ";
   return $self;
 }
