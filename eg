@@ -2690,7 +2690,7 @@ sub commit_checks {
   #
   # Determine which untracked files are "newly created"
   #
-  my @new_untracked = `git ls-files --others --directory`;
+  my @new_untracked = `git ls-files --exclude-standard --others --directory`;
   my $git_dir = git_dir();
   die "Must run within a git repository.\n" if !defined $git_dir;
   if ($check_for->{untracked} && $status{has_untracked_files} &&
