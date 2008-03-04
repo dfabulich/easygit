@@ -2292,8 +2292,10 @@ sub preprocess {
   # Translate the description passed to apply or show into a reflog reference
   if ((grep {$_ eq $self->{subcommand}} qw(apply show)) && scalar @ARGV > 0) {
     my $stash_description = "@ARGV";
-    if ($stash_description !~ m#^stash\@{[^{]+}$#) {
-
+    @ARGV = ();
+    if ($stash_description =~ m#^stash\@{[^{]+}$#) {
+      push(@args, $stash_description)
+    } else {
       # Will need to compare arguments to existing stash descriptions...
       my ($retval, $output) =
         ExecUtil::execute_captured("eg stash list --refs");
@@ -2340,6 +2342,10 @@ sub preprocess {
     }
   }
 
+  # Add any unprocessed args to the arguments to use
+  push(@args, @ARGV);
+
+  # Reset @ARGV with the built up list of arguments
   @ARGV = @args;
 }
 
