@@ -1147,9 +1147,13 @@ sub run {
   my $package_name = ref($self);
 
   # Check if we were asked to get help on a subtopic rather than toplevel help
-  if (@ARGV == 1) {
-    die "Oops, there's a bug.\n" if $self->{exit_status} != 0;
+  if (@ARGV > 0) {
     my $subcommand = shift @ARGV;
+    if (@ARGV != 0 && ($subcommand ne 'topic' || @ARGV != 1)) {
+      die "Too many arguments to help.\n";
+    }
+    die "Oops, there's a bug.\n" if $self->{exit_status} != 0;
+    $subcommand = "help::topic" if $subcommand eq 'topic';
 
     if (!$subcommand->can("new")) {
       die "Sorry, $subcommand is not overridden or modified for eg, and no\n" .
@@ -1159,9 +1163,6 @@ sub run {
 
     my $subcommand_obj = $subcommand->new();
     $subcommand_obj->help();
-  } elsif (@ARGV > 1) {
-    $self->{exit_status} = 1;
-    print STDERR "Too many arguments to help.\n";
   }
 
   # Print valid subcommands sorted by section
@@ -1201,6 +1202,56 @@ sub run {
   close(OUTPUT);
   
   exit $self->{exit_status};
+}
+
+###########################################################################
+# help::topic                                                             #
+###########################################################################
+package help::topic;
+
+sub new {
+  my $class = shift;
+  my $self = {};
+  bless($self, $class);
+  return $self;
+}
+
+sub remote_urls {
+  return "
+Stub help for remote-urls.
+";
+}
+
+sub help {
+  my $self = shift;
+  my $help_msg;
+
+  # Get the topic we want more info on (replace dashes, since they can't
+  # be in function names)
+  my $topic = shift @ARGV;
+  $topic =~ s/-/_/g;
+
+  if (defined $topic) {
+    die "No topic help for '$topic' exists.  Try 'eg help topic'.\n"
+      if !$self->can($topic);
+    $help_msg = $self->$topic();
+  } else {
+    $topic = "Topics";
+    $help_msg = "
+commit-ids
+glossary
+remote-urls
+staging
+storage
+";
+  }
+
+  open(OUTPUT, ">&STDOUT");
+  print OUTPUT "$topic\n";
+  print OUTPUT $help_msg;
+  close(OUTPUT);
+
+  exit 0;
 }
 
 ###########################################################################
