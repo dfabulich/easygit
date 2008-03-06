@@ -199,6 +199,7 @@ _eg ()
   show-branch) _git_log ;;
   stash)       _git_stash ;;
   submodule)   _git_submodule ;;
+  switch)      _git_checkout ;;
   tag)         _git_tag ;;
   whatchanged) _git_log ;;
   *)           COMPREPLY=() ;;
