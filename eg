@@ -1691,8 +1691,8 @@ sub preprocess {
   my @tags;
   my $result = main::GetOptions(
     "--help"           => sub { $self->help() },
-    "--branch=s"       => sub { push(@branches, $_[2]) },
-    "--tag=s"          => sub { push(@tags, $_[2]) },
+    "--branch=s"       => sub { push(@branches, $_[1]) },
+    "--tag=s"          => sub { push(@tags, $_[1]) },
     "--all-branches"   => \$all_branches,
     "--all-tags"       => \$all_tags,
     "--mirror"         => \$mirror,
