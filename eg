@@ -1652,6 +1652,17 @@ Options
   --no-commit
     Perform the merge but do not commit even if the merge is clean.
 
+  --rebase
+    Instead of a merge, perform a rebase; in other words rewrite commit
+    history so that your recent local commits become commits on top of the
+    changes downloaded from the remote repository.
+
+    NOTE: This is a potentially _dangerous_ operation.  Rewriting history
+    that has been pushed or pulled into another repository can break
+    subsequent pushes and pulls with those repositories.  (Such breaks can
+    be fixed, at the cost of having to modify the commit history of each
+    affected repository.)  Do not use this option without thoroughly
+    understanding 'eg help rebase'.
 ";
   $self->{'differences'} = '
   eg pull uses slightly different option names than git pull (though it
@@ -1694,6 +1705,7 @@ sub preprocess {
     "ff!"              => sub { &$record_arg(@_) },
     "strategy=s"       => sub { &$record_args(@_) },
     "s=s"              => sub { &$record_args(@_) },
+    "rebase!"          => sub { &$record_arg(@_) },
     "quiet|q"          => sub { &$record_arg(@_) },
     "verbose|v"        => sub { &$record_arg(@_) },
     "append|a"         => sub { &$record_arg(@_) },
