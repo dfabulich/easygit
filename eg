@@ -2691,7 +2691,8 @@ sub _execute_impl {
   return $options{capture_output} ? ($ret, $output) : $ret;
 }
 
-# executes a command, capturing its output (both STDOUT and STDERR)
+# executes a command, capturing its output (both STDOUT and STDERR),
+# returning both the return value and the output
 sub execute_captured {
   my ($command, @options) = @_;
   return _execute_impl($command, capture_output => 1, @options);
@@ -2706,7 +2707,7 @@ sub output {
   return $output
 }
 
-# executes a command (output not captured)
+# executes a command (output not captured), returning its return value
 sub execute {
   my ($command, @options) = @_;
   return _execute_impl($command, @options);
