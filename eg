@@ -90,12 +90,6 @@ INIT {
       section => 'modification',
       about => 'Move or rename files (or directories or symlinks)'
       },
-    pull => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'collaboration',
-      about => 'Get updates from another repository and merge them'
-      },
     rebase => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -1582,6 +1576,187 @@ sub run {
 }
 
 ###########################################################################
+# pull                                                                    #
+###########################################################################
+package pull;
+@pull::ISA = qw(subcommand);
+INIT {
+  $command{pull} = {
+    section => 'collaboration',
+    about => 'Get updates from another repository and merge them'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new();
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg pull OPTIONS REPOSITORY
+
+Description:
+  Pull changes from another repository and merge them into the local
+  repository.  If there are no conflicts, the result will be committed.
+
+  See 'eg help topic remote-urls' for valid syntax for remote repositories.
+  If the repository to pull the changes to is not specified, the last
+  repository specified will be reused.  Run 'eg info' to be reminded which
+  repository this is.
+
+  By default, tags in the remote repository associated with commits that
+  are pulled, will themselves be pulled.  One can specify to pull
+  additional or fewer tags with the --all-tags, --no-tags, or --tag TAG
+  options.
+
+  If there is more than one branch (on either end):
+    If the remote repository has more than one branch, changes from the
+    currently active one are pulled.  If the local repository has more than
+    one branch, the changes are merged into the active one.  One can
+    specify to pull changes from a branch other than the active one with
+    the --branch flag.  Changes are always merged to the locally active
+    branch.
+
+  Note for users of remote repository url nicknames:
+    If you set up nicknames for remote repositories (using 'eg remote'),
+    you can make 'eg pull' obtain changes from several branches at once.
+    In such a case, eg will take the changes and record them in special
+    local branches known as \"remote tracking branches\", a step which
+    involves no merging.  eg will then take changes from the branch(es)
+    specified with the --branch option (or the branch.CURRENTBRANCH.merge
+    configuration variable), and merge them into the active branch.
+
+    The advantage of pulling changes from branches that you do not
+    immediately merge with is that you can then later inspect, review, or
+    merge with such changes (using 'eg merge') even if not connected to the
+    network.  See 'eg help remote' and 'eg help topic storage' for more
+    information about remote repository url nicknames and remote tracking
+    branches.
+
+Examples:
+
+Options
+  --branch BRANCH
+    Merge the changes from the remote branch BRANCH.  May be used multiple
+    times to merge changes from multiple remote branches at once.
+
+  --no-tags
+    Do not download any tags from the remote repository
+
+  --all-tags
+    Download all tags from the remote repository.
+
+  --tag TAG
+    Download TAG from the remote repository
+
+  --no-commit
+    Perform the merge but do not commit even if the merge is clean.
+
+";
+  $self->{'differences'} = '
+  eg pull uses slightly different option names than git pull (though it
+  accepts all the options that git pull does), and introduces a new option
+  --branch in order to avoid the need to explain refspecs.  eg pull also
+  defaults to using core.lastpullurl rather than "origin" -- though
+  core.lastpullurl will be "origin" in a clone repository until the user
+  pulls from a different repository.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  $self->{args} = "";
+  my $record_arg  = 
+    sub { my $prefix = "";
+          $prefix = "no-" if defined $_[1] && $_[1] == 0;
+          $self->{args} .= " --$prefix$_[0]";
+        };
+  my $record_args = sub { $self->{args} .= " --@_"; };
+  my ($no_tags, $all_tags) = (0, 0);
+  my @branches;
+  my @tags;
+  my $result = main::GetOptions(
+    "--help"           => sub { $self->help() },
+    "--branch=s"       => sub { push(@branches, $_[1]) },
+    "--tag=s"          => sub { push(@tags, $_[1]) },
+    "--all-tags"       => \$all_tags,
+    "--no-tags"        => \$no_tags,
+    "commit!"          => sub { &$record_arg(@_) },
+    "summary!"         => sub { &$record_arg(@_) },
+    "-n"               => sub { &$record_arg(@_) },
+    "squash!"          => sub { &$record_arg(@_) },
+    "ff!"              => sub { &$record_arg(@_) },
+    "strategy=s"       => sub { &$record_args(@_) },
+    "s=s"              => sub { &$record_args(@_) },
+    "quiet|q"          => sub { &$record_arg(@_) },
+    "verbose|v"        => sub { &$record_arg(@_) },
+    "append|a"         => sub { &$record_arg(@_) },
+    "--upload-pack=s"  => sub { &$record_args(@_) },
+    "force|f"          => sub { &$record_arg(@_) },
+    "tags"             => \$all_tags,
+    "keep|k"           => sub { &$record_arg(@_) },
+    "update-head-ok|u" => sub { &$record_arg(@_) },
+    "--depth=i"        => sub { &$record_args(@_) },
+    );
+  die "Cannot specify both --all-tags and --no-tags!\n"
+    if $all_tags && $no_tags;
+  die "Cannot specify request tags along with --all-tags or --no-tags!\n"
+    if @tags && ($all_tags || $no_tags);
+  my $repository = shift @ARGV;
+  my @git_refspecs = @ARGV;
+
+  # Record the tags or no-tags arguments
+  $self->{args} .= " --tags"    if $all_tags;
+  $self->{args} .= " --no-tags" if $no_tags;
+
+  # Get the repository to pull from
+  if ($repository) {
+    # Repository option #1: The one they listed on the command line
+    $self->{args} .= " $repository" if $repository;
+    ExecUtil::execute("git config core.lastpullurl $repository")
+      if $repository;
+  } else {
+    # Repository option #2: branch.<active branch>.remote variable
+    # Repository option #3: core.lastpullurl variable
+    my $branch = RepoUtil::current_branch() || '';
+    my $url = RepoUtil::get_config("branch.$branch.remote") ||
+              RepoUtil::get_config("core.lastpullurl");
+
+    if (!$url) {
+      # Option #4: "origin"
+      $url = "origin";
+      my $ret = ExecUtil::execute("git remote | grep origin >/dev/null");
+      # Option #5: whine that we need a repository
+      die "No repository to pull from specified!\n" if $ret != 0;
+    }
+
+    $self->{args} .= " $url";
+  }
+
+  foreach my $branch (@branches) {
+    $self->{args} .= " $branch";
+  }
+  foreach my $tag (@tags) {
+    $self->{args} .= " tag $tag";
+  }
+  $self->{args} .= " @git_refspecs";
+
+  $self->{args} =~ s/^\s+//;
+}
+
+sub run {
+  my $self = shift;
+
+  return ExecUtil::execute("git pull $self->{args}", ignore_ret => 1);
+}
+
+###########################################################################
 # push                                                                    #
 ###########################################################################
 package push;
@@ -2729,6 +2904,15 @@ sub current_branch {
 sub git_dir {
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
+  return undef if $ret != 0;
+  chomp($output);
+  return $output;
+}
+
+sub get_config {
+  my $key = shift;
+  my ($ret, $output) = ExecUtil::execute_captured("git config --get $key",
+                                                  ignore_ret => 1);
   return undef if $ret != 0;
   chomp($output);
   return $output;
