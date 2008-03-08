@@ -700,18 +700,12 @@ Examples:
 Options:
   --depth <depth>
     Only download the <depth> most recent commits instead of all history
-
-  --noisy
-    Output more information during some clone operations.
 ";
   $self->{'differences'} = '
-  eg clone and git clone are identical other than output (the -q or --noisy
-  flags).
+  eg clone and git clone are virtually identical.
 
-  eg clone passes the -q option to git clone by default (it is unfortunate
-  that the -q option for git clone feels almost like a lie; it is still too
-  verbose).  However, this can be turned off by the --noisy flag of eg
-  clone.
+  The only difference is that eg will set core.lastpushurl and
+  core.lastpullurl inside the new repository.
 ';
   return $self;
 }
@@ -720,19 +714,47 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  $self->{quiet} = 1;
+  $self->{args} = "";
+  my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
+  my $record_args  = sub { $self->{args} .= " --@_";    };
   my $result = main::GetOptions(
-    "--help"  => sub { $self->help() },
-    "--noisy" => sub { $self->{quiet} = 0 },
+    "help"             => sub { $self->help() },
+    "template=s"       => sub { &$record_args(@_) },
+    "local|l"          => sub { &$record_arg(@_) },
+    "shared|s"         => sub { &$record_arg(@_) },
+    "no-hard-links"    => sub { &$record_arg(@_) },
+    "quiet|q"          => sub { &$record_arg(@_) },
+    "no-checkout|n"    => sub { &$record_arg(@_) },
+    "bare"             => sub { &$record_arg(@_) },
+    "origin|o=s"       => sub { &$record_args(@_) },
+    "upload-pack|u=s"  => sub { &$record_args(@_) },
+    "reference=s"      => sub { &$record_args(@_) },
+    "depth=i"          => sub { &$record_args(@_) },
     );
+  $self->{repository} = shift @ARGV;
+  die "No repository specified!\n" if !$self->{repository};
+  my $basename = $self->{repository};
+  $basename =~ s#.*/##;
+  $basename =~ s#\.git$##;
+  $self->{directory} = shift @ARGV || $basename;
+
+  $self->{args} .= " $self->{repository} $self->{directory}";
 }
 
 sub run {
   my $self = shift;
 
-  my $extra_args = "";
-  $extra_args = "-q" if $self->{quiet};
-  return ExecUtil::execute("git clone $extra_args @ARGV", ignore_ret => 1);
+  my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
+  if ($ret == 0) {
+    die "$self->{directory} does not exist after checkout!"
+      if ! -d $self->{directory};
+    $self->{repository} = main::abs_path($self->{repository})
+      if -d $self->{repository};
+    chdir($self->{directory});
+    ExecUtil::execute("git config core.lastpushurl $self->{repository}");
+    ExecUtil::execute("git config core.lastpullurl $self->{repository}");
+  }
+
 }
 
 ###########################################################################
