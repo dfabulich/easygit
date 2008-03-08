@@ -674,15 +674,17 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  # If this operation isn't a clone, then we should have checked for whether
-  # we are in a git directory.  But we didn't do that, just in case it was a
-  # clone.  So, do it now if needed.
   if ($self->{command} ne 'clone') {
+    # If this operation isn't a clone, then we should have checked for
+    # whether we are in a git directory.  But we didn't do that, just in
+    # case it was a clone.  So, do it now.
     $self->{git_dir} = RepoUtil::git_dir();
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
-  }
 
-  return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
+  } else {
+    return ExecUtil::execute("eg  clone    @ARGV", ignore_ret => 1);
+  }
 }
 
 ###########################################################################
@@ -729,12 +731,19 @@ Options:
   --depth <depth>
     Only download the <depth> most recent commits instead of all history
 ";
-  $self->{'differences'} = '
-  eg clone and git clone are virtually identical.
+  $self->{'differences'} = "
+  eg clone and git clone are very similar, but eg does a bit more work.
 
-  The only difference is that eg will set core.lastpushurl and
-  core.lastpullurl inside the new repository.
-';
+  eg clone will
+    (1) set up a branch for each remote branch automatically (instead of
+        only creating master)
+    (2) not set branch.master.(remote|merge) as git clone does
+    (3) set up the configuration variables
+        default.branch.BRANCH.(remote|merge) for each BRANCH.  (This is in
+        lieu of (2) and part of eg's intelligent memory of remote
+        repositories and branches; see 'eg changes --details' for more
+        info)
+";
   return $self;
 }
 
@@ -772,17 +781,42 @@ sub preprocess {
 sub run {
   my $self = shift;
 
+  #
+  # Perform the clone
+  #
   my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
   if ($ret == 0) {
+    # Switch to the appropriate directory, remembering the repository we
+    # checked out
     die "$self->{directory} does not exist after checkout!"
       if ! -d $self->{directory};
     $self->{repository} = main::abs_path($self->{repository})
       if -d $self->{repository};
     chdir($self->{directory});
-    ExecUtil::execute("git config core.lastpushurl $self->{repository}");
-    ExecUtil::execute("git config core.lastpullurl $self->{repository}");
-  }
 
+    # Set up a branch for each remote branch, not just master
+    my @branches = `git branch -r`;
+    foreach my $branch (@branches) {
+      chomp($branch);
+      $branch =~ s#  origin/##;
+      next if $branch eq "HEAD";
+      next if $branch eq "master";
+      ExecUtil::execute("git branch --no-track $branch origin/$branch");
+    }
+
+    # Unset branch.master.(remote|merge)
+    ExecUtil::execute("git config --remove-section branch.master");
+
+    # Set up the configuration variables default.branch.BRANCH.(remote|merge)
+    # for each BRANCH.
+    foreach my $branch (@branches) {
+      chomp($branch);
+      $branch =~ s#  origin/##;
+      next if $branch eq "HEAD";
+      ExecUtil::execute("git config default.branch.$branch.remote origin");
+      ExecUtil::execute("git config default.branch.$branch.merge  $branch");
+    }
+  }
 }
 
 ###########################################################################
