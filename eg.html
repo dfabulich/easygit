@@ -1,17 +1,29 @@
 <center>Easy GIT -- <i>git for mere mortals</i></center>
 
 <p>
-<i>Warning: Easy GIT is very incomplete and slightly buggy to boot.</i>
+<i>Warning: Easy GIT is incomplete and slightly buggy to boot.</i>
 </p>
 
+<h3>What is Easy GIT (eg)?</h3>
 <p>
-Easy GIT is a wrapper for <a href="http://git.or.cz/">git</a>, designed to
-make git easy to use.  It is mostly meant as a brainstorming session about
-what git could be, hopefully as a means to spark discussion about
-simplifying its UI.  But it may also well serve as "training wheels for
-git" in the meantime.  If nothing else, I think it is a useful exercise for
-me.
-</p>
+In short, Easy GIT is a wrapper for <a href="http://git.or.cz/">git</a>,
+designed to make git easy to use.  (If you are not familiar with what git
+is, this page will make no sense to you.)  In more detail:
+<ul>
+  <li>eg is a brainstorming session about simplifying the user interface of
+      git, in the form of a usable demonstration</li>
+  <li>eg is predominantly an exercise in writing documentation; I'd
+      guess that 95% of the lines of the program are inline text for
+      its replacement help system.</li>
+  <li>eg is essentially command-line backwards compatible to git;
+      those familiar with git can start using eg by simply replacing
+      "git" with "eg" in their commands (the biggest surprise is with
+      diff, see below).</li>
+  <li>eg is example driven; the documentation focuses heavily on
+      examples</li>
+  <li>eg is incomplete and probably buggy.  Sorry, I'm working on
+      it.</li>
+</ul>
 
 <h3>Motivation</h3>
 
@@ -36,7 +48,7 @@ achieves the following goals:
 </ul>
 </p>
 
-<h3>Switching</h3>
+<h3>Facilitating transition</h3>
 
 <p>
 I would really like to have a tool that
@@ -44,26 +56,41 @@ I would really like to have a tool that
   <li> SVN, bzr, or hg users can pick up and use almost immediately.</li>
   <li> git users can pick up and use almost immediately.</li>
 </ul>
-Some may scoff, but I think it is not farfetched.  I think the biggest
-surprise in eg so far for git users is:
+Some may scoff, but I think it is not farfetched.
+
+<h3>Benefits for current GIT users</h3>
+
+<p>
+If you're a current GIT user and fan, there are all kinds of new
+capabilities waiting for you.  Such as....um...well...nothing.  Sorry, the
+goal isn't to introduce new powerful capabilities; it's to make the power
+of git accessible to a wider audience.  However, 'eg info' may help you
+fill out the GIT user survey a little faster.
+</p>
+
+<p>
+In terms of gotchas for GIT users, I don't think there are any.  None of
+the changes in eg result in different data being recorded (or unrecorded);
+the biggest surprise for existing git users is the following change:
 <pre>
     git diff      <=> eg diff --unstaged
     git diff HEAD <=> eg diff
 </pre>
 </p>
 
-<h3>Try it out</h3>
+<h3>Try it!</h3>
 
 <p>
 First, you need to install <a href="http://git.or.cz/">git</a> (eg is just
-a wrapper; it usually just passes its arguments to git though sometimes it
-massages things...particularly the help pages).  Then run
+a wrapper, which simply passes its arguments on to git except in specific
+important cases).  Then run
 <blockquote>
-    <b>git clone http://www.gnome.org/~newren/eg/eg.git eg</b>
+    <b>git clone http://www.gnome.org/~newren/eg/eg.git</b>
 </blockquote>
 Stick the eg directory in your path and you're ready to go.  If you aren't
-one of those shoot first and ask questions later types, just fire off an
+one of those "shoot first and ask questions later" types, just fire off an
 'eg help'.
+</p>
 
 <h3>Work in progress</h3>
 
