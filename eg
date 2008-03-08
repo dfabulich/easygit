@@ -705,7 +705,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg clone [--depth <depth>] [--noisy] <repository> [<directory>]
+  eg clone [--depth <depth>] <repository> [<directory>]
 
 Description:
   Obtains a copy of a remote repository, including all history by
