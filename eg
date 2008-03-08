@@ -533,6 +533,34 @@ sub run {
       print OUTPUT "Changes to $c:\n";
       print OUTPUT $obj->{differences};
     }
+    print OUTPUT <<EOF;
+Other general changes:
+  Intelligent memory of remote repositories and branches:
+    eg uses the configuration variables default.branch.BRANCH.remote,
+    default.branch.BRANCH.merge, and default.remote.BRANCH.url.  These are
+    convenience parameters that record which repositories and branches
+    users have pulled from or pushed to recently, so they need not always
+    specify this information (and need not take the extra steps of setting
+    branch.BRANCH.(remote|merge), and can learn about remotes later).
+
+    eg pull and eg push will use the same defaults as git pull and git
+    push, but use these configuration variables as a backup.  eg pull and
+    eg push also sets these variables each time they are called with new
+    repositories and branches.  (eg clone and eg publish also set these,
+    and eg info makes use of them in part of its output).
+
+    default.branch.BRANCH.remote can be the name of a real remote
+    (e.g. 'origin'), or the fake remote 'default.remote.BRANCH'.
+    default.branch.BRANCH.merge has the same meaning and syntax as
+    branch.BRANCH.merge, and default.remote.BRANCH.url has the same syntax
+    and meaning as remote.REMOTE.url.
+
+    The way the fake remotes work is that if eg push or eg pull have to
+    fall back to them, eg will copy default.remote.BRANCH.url to
+    remote.eg-temporary.url, and then pass 'eg-temporary' on to git push or
+    git pull.  (The value from default.remote.BRANCH.merge is simply taken
+    and placed on the command line.)
+EOF
   }
   close(OUTPUT);
 }
