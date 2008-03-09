@@ -1796,6 +1796,23 @@ Options
   return $self;
 }
 
+sub _get_only_branch {
+  my $repository = shift;
+
+  # Check if the remote repository has exactly 1 branch...if so, return it,
+  # otherwise throw an error
+  my ($ret, $output) = 
+    ExecUtil::execute_captured("git ls-remote -h $repository");
+  die "Could not determine remote branches from repository '$repository'\n"
+    if $ret != 0;
+  my @remote_refs = split('\n', $output);
+  die "No branch to pull from specified and '$repository' contains more\n" .
+      "than one branch!\n" if @remote_refs > 1;
+  die "'$repository' has no branches!\n" if @remote_refs == 0;
+
+  return $remote_refs[0];
+}
+
 sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
@@ -1848,28 +1865,59 @@ sub preprocess {
   $self->{args} .= " --tags"    if $all_tags;
   $self->{args} .= " --no-tags" if $no_tags;
 
+  #
   # Get the repository to pull from
+  #
+  my $branch = RepoUtil::current_branch() || "HEAD";
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository" if $repository;
-    ExecUtil::execute("git config core.lastpullurl $repository")
-      if $repository;
+
+    #
+    # Remember the repository for the next pull...
+    #
+    if (system("git remote | grep '^$repository\$' >/dev/null") == 0) {
+      # The remote repository is a remote name, not a url
+      RepoUtil::unset_config("default.remote.$branch.url");
+      RepoUtil::set_config("default.branch.$branch.remote", $repository);
+    } else {
+      # The remote repository is a url
+      $repository = main::abs_path($repository) if -d $repository;
+      RepoUtil::set_config("default.remote.$branch.url", $repository);
+      RepoUtil::set_config("default.branch.$branch.remote",
+                           "default.remote.$branch");
+    }
+    # Don't reuse merge branch from a different repository
+    RepoUtil::unset_config("default.branch.$branch.merge")
   } else {
     # Repository option #2: branch.<active branch>.remote variable
-    # Repository option #3: core.lastpullurl variable
-    my $branch = RepoUtil::current_branch() || '';
-    my $url = RepoUtil::get_config("branch.$branch.remote") ||
-              RepoUtil::get_config("core.lastpullurl");
+    my $url = RepoUtil::get_config("branch.$branch.remote");
 
-    if (!$url) {
-      # Option #4: "origin"
-      $url = "origin";
-      my $ret = ExecUtil::execute("git remote | grep origin >/dev/null");
-      # Option #5: whine that we need a repository
-      die "No repository to pull from specified!\n" if $ret != 0;
-    }
+    # Repository option #3: default.branch.<active branch>.remote variable
+    $url = RepoUtil::get_config("default.branch.$branch.remote") if !$url;
+    $url = RepoUtil::get_config("$url.url") if $url =~ /^default\.remote\./;
+
+    die "No repository to pull from specified!\n" if !$url;
 
     $self->{args} .= " $url";
+  }
+
+  #
+  # Get the branch(es) to pull from
+  #
+  push(@branches, @git_refspecs);
+  my $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+  my $defaults = RepoUtil::get_config("default.branch.$branch.merge");
+  my @default_branches;
+  @default_branches = split(' ', $defaults) if $defaults;
+  if (@branches) {
+    # Specified on the command line; remember this for later
+    RepoUtil::set_config("default.branch.$branch.merge", "@branches");
+  } elsif (!@branches &&  @default_branches && !@tags && !$merge_branch) {
+    @branches = @default_branches
+  } elsif (!@branches && !@default_branches && !@tags && !$merge_branch) {
+    my $only_branch = _get_only_branch($repository);
+    @branches = ($only_branch);
   }
 
   foreach my $branch (@branches) {
@@ -1878,7 +1926,6 @@ sub preprocess {
   foreach my $tag (@tags) {
     $self->{args} .= " tag $tag";
   }
-  $self->{args} .= " @git_refspecs";
 
   $self->{args} =~ s/^\s+//;
 }
