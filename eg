@@ -751,6 +751,9 @@ Options:
         lieu of (2) and part of eg's intelligent memory of remote
         repositories and branches; see 'eg changes --details' for more
         info)
+    (4) set up the configuration variables default.push.remote (this
+        complements the setup for pulls done in (3), so that pushes have
+        good defaults too.)
 ";
   return $self;
 }
@@ -816,7 +819,7 @@ sub run {
     ExecUtil::execute("git config --remove-section branch.master");
 
     # Set up the configuration variables default.branch.BRANCH.(remote|merge)
-    # for each BRANCH.
+    # for each BRANCH (used later as default pull locations)
     foreach my $branch (@branches) {
       chomp($branch);
       $branch =~ s#  origin/##;
@@ -824,6 +827,10 @@ sub run {
       RepoUtil::set_config("default.branch.$branch.remote", "origin");
       RepoUtil::set_config("default.branch.$branch.merge",  $branch);
     }
+
+    # Set up the configuration variable default.push.remote (use later as
+    # a default push location)
+    RepoUtil::set_config("default.push.remote", "origin");
   }
 }
 
@@ -1663,6 +1670,7 @@ sub preprocess {
 
 sub run {
   my $self = shift;
+  my $repository = shift @ARGV;
 
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
@@ -1672,8 +1680,24 @@ sub run {
   ExecUtil::execute("git --bare update-server-info");
   ExecUtil::execute("chmod u+x hooks/post-update");
   print "Copy local repository to remote location...\n";
-  ExecUtil::execute("rsync -e ssh -az --delete ./ @ARGV");
-  ExecUtil::execute("git config core.lastpushurl @ARGV");
+  ExecUtil::execute("rsync -e ssh -az --delete ./ $repository");
+
+  # Set up the configuration variables default.branch.BRANCH.(remote|merge)
+  # for each BRANCH (used later as default pull locations)
+  foreach my $branch (@branches) {
+    chomp($branch);
+    $branch =~ s#  origin/##;
+    next if $branch eq "HEAD";
+    RepoUtil::set_config("default.branch.$branch.remote", $repository);
+    RepoUtil::set_config("default.branch.$branch.merge",  $branch);
+    RepoUtil::unset_config("default.remote.$branch.url");
+  }
+
+  # Set up the configuration variable default.push.remote (use later as
+  # a default push location)
+  RepoUtil::set_config("default.push.url",    $repository);
+  RepoUtil::set_config("default.push.remote", "default.push.url");
+  RepoUtil::unset_config("default.push.branches");
 
   # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
   # the files that 'man git-update-server-info' says it creates.
