@@ -9,6 +9,7 @@ package main;
 use warnings;
 use Getopt::Long;
 use Cwd qw(getcwd abs_path);
+use List::Util qw(max);
 
 # configurables
 my $verbose=0;
@@ -1353,21 +1354,21 @@ sub run {
   #
   # Print local and remote repos
   #
-  my @remotes;
+  my %remotes;
+  my $longest = 0;
   my @abbrev_remotes = `git remote`;
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
     my $url = RepoUtil::get_config("remote.$remote.url");
-    push(@remotes, $url);
+    $remotes{$remote} = $url;
+    $longest = main::max($longest, length($remote));
   }
 
   print "Local repository: $self->{git_dir}\n";
-  if (scalar @remotes == 1) {
-    print "Remote repository: $remotes[0]\n";
-  } elsif (@remotes > 1) {
-    print "Remote repositories:\n";
-    foreach my $remote (@remotes) {
-      print "  $remote\n";
+  if (scalar keys %remotes > 1) {
+    print "Named remote repositories: (name -> location)\n";
+    foreach my $remote (sort keys %remotes) {
+      printf "  %${longest}s -> %s\n", $remote, $remotes{$remote};
     }
   }
 
@@ -1390,6 +1391,20 @@ sub run {
 
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
   print "  Cryptographic checksum (sha1sum): $current_commit\n";
+
+  my ($default_repo, $default_merge);
+  $default_repo = RepoUtil::get_config("branch.$current_branch.remote");
+  if (!$default_repo) {
+    $default_repo = 
+      RepoUtil::get_config("default.branch.$current_branch.remote");
+    if (defined $default_repo && $default_repo =~ /^default\.remote\./) {
+      $default_repo = RepoUtil::get_config("default.remote.$current_branch.url")
+    }
+  }
+  $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
+                   RepoUtil::get_config("default.branch.$current_branch.merge");
+  print "  Default remote repository:      $default_repo\n" if $default_repo;
+  print "  Default remote branch to merge: $default_merge\n" if $default_merge;
 
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
   print "  Number of contributors: $contributors\n";
