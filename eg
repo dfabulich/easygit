@@ -98,6 +98,13 @@ INIT {
       about => "Port local commits, making them be based on a different\n" .
                "                repository version"
       },
+    remote => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
+      extra => 1,
+      section => 'collaboration',
+      about => 'Manage named remote repositories',
+      },
     rm => {
       unmodified_help => 1,
       unmodified_behavior => 1,
