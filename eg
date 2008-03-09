@@ -1684,9 +1684,10 @@ sub run {
 
   # Set up the configuration variables default.branch.BRANCH.(remote|merge)
   # for each BRANCH (used later as default pull locations)
+  my @branches = `git branch`;
   foreach my $branch (@branches) {
     chomp($branch);
-    $branch =~ s#  origin/##;
+    $branch =~ s#..##;
     next if $branch eq "HEAD";
     RepoUtil::set_config("default.branch.$branch.remote", $repository);
     RepoUtil::set_config("default.branch.$branch.merge",  $branch);
