@@ -1886,7 +1886,7 @@ sub preprocess {
   my $branch = RepoUtil::current_branch() || "HEAD";
   if ($repository) {
     # Repository option #1: The one they listed on the command line
-    $self->{args} .= " $repository" if $repository;
+    $self->{args} .= " $repository";
 
     #
     # Remember the repository for the next pull...
@@ -2083,38 +2083,64 @@ sub preprocess {
   my $repository = shift @ARGV;
   my @git_refspecs = @ARGV;
 
-  # Get the default, fallback repository to push too
-  if (!$repository) {
-    if (!$repo) {
-      my ($ret, $output) = 
-        ExecUtil::execute_captured("git config --get core.lastpushurl",
-                                   ignore_ret => 1);
-      if ($ret == 0) {
-        chomp($output);
-        $repo = $output;
-      } else {
-        $repo = "origin";
-      }
-    }
-    $self->{args} .= " --repo=$repo";
-  }
-
   $self->{args} .= " --all"    if $all_branches;
   $self->{args} .= " --tags"   if $all_tags;
   $self->{args} .= " --mirror" if $mirror;
 
-  $self->{args} .= " $repository" if $repository;
-  ExecUtil::execute("git config core.lastpushurl @ARGV") if $repository;
+  #
+  # Get the repository to push to, including more general fallbacks
+  #
+  my $branch = RepoUtil::current_branch() || "HEAD";
+  if ($repository) {
+    # Repository option #1: The one they listed on the command line
+    $self->{args} .= " $repository";
 
-  foreach my $branch (@branches) {
-    my ($local, $remote) = split(/:/, $branch, 2);
-    $remote = $local if !defined $remote;
-    $self->{args} .= " refs/heads/$local:refs/heads/$remote";
+    #
+    # Remember the repository for the next push...
+    #
+    if (system("git remote | grep '^$repository\$' >/dev/null") == 0) {
+      # The remote repository is a remote name, not a url
+      RepoUtil::unset_config("default.push.url");
+      RepoUtil::set_config("default.push.remote", $repository);
+    } else {
+      # The remote repository is a url
+      $repository = main::abs_path($repository) if -d $repository;
+      RepoUtil::set_config("default.push.url", $repository);
+      RepoUtil::set_config("default.push.remote", "default.push.url");
+    }
+    # Don't reuse push branches from a different repository
+    RepoUtil::unset_config("default.push.branches")
+  } elsif (!$repo) {
+    # Repository option #2: branch.<active branch>.remote variable
+    my $url = RepoUtil::get_config("branch.$branch.remote");
+
+    # Repository option #3: default.push.remote variable
+    $url = RepoUtil::get_config("default.push.remote") if !$url;
+    $url = RepoUtil::get_config($url) if $url eq "default.push.url";
+
+    die "No repository to push to specified!\n" if !$url;
+
+    $self->{args} .= " --repo=$url";
   }
+
+  #
+  # Get the branch(es) to push
+  #
+  push(@branches, @git_refspecs);
+  my $defaults = RepoUtil::get_config("default.push.branches");
+  my @default_branches;
+  @default_branches = split(' ', $defaults) if $defaults;
+  if (@branches) {
+    # Specified on the command line; remember this for later
+    RepoUtil::set_config("default.push.branches", "@branches");
+  } elsif (!@branches &&  @default_branches && !@tags) {
+    @branches = @default_branches
+  }
+
+  $self->{args} .= " @branches";
   foreach my $tag (@tags) {
     $self->{args} .= " tag $tag";
   }
-  $self->{args} .= " @git_refspecs";
 
   $self->{args} =~ s/^\s+//;
 }
