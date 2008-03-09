@@ -1962,7 +1962,9 @@ Description:
   repository.  The push can fail if the remote repository has commits not
   in the current repository; this can be fixed by pulling and merging
   changes from the remote repository (use eg pull for this) and then
-  repeating the push.
+  repeating the push.  Note that for getting changes to a fellow
+  developer's repository and working copy, you should have them use 'eg
+  pull' rather than trying to use 'eg push' on your end.
 
   Branches and tags are typically considered private; thus only branches
   that exist in both the current and remote repositories will be involved
