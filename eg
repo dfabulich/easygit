@@ -820,8 +820,8 @@ sub run {
       chomp($branch);
       $branch =~ s#  origin/##;
       next if $branch eq "HEAD";
-      ExecUtil::execute("git config default.branch.$branch.remote origin");
-      ExecUtil::execute("git config default.branch.$branch.merge  $branch");
+      RepoUtil::set_config("default.branch.$branch.remote", "origin");
+      RepoUtil::set_config("default.branch.$branch.merge",  $branch);
     }
   }
 }
@@ -1357,7 +1357,7 @@ sub run {
   my @abbrev_remotes = `git remote`;
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
-    my $url = ExecUtil::output("git config --get remote.$remote.url");
+    my $url = RepoUtil::get_config("remote.$remote.url");
     push(@remotes, $url);
   }
 
@@ -1546,9 +1546,9 @@ Description:
 }
 
 sub run {
-  my $head_ref=RepoUtil::current_branch();
-  chomp($head_ref);
-  open(INPUT, "git log @ARGV | git name-rev --stdin --refs=$head_ref |");
+  my $branch = RepoUtil::current_branch();
+  open(INPUT, "git log @ARGV | " .
+              "git name-rev --stdin --refs=refs/heads/$branch |");
   open(OUTPUT, "| less");
   while (<INPUT>) {
     print OUTPUT;
@@ -3031,6 +3031,7 @@ sub current_branch {
   my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
   return undef if $ret != 0;
   chomp($output);
+  $output =~ s#refs/heads/## || die "Current branch ($output) is funky.\n";
   return $output;
 }
 
@@ -3049,6 +3050,17 @@ sub get_config {
   return undef if $ret != 0;
   chomp($output);
   return $output;
+}
+
+sub set_config {
+  my $key = shift;
+  my $value = shift;
+  ExecUtil::execute("git config $key $value");
+}
+
+sub unset_config {
+  my $key = shift;
+  ExecUtil::execute("git config --unset $key", ignore_ret => 1);
 }
 
 sub commit_checks {
