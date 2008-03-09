@@ -732,7 +732,7 @@ Options:
     Only download the <depth> most recent commits instead of all history
 ";
   $self->{'differences'} = "
-  eg clone and git clone are very similar, but eg does a bit more work.
+  eg clone and git clone are very similar, but eg clone does a bit more work.
 
   eg clone will
     (1) set up a branch for each remote branch automatically (instead of
