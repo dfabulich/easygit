@@ -1067,7 +1067,7 @@ Options:
   <commit>
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
-    topic commit-ids' for more details.
+    topic revisions' for more details.
 
   --staged|--cached
     Show changes between the last commit and the staged copy of files.
@@ -1334,7 +1334,7 @@ sub new {
 
 sub remote_urls {
   return "
-Stub help for remote-urls.
+<Sorry, this help page has not been written yet.  This is just a stub.>
 ";
 }
 
@@ -1354,11 +1354,11 @@ sub help {
   } else {
     $topic = "Topics";
     $help_msg = "
-commit-ids
-glossary
-remote-urls
-staging
-storage
+glossary      <Not yet written; this is just a stub>
+remote-urls   Format for referring to remote repositories
+revisions     <Not yet written; this is just a stub>
+staging       <Not yet written; this is just a stub>
+storage       <Not yet written; this is just a stub>
 ";
   }
 
@@ -2343,7 +2343,7 @@ Options:
   <commit>
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
-    topic commit-ids' for more details.
+    topic revisions' for more details.
 
 ";
   $self->{'differences'} = '
@@ -2551,7 +2551,7 @@ Options:
   <commit>
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
-    topic commit-ids' for more details.
+    topic revisions' for more details.
 
   --
     This option can be used to separate command-line options and commits
