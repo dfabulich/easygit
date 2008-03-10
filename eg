@@ -9,6 +9,7 @@ package main;
 use warnings;
 use Getopt::Long;
 use Cwd qw(getcwd abs_path);
+use List::Util qw(max);
 
 # configurables
 my $verbose=0;
@@ -97,6 +98,13 @@ INIT {
       section => 'timesavers',
       about => "Port local commits, making them be based on a different\n" .
                "                repository version"
+      },
+    remote => {
+      unmodified_help => 1,
+      unmodified_behavior => 1,
+      extra => 1,
+      section => 'collaboration',
+      about => 'Manage named remote repositories',
       },
     rm => {
       unmodified_help => 1,
@@ -533,6 +541,34 @@ sub run {
       print OUTPUT "Changes to $c:\n";
       print OUTPUT $obj->{differences};
     }
+    print OUTPUT <<EOF;
+Other general changes:
+  Intelligent memory of remote repositories and branches:
+    eg uses the configuration variables default.branch.BRANCH.remote,
+    default.branch.BRANCH.merge, and default.remote.BRANCH.url.  These are
+    convenience parameters that record which repositories and branches
+    users have pulled from or pushed to recently, so they need not always
+    specify this information (and need not take the extra steps of setting
+    branch.BRANCH.(remote|merge), and can learn about remotes later).
+
+    eg pull and eg push will use the same defaults as git pull and git
+    push, but use these configuration variables as a backup.  eg pull and
+    eg push also sets these variables each time they are called with new
+    repositories and branches.  (eg clone and eg publish also set these,
+    and eg info makes use of them in part of its output).
+
+    default.branch.BRANCH.remote can be the name of a real remote
+    (e.g. 'origin'), or the fake remote 'default.remote.BRANCH'.
+    default.branch.BRANCH.merge has the same meaning and syntax as
+    branch.BRANCH.merge, and default.remote.BRANCH.url has the same syntax
+    and meaning as remote.REMOTE.url.
+
+    The way the fake remotes work is that if eg push or eg pull have to
+    fall back to them, eg will copy default.remote.BRANCH.url to
+    remote.eg-temporary.url, and then pass 'eg-temporary' on to git push or
+    git pull.  (The value from default.remote.BRANCH.merge is simply taken
+    and placed on the command line.)
+EOF
   }
   close(OUTPUT);
 }
@@ -646,15 +682,17 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  # If this operation isn't a clone, then we should have checked for whether
-  # we are in a git directory.  But we didn't do that, just in case it was a
-  # clone.  So, do it now if needed.
   if ($self->{command} ne 'clone') {
+    # If this operation isn't a clone, then we should have checked for
+    # whether we are in a git directory.  But we didn't do that, just in
+    # case it was a clone.  So, do it now.
     $self->{git_dir} = RepoUtil::git_dir();
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
-  }
 
-  return ExecUtil::execute("git $self->{command} @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
+  } else {
+    return ExecUtil::execute("eg  clone    @ARGV", ignore_ret => 1);
+  }
 }
 
 ###########################################################################
@@ -675,7 +713,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg clone [--depth <depth>] [--noisy] <repository> [<directory>]
+  eg clone [--depth <depth>] <repository> [<directory>]
 
 Description:
   Obtains a copy of a remote repository, including all history by
@@ -700,19 +738,23 @@ Examples:
 Options:
   --depth <depth>
     Only download the <depth> most recent commits instead of all history
-
-  --noisy
-    Output more information during some clone operations.
 ";
-  $self->{'differences'} = '
-  eg clone and git clone are identical other than output (the -q or --noisy
-  flags).
+  $self->{'differences'} = "
+  eg clone and git clone are very similar, but eg clone does a bit more work.
 
-  eg clone passes the -q option to git clone by default (it is unfortunate
-  that the -q option for git clone feels almost like a lie; it is still too
-  verbose).  However, this can be turned off by the --noisy flag of eg
-  clone.
-';
+  eg clone will
+    (1) set up a branch for each remote branch automatically (instead of
+        only creating master)
+    (2) not set branch.master.(remote|merge) as git clone does
+    (3) set up the configuration variables
+        default.branch.BRANCH.(remote|merge) for each BRANCH.  (This is in
+        lieu of (2) and part of eg's intelligent memory of remote
+        repositories and branches; see 'eg changes --details' for more
+        info)
+    (4) set up the configuration variables default.push.remote (this
+        complements the setup for pulls done in (3), so that pushes have
+        good defaults too.)
+";
   return $self;
 }
 
@@ -720,19 +762,76 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  $self->{quiet} = 1;
+  $self->{args} = "";
+  my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
+  my $record_args  = sub { $self->{args} .= " --@_";    };
   my $result = main::GetOptions(
-    "--help"  => sub { $self->help() },
-    "--noisy" => sub { $self->{quiet} = 0 },
+    "help"             => sub { $self->help() },
+    "template=s"       => sub { &$record_args(@_) },
+    "local|l"          => sub { &$record_arg(@_) },
+    "shared|s"         => sub { &$record_arg(@_) },
+    "no-hard-links"    => sub { &$record_arg(@_) },
+    "quiet|q"          => sub { &$record_arg(@_) },
+    "no-checkout|n"    => sub { &$record_arg(@_) },
+    "bare"             => sub { &$record_arg(@_) },
+    "origin|o=s"       => sub { &$record_args(@_) },
+    "upload-pack|u=s"  => sub { &$record_args(@_) },
+    "reference=s"      => sub { &$record_args(@_) },
+    "depth=i"          => sub { &$record_args(@_) },
     );
+  $self->{repository} = shift @ARGV;
+  die "No repository specified!\n" if !$self->{repository};
+  my $basename = $self->{repository};
+  $basename =~ s#.*/##;
+  $basename =~ s#\.git$##;
+  $self->{directory} = shift @ARGV || $basename;
+
+  $self->{args} .= " $self->{repository} $self->{directory}";
 }
 
 sub run {
   my $self = shift;
 
-  my $extra_args = "";
-  $extra_args = "-q" if $self->{quiet};
-  return ExecUtil::execute("git clone $extra_args @ARGV", ignore_ret => 1);
+  #
+  # Perform the clone
+  #
+  my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
+  if ($ret == 0) {
+    # Switch to the appropriate directory, remembering the repository we
+    # checked out
+    die "$self->{directory} does not exist after checkout!"
+      if ! -d $self->{directory};
+    $self->{repository} = main::abs_path($self->{repository})
+      if -d $self->{repository};
+    chdir($self->{directory});
+
+    # Set up a branch for each remote branch, not just master
+    my @branches = `git branch -r`;
+    foreach my $branch (@branches) {
+      chomp($branch);
+      $branch =~ s#  origin/##;
+      next if $branch eq "HEAD";
+      next if $branch eq "master";
+      ExecUtil::execute("git branch --no-track $branch origin/$branch");
+    }
+
+    # Unset branch.master.(remote|merge)
+    ExecUtil::execute("git config --remove-section branch.master");
+
+    # Set up the configuration variables default.branch.BRANCH.(remote|merge)
+    # for each BRANCH (used later as default pull locations)
+    foreach my $branch (@branches) {
+      chomp($branch);
+      $branch =~ s#  origin/##;
+      next if $branch eq "HEAD";
+      RepoUtil::set_config("default.branch.$branch.remote", "origin");
+      RepoUtil::set_config("default.branch.$branch.merge",  $branch);
+    }
+
+    # Set up the configuration variable default.push.remote (use later as
+    # a default push location)
+    RepoUtil::set_config("default.push.remote", "origin");
+  }
 }
 
 ###########################################################################
@@ -1285,21 +1384,21 @@ sub run {
   #
   # Print local and remote repos
   #
-  my @remotes;
+  my %remotes;
+  my $longest = 0;
   my @abbrev_remotes = `git remote`;
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
-    my $url = ExecUtil::output("git config --get remote.$remote.url");
-    push(@remotes, $url);
+    my $url = RepoUtil::get_config("remote.$remote.url");
+    $remotes{$remote} = $url;
+    $longest = main::max($longest, length($remote));
   }
 
   print "Local repository: $self->{git_dir}\n";
-  if (scalar @remotes == 1) {
-    print "Remote repository: $remotes[0]\n";
-  } elsif (@remotes > 1) {
-    print "Remote repositories:\n";
-    foreach my $remote (@remotes) {
-      print "  $remote\n";
+  if (scalar keys %remotes > 1) {
+    print "Named remote repositories: (name -> location)\n";
+    foreach my $remote (sort keys %remotes) {
+      printf "  %${longest}s -> %s\n", $remote, $remotes{$remote};
     }
   }
 
@@ -1322,6 +1421,20 @@ sub run {
 
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
   print "  Cryptographic checksum (sha1sum): $current_commit\n";
+
+  my ($default_repo, $default_merge);
+  $default_repo = RepoUtil::get_config("branch.$current_branch.remote");
+  if (!$default_repo) {
+    $default_repo = 
+      RepoUtil::get_config("default.branch.$current_branch.remote");
+    if (defined $default_repo && $default_repo =~ /^default\.remote\./) {
+      $default_repo = RepoUtil::get_config("default.remote.$current_branch.url")
+    }
+  }
+  $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
+                   RepoUtil::get_config("default.branch.$current_branch.merge");
+  print "  Default remote repository:      $default_repo\n" if $default_repo;
+  print "  Default remote branch to merge: $default_merge\n" if $default_merge;
 
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
   print "  Number of contributors: $contributors\n";
@@ -1478,9 +1591,9 @@ Description:
 }
 
 sub run {
-  my $head_ref=RepoUtil::current_branch();
-  chomp($head_ref);
-  open(INPUT, "git log @ARGV | git name-rev --stdin --refs=$head_ref |");
+  my $branch = RepoUtil::current_branch();
+  open(INPUT, "git log @ARGV | " .
+              "git name-rev --stdin --refs=refs/heads/$branch |");
   open(OUTPUT, "| less");
   while (<INPUT>) {
     print OUTPUT;
@@ -1580,6 +1693,7 @@ sub preprocess {
 
 sub run {
   my $self = shift;
+  my $repository = shift @ARGV;
 
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
@@ -1589,8 +1703,25 @@ sub run {
   ExecUtil::execute("git --bare update-server-info");
   ExecUtil::execute("chmod u+x hooks/post-update");
   print "Copy local repository to remote location...\n";
-  ExecUtil::execute("rsync -e ssh -az --delete ./ @ARGV");
-  ExecUtil::execute("git config core.lastpushurl @ARGV");
+  ExecUtil::execute("rsync -e ssh -az --delete ./ $repository");
+
+  # Set up the configuration variables default.branch.BRANCH.(remote|merge)
+  # for each BRANCH (used later as default pull locations)
+  my @branches = `git branch`;
+  foreach my $branch (@branches) {
+    chomp($branch);
+    $branch =~ s#..##;
+    next if $branch eq "HEAD";
+    RepoUtil::set_config("default.branch.$branch.remote", $repository);
+    RepoUtil::set_config("default.branch.$branch.merge",  $branch);
+    RepoUtil::unset_config("default.remote.$branch.url");
+  }
+
+  # Set up the configuration variable default.push.remote (use later as
+  # a default push location)
+  RepoUtil::set_config("default.push.url",    $repository);
+  RepoUtil::set_config("default.push.remote", "default.push.url");
+  RepoUtil::unset_config("default.push.branches");
 
   # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
   # the files that 'man git-update-server-info' says it creates.
@@ -1616,14 +1747,15 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg pull OPTIONS REPOSITORY
+  eg pull [--branch BRANCH] [--no-tags] [--all-tags] [--tag TAG]
+          [--no-commit] [--rebase] REPOSITORY
 
 Description:
   Pull changes from another repository and merge them into the local
   repository.  If there are no conflicts, the result will be committed.
 
   See 'eg help topic remote-urls' for valid syntax for remote repositories.
-  If the repository to pull the changes to is not specified, the last
+  If the repository to pull the changes from is not specified, the last
   repository specified will be reused.  Run 'eg info' to be reminded which
   repository this is.
 
@@ -1633,30 +1765,50 @@ Description:
   options.
 
   If there is more than one branch (on either end):
-    If the remote repository has more than one branch, changes from the
-    currently active one are pulled.  If the local repository has more than
-    one branch, the changes are merged into the active one.  One can
-    specify to pull changes from a branch other than the active one with
-    the --branch flag.  Changes are always merged to the locally active
-    branch.
+    If the local repository has more than one branch, the changes are
+    always merged into the active branch (use 'eg info' or 'eg branch' to
+    determine the active branch).
 
-  Note for users of remote repository url nicknames:
-    If you set up nicknames for remote repositories (using 'eg remote'),
-    you can make 'eg pull' obtain changes from several branches at once.
-    In such a case, eg will take the changes and record them in special
-    local branches known as \"remote tracking branches\", a step which
-    involves no merging.  eg will then take changes from the branch(es)
-    specified with the --branch option (or the branch.CURRENTBRANCH.merge
-    configuration variable), and merge them into the active branch.
+    If you do not specify which remote branch to pull, and you have not
+    previously pulled a remote branch from the given repository, then eg
+    will abort and ask you to specify a remote branch (giving you a list to
+    choose from).
+
+  Note for users of named remote repositories and remote tracking branches:
+    If you set up named remote repositories (using 'eg remote'), you can
+    make 'eg pull' obtain changes from several branches at once.  In such a
+    case, eg will take the changes and record them in special local
+    branches known as \"remote tracking branches\", a step which involves
+    no merging.  Most of these branches will not be handled further after
+    this step.  eg will then take changes from just the branch(es)
+    specified (with the --branch option, or with the
+    branch.CURRENTBRANCH.merge configuration variable, or by the last
+    branch(es) merged), and merge it/them into the active branch.
 
     The advantage of pulling changes from branches that you do not
     immediately merge with is that you can then later inspect, review, or
     merge with such changes (using 'eg merge') even if not connected to the
-    network.  See 'eg help remote' and 'eg help topic storage' for more
-    information about remote repository url nicknames and remote tracking
-    branches.
+    network.  Naming the remote repositories also allows you to use the
+    shorter name instead of the full location of the repository.  See 'eg
+    help remote' and 'eg help topic storage' for more information about
+    named remote repositories and remote tracking branches.
 
 Examples:
+  Pull changes from myserver.com:git-stuff/my-repo.git
+      \$ eg pull myserver.com:git-stuff/my-repo.git
+
+  Pull changes from the stable branch of git://git.foo.org/whizbang into the
+  active local branch
+      \$ eg pull --branch stable git://git.foo.org/whizbang
+
+  Pull changes from a remote repository that has multiple branches
+      Hmm, we don't know which branches the remote repository has.  Just
+      try it.
+      \$ eg pull ssh://machine.fake.gov/~user/hack.git
+      That gave us an error telling us it didn't know which branch to pull
+      from, but it told us that there were 3 branches: 'master', 'stable',
+      and 'nasty-hack'.  Let's get changes from the nasty-hack branch!
+      \$ eg pull --branch nasty-hack ssh://machine.fake.gov/~user/hack.git
 
 Options
   --branch BRANCH
@@ -1687,15 +1839,41 @@ Options
     affected repository.)  Do not use this option without thoroughly
     understanding 'eg help rebase'.
 ";
-  $self->{'differences'} = '
-  eg pull uses slightly different option names than git pull (though it
-  accepts all the options that git pull does), and introduces a new option
-  --branch in order to avoid the need to explain refspecs.  eg pull also
-  defaults to using core.lastpullurl rather than "origin" -- though
-  core.lastpullurl will be "origin" in a clone repository until the user
-  pulls from a different repository.
-';
+  $self->{'differences'} = "
+  eg pull and git pull are very similar, but eg pull does a bit more work.
+
+  eg pull generalizes the repository fallback of git pull (namely 'origin')
+  to the last repository used, and also adds a fallback of the last branch
+  used.  It does so via the configuration variables
+  default.branch.BRANCH.(remote|merge) and default.remote.BRANCH.url (see
+  'eg changes --details' for more info).  Note that eg pull also updates
+  these configuration variables whenver a repository (or branch) are
+  specified on the command line.
+
+  eg also introduces a new option named --branch in order to (1) avoid the
+  need to explain refspecs too early to users, (2) to make command line
+  examples more self-documenting.  eg still accepts refspecs at the end of
+  the commandline the same as git pull, they simply are deferred to the git
+  manpages.
+";
   return $self;
+}
+
+sub _get_only_branch {
+  my $repository = shift;
+
+  # Check if the remote repository has exactly 1 branch...if so, return it,
+  # otherwise throw an error
+  my ($ret, $output) = 
+    ExecUtil::execute_captured("git ls-remote -h $repository");
+  die "Could not determine remote branches from repository '$repository'\n"
+    if $ret != 0;
+  my @remote_refs = split('\n', $output);
+  die "No branch to pull from specified and '$repository' contains more\n" .
+      "than one branch!\n" if @remote_refs > 1;
+  die "'$repository' has no branches!\n" if @remote_refs == 0;
+
+  return $remote_refs[0];
 }
 
 sub preprocess {
@@ -1750,28 +1928,59 @@ sub preprocess {
   $self->{args} .= " --tags"    if $all_tags;
   $self->{args} .= " --no-tags" if $no_tags;
 
+  #
   # Get the repository to pull from
+  #
+  my $branch = RepoUtil::current_branch() || "HEAD";
   if ($repository) {
     # Repository option #1: The one they listed on the command line
-    $self->{args} .= " $repository" if $repository;
-    ExecUtil::execute("git config core.lastpullurl $repository")
-      if $repository;
+    $self->{args} .= " $repository";
+
+    #
+    # Remember the repository for the next pull...
+    #
+    if (system("git remote | grep '^$repository\$' >/dev/null") == 0) {
+      # The remote repository is a remote name, not a url
+      RepoUtil::unset_config("default.remote.$branch.url");
+      RepoUtil::set_config("default.branch.$branch.remote", $repository);
+    } else {
+      # The remote repository is a url
+      $repository = main::abs_path($repository) if -d $repository;
+      RepoUtil::set_config("default.remote.$branch.url", $repository);
+      RepoUtil::set_config("default.branch.$branch.remote",
+                           "default.remote.$branch");
+    }
+    # Don't reuse merge branch from a different repository
+    RepoUtil::unset_config("default.branch.$branch.merge")
   } else {
     # Repository option #2: branch.<active branch>.remote variable
-    # Repository option #3: core.lastpullurl variable
-    my $branch = RepoUtil::current_branch() || '';
-    my $url = RepoUtil::get_config("branch.$branch.remote") ||
-              RepoUtil::get_config("core.lastpullurl");
+    my $url = RepoUtil::get_config("branch.$branch.remote");
 
-    if (!$url) {
-      # Option #4: "origin"
-      $url = "origin";
-      my $ret = ExecUtil::execute("git remote | grep origin >/dev/null");
-      # Option #5: whine that we need a repository
-      die "No repository to pull from specified!\n" if $ret != 0;
-    }
+    # Repository option #3: default.branch.<active branch>.remote variable
+    $url = RepoUtil::get_config("default.branch.$branch.remote") if !$url;
+    $url = RepoUtil::get_config("$url.url") if $url =~ /^default\.remote\./;
+
+    die "No repository to pull from specified!\n" if !$url;
 
     $self->{args} .= " $url";
+  }
+
+  #
+  # Get the branch(es) to pull from
+  #
+  push(@branches, @git_refspecs);
+  my $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+  my $defaults = RepoUtil::get_config("default.branch.$branch.merge");
+  my @default_branches;
+  @default_branches = split(' ', $defaults) if $defaults;
+  if (@branches) {
+    # Specified on the command line; remember this for later
+    RepoUtil::set_config("default.branch.$branch.merge", "@branches");
+  } elsif (!@branches &&  @default_branches && !@tags && !$merge_branch) {
+    @branches = @default_branches
+  } elsif (!@branches && !@default_branches && !@tags && !$merge_branch) {
+    my $only_branch = _get_only_branch($repository);
+    @branches = ($only_branch);
   }
 
   foreach my $branch (@branches) {
@@ -1780,7 +1989,6 @@ sub preprocess {
   foreach my $tag (@tags) {
     $self->{args} .= " tag $tag";
   }
-  $self->{args} .= " @git_refspecs";
 
   $self->{args} =~ s/^\s+//;
 }
@@ -1817,7 +2025,9 @@ Description:
   repository.  The push can fail if the remote repository has commits not
   in the current repository; this can be fixed by pulling and merging
   changes from the remote repository (use eg pull for this) and then
-  repeating the push.
+  repeating the push.  Note that for getting changes to a fellow
+  developer's repository and working copy, you should have them use 'eg
+  pull' rather than trying to use 'eg push' on your end.
 
   Branches and tags are typically considered private; thus only branches
   that exist in both the current and remote repositories will be involved
@@ -1921,38 +2131,64 @@ sub preprocess {
   my $repository = shift @ARGV;
   my @git_refspecs = @ARGV;
 
-  # Get the default, fallback repository to push too
-  if (!$repository) {
-    if (!$repo) {
-      my ($ret, $output) = 
-        ExecUtil::execute_captured("git config --get core.lastpushurl",
-                                   ignore_ret => 1);
-      if ($ret == 0) {
-        chomp($output);
-        $repo = $output;
-      } else {
-        $repo = "origin";
-      }
-    }
-    $self->{args} .= " --repo=$repo";
-  }
-
   $self->{args} .= " --all"    if $all_branches;
   $self->{args} .= " --tags"   if $all_tags;
   $self->{args} .= " --mirror" if $mirror;
 
-  $self->{args} .= " $repository" if $repository;
-  ExecUtil::execute("git config core.lastpushurl @ARGV") if $repository;
+  #
+  # Get the repository to push to, including more general fallbacks
+  #
+  my $branch = RepoUtil::current_branch() || "HEAD";
+  if ($repository) {
+    # Repository option #1: The one they listed on the command line
+    $self->{args} .= " $repository";
 
-  foreach my $branch (@branches) {
-    my ($local, $remote) = split(/:/, $branch, 2);
-    $remote = $local if !defined $remote;
-    $self->{args} .= " refs/heads/$local:refs/heads/$remote";
+    #
+    # Remember the repository for the next push...
+    #
+    if (system("git remote | grep '^$repository\$' >/dev/null") == 0) {
+      # The remote repository is a remote name, not a url
+      RepoUtil::unset_config("default.push.url");
+      RepoUtil::set_config("default.push.remote", $repository);
+    } else {
+      # The remote repository is a url
+      $repository = main::abs_path($repository) if -d $repository;
+      RepoUtil::set_config("default.push.url", $repository);
+      RepoUtil::set_config("default.push.remote", "default.push.url");
+    }
+    # Don't reuse push branches from a different repository
+    RepoUtil::unset_config("default.push.branches")
+  } elsif (!$repo) {
+    # Repository option #2: branch.<active branch>.remote variable
+    my $url = RepoUtil::get_config("branch.$branch.remote");
+
+    # Repository option #3: default.push.remote variable
+    $url = RepoUtil::get_config("default.push.remote") if !$url;
+    $url = RepoUtil::get_config($url) if $url eq "default.push.url";
+
+    die "No repository to push to specified!\n" if !$url;
+
+    $self->{args} .= " --repo=$url";
   }
+
+  #
+  # Get the branch(es) to push
+  #
+  push(@branches, @git_refspecs);
+  my $defaults = RepoUtil::get_config("default.push.branches");
+  my @default_branches;
+  @default_branches = split(' ', $defaults) if $defaults;
+  if (@branches) {
+    # Specified on the command line; remember this for later
+    RepoUtil::set_config("default.push.branches", "@branches");
+  } elsif (!@branches &&  @default_branches && !@tags) {
+    @branches = @default_branches
+  }
+
+  $self->{args} .= " @branches";
   foreach my $tag (@tags) {
     $self->{args} .= " tag $tag";
   }
-  $self->{args} .= " @git_refspecs";
 
   $self->{args} =~ s/^\s+//;
 }
@@ -2933,6 +3169,7 @@ sub current_branch {
   my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
   return undef if $ret != 0;
   chomp($output);
+  $output =~ s#refs/heads/## || die "Current branch ($output) is funky.\n";
   return $output;
 }
 
@@ -2951,6 +3188,17 @@ sub get_config {
   return undef if $ret != 0;
   chomp($output);
   return $output;
+}
+
+sub set_config {
+  my $key = shift;
+  my $value = shift;
+  ExecUtil::execute("git config $key $value");
+}
+
+sub unset_config {
+  my $key = shift;
+  ExecUtil::execute("git config --unset $key", ignore_ret => 1);
 }
 
 sub commit_checks {
