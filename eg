@@ -1446,7 +1446,7 @@ sub run {
   }
 
   print "Local repository: $self->{git_dir}\n";
-  if (scalar keys %remotes > 1) {
+  if (scalar keys %remotes > 0) {
     print "Named remote repositories: (name -> location)\n";
     foreach my $remote (sort keys %remotes) {
       printf "  %${longest}s -> %s\n", $remote, $remotes{$remote};
