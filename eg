@@ -2960,6 +2960,17 @@ sub commit_checks {
   #
   # Perform the relevant checks and spew any necessary warning messages
   #
+  my @unmerged_files = `git ls-files --unmerged`;
+  if (@unmerged_files) {
+    print STDERR <<EOF;
+Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
+the list of files with conflicts).  You must first resolve any conflicts and
+then mark the relevant files as being ready for commit (see 'eg help add' to
+learn how to do so) before proceeding.
+EOF
+    exit 1;
+  }
+
   if ($check_for->{no_changes} && $status{has_no_changes}) {
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
     exit 1;
