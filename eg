@@ -1345,7 +1345,7 @@ sub help {
   # Get the topic we want more info on (replace dashes, since they can't
   # be in function names)
   my $topic = shift @ARGV;
-  $topic =~ s/-/_/g;
+  $topic =~ s/-/_/g if $topic;
 
   if (defined $topic) {
     die "No topic help for '$topic' exists.  Try 'eg help topic'.\n"
