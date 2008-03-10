@@ -1026,8 +1026,31 @@ sub preprocess {
     if ($staged && scalar @$revs > 1);
   die "eg diff: Cannot specify '--unstaged' with any revisions.\n"
     if ($unstaged && scalar @$revs > 0);
-  # 'eg diff' (without arguments) should act like 'git diff HEAD'
-  push(@$revs, "HEAD") if (!@$revs && !$unstaged && !$staged);
+  # 'eg diff' (without arguments) should act like 'git diff HEAD', unless
+  # we are in an aborted merge state 
+  if (!@$revs && !$unstaged && !$staged) {
+    if (-f "$self->{git_dir}/MERGE_HEAD") {
+      my $active_branch = RepoUtil::current_branch() || 'HEAD';
+      my @merge_branches =
+        `cat $self->{git_dir}/MERGE_HEAD | git name-rev --stdin`;
+      @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
+      my @targets = ($active_branch, @merge_branches);
+      my $list = join(", ", @targets);
+      print STDERR <<EOF;
+Aborting: Cannot show the changes since the last commit, since you are in the
+middle of a merge and there are multiple last commits.  Try passing one of
+  --unstaged, $list
+to eg diff.
+
+For additional conflict resolution help, try eg log --merge or
+  eg show BRANCH:FILE
+where FILE is any file in your working copy and BRANCH is one of
+  $list
+EOF
+      exit 1;
+    }
+    push(@$revs, "HEAD")
+  }
 
   @ARGV = "$self->{opts} @$revs @$files"
 }
