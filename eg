@@ -77,7 +77,7 @@ INIT {
       unmodified_behavior => 1,
       extra => 1,
       section => 'discovery',
-      about => 'Print lines of tracked files matching a pattern'
+      about => 'Print lines of known files matching a pattern'
       },
     merge => {
       unmodified_help => 1,
@@ -854,7 +854,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg commit [-a|--all-tracked] [-b|--bypass-untracked-check]
+  eg commit [-a|--all-known] [-b|--bypass-unknown-check]
             [--staged|-d|--dirty] [-F <file> | -m <msg> | --amend]
             [--] [<file>...]
 
@@ -866,7 +866,7 @@ Description:
   In order to prevent common errors, the commit will abort with a warning
   message if there are no changes to commit or if it detects that the
   choice of what to commit is ambiguous.  In particular, if you have any
-  \"newly created\" untracked files present, or if you have both staged
+  \"newly created\" unknown files present, or if you have both staged
   changes (i.e. changes explicitly marked as ready for commit) and unstaged
   changes, then you will get a warning rather than having the commit occur.
   You can run 'eg status' to get the status of various files and their
@@ -878,9 +878,9 @@ Examples:
   necessarily clear.
       \$ eg commit
 
-  Record current changes, ignoring any untracked files present.  Also
-  remember the list of untracked files so that their existence will not
-  trigger future \"You have new untracked files present\" warnings when not
+  Record current changes, ignoring any unknown files present.  Also
+  remember the list of unknown files so that their existence will not
+  trigger future \"You have new unknown files present\" warnings when not
   using the -b flag.
       \$ eg commit -b
 
@@ -893,11 +893,11 @@ Examples:
   should be recorded.
 
   (Advanced) Record staged changes, ignoring both unstaged changes and
-  untracked files.
+  unknown files.
       \$ eg commit --staged
 
 Options:
-  -a|--all-tracked
+  -a|--all-known
     (Could also be called --act-like-other-vcses).  Commit both staged
     (i.e. explictly marked as ready for commit) changes and unstaged
     changes.
@@ -905,11 +905,11 @@ Options:
     Incompatible with explicitly specifying files to commit on the command
     line, and incompatible with the --staged option.
 
-  -b|--bypass-untracked-check
-    Commit local changes, even if there are untracked files around.  If
-    this flag is not used and untracked files are currently present that
-    were not present the last time the -b flag was used, then the commit
-    will be aborted with a warning message.
+  -b|--bypass-unknown-check
+    Commit local changes, even if there are unknown files around.  If this
+    flag is not used and unknown files are currently present that were not
+    present the last time the -b flag was used, then the commit will be
+    aborted with a warning message.
 
   --staged|-d|--dirty
     Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
@@ -921,7 +921,7 @@ Options:
     different meaning (see 'git commit --help')
 
     Incompatible with explicitly specifying files to commit on the command
-    line, and incompatible with the --all-tracked option.
+    line, and incompatible with the --all-known option.
 
   -F <file>
     Use the contents of <file> as the commit message
@@ -938,15 +938,15 @@ Options:
   like the --staged flag was passed UNLESS either the -a option is passed
   or files are explicitly listed on the command line.
 
-  The "-b" and "--bypass-untracked-check" are unique to eg commit; git
-  commit behavior differs by always turning on this functionality -- there
-  is no way to have git commit do an untracked files sanity check for you.
+  The "-b" and "--bypass-unknown-check" are unique to eg commit; git commit
+  behavior differs by always turning on this functionality -- there is no
+  way to have git commit do an unknown files sanity check for you.
 
   "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
   has the same behavior in both, but the "smart" behavior of eg commit
   means it is only rarely needed.
 
-  The "--all-tracked" alias for "-a" is known as "--all" to git-commit; I
+  The "--all-known" alias for "-a" is known as "--all" to git-commit; I
   find the latter confusing and misleading and thus renamed to the former
   for eg commit.
 ';
@@ -961,46 +961,46 @@ sub preprocess {
   # Parse options
   #
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
-  my ($all_tracked, $bypass_untracked, $staged) = (0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged) = (0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
-    "all-tracked|a"               => \$all_tracked,
-    "bypass-untracked-check|b"    => \$bypass_untracked,
+    "all-known|a"                 => \$all_known,
+    "bypass-unknown-check|b"      => \$bypass_unknown,
     "staged|staged|d"             => \$staged,
     );
 
   #
   # Set up flags based on options, do sanity checking of options
   #
-  my ($check_untracked, $check_mixed);
+  my ($check_unknown, $check_mixed);
   $self->{'commit_flags'} = "";
-  die "Cannot specify both --all-tracked (-a) and --staged (-d)!\n" if
-    $all_tracked && $staged;
+  die "Cannot specify both --all-known (-a) and --staged (-d)!\n" if
+    $all_known && $staged;
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
-  $check_untracked = !$bypass_untracked && !$staged && !@$files;
-  $check_mixed     = !$all_tracked      && !$staged && !@$files;
-  $self->{'commit_flags'} .= " -a" if $all_tracked;
+  $check_unknown = !$bypass_unknown && !$staged && !@$files;
+  $check_mixed   = !$all_known      && !$staged && !@$files;
+  $self->{'commit_flags'} .= " -a" if $all_known;
 
   #
   # Lots of sanity checks
   #
   my $status = RepoUtil::commit_checks($package_name,
                                        {no_changes       => 1,
-                                        untracked        => $check_untracked,
+                                        unknown          => $check_unknown,
                                         partially_staged => $check_mixed});
-  if (!$all_tracked && 
+  if (!$all_known && 
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
     $self->{'commit_flags'} .= " -a";
   }
 
   #
-  # Record the set of untracked files we ignored with -b, so the -b flag isn't
+  # Record the set of unknown files we ignored with -b, so the -b flag isn't
   # needed next time.
   #
-  if ($bypass_untracked) {
-    open(OUTPUT, "> .git/info/ignored-untracked");
-    my @untracked_files = `git ls-files --others --directory`;
-    foreach my $file (@untracked_files) {
+  if ($bypass_unknown) {
+    open(OUTPUT, "> .git/info/ignored-unknown");
+    my @unknown_files = `git ls-files --others --directory`;
+    foreach my $file (@unknown_files) {
       print OUTPUT $file;
     }
     close(OUTPUT);
@@ -2689,7 +2689,7 @@ Description:
   be used to apply any previously stashed away changes.  This command can
   be used multiple times to have multiple sets of changes stashed away.
 
-  Untracked files (files which you have never run 'eg add' on) are
+  Unknown files (files which you have never run 'eg add' on) are
   unaffected; they will not be stashed away or reverted.
 
   When no arguments are specified to eg stash, the current changes are
@@ -2895,12 +2895,12 @@ Description:
   currently active branch, this command will list files with content in any
   of the following states:
 
-     Untracked
+     Unknown
        Files that are not explicitly ignored (i.e. do not appear in an
        ignore list such as a .gitignore file) but whose contents are still
        not tracked by git.
 
-       These files can become tracked by running 'eg add <filename>', or
+       These files can become known by running 'eg add <filename>', or
        ignored by having their name added to a .gitignore file.
 
      Changed but not updated (\"unstaged\")
@@ -2923,12 +2923,25 @@ Description:
 ";
   $self->{'differences'} = '
   eg status output is essentially just a streamlined and cleaned version of
-  git status output.  The streamlining serves to avoid information overload
-  to new users (which is only possible with a less error prone "commit"
-  command) and the cleaning (removal of leading hash marks) serves to make
-  the system more inviting to new users.  There are slight changes to the
-  section names to reinforce consistent naming when referring to the same
-  concept, but the changes are very slight.
+  git status output.
+
+  The streamlining serves to avoid information overload to new users (which
+  is only possible with a less error prone "commit" command) and the
+  cleaning (removal of leading hash marks) serves to make the system more
+  inviting to new users.
+
+  A slight wording change was done to transform "untracked" to "unknown"
+  since, as Havoc pointed out, the word "tracked" may not be very self
+  explanatory (in addition to the real meaning, users might think of:
+  "tracked in the index?", "related to remote tracking branches?", "some
+  fancy new monitoring scheme unique to git that other vcses do not have?",
+  "is there some other meaning?").  I do not know if "known" will fully
+  solve this, but I suspect it will be more self-explanatory than
+  "tracked".
+
+  There are also slight changes to the section names to reinforce
+  consistent naming when referring to the same concept (staging, in this
+  case), but the changes are very slight.
 ';
   return $self;
 }
@@ -2938,7 +2951,7 @@ sub postprocess {
   my $output = shift;
 
   my $branch;
-  my %files = ( untracked => undef, unstaged => undef, staged => undef );
+  my %files = ( unknown => undef, unstaged => undef, staged => undef );
 
   my @lines = split('\n', $output);
   my $cur_state = 0;
@@ -2950,8 +2963,8 @@ sub postprocess {
       $branch = $1;
     } elsif ($line =~ m/^# Untracked files:$/) {
       $cur_state = 1;
-      $section = 'untracked';
-      $title = "Untracked files:";
+      $section = 'unknown';
+      $title = "Unknown files:";
     } elsif ($line =~ m/^# Changes to be committed:$/) {
       $cur_state = 2;
       $section = 'staged';
@@ -3001,7 +3014,7 @@ sub postprocess {
   print "(On branch $branch)\n";
 
   # Print out all the various changes
-  foreach my $section (sort keys %files) {
+  foreach my $section ('staged', 'unstaged', 'unknown') {
     if (defined($files{$section})) {
       print "$files{$section}{'title'}\n";
       foreach my $fileline (@{$files{$section}{'file_list'}}) {
@@ -3260,23 +3273,23 @@ sub commit_checks {
   # Determine which types of changes are present
   #
   my ($ret, $output) = ExecUtil::execute_captured("eg status");
-  $status{has_untracked_files}  = ($output =~ /^Untracked files:$/m);
+  $status{has_unknown_files}    = ($output =~ /^Unknown files:$/m);
   $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
   $status{has_staged_changes}   = ($output =~ /^Changes ready to be commit/m);
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
 
   #
-  # Determine which untracked files are "newly created"
+  # Determine which unknown files are "newly created"
   #
-  my @new_untracked = `git ls-files --exclude-standard --others --directory`;
+  my @new_unknown = `git ls-files --exclude-standard --others --directory`;
   my $git_dir = git_dir();
   die "Must run within a git repository.\n" if !defined $git_dir;
-  if ($check_for->{untracked} && $status{has_untracked_files} &&
-      -f "$git_dir/info/ignored-untracked") {
-    my @old_untracked_files = `cat .git/info/ignored-untracked`;
-    @new_untracked = Util::difference(\@new_untracked, \@old_untracked_files);
-    $status{has_untracked_files} = (scalar(@new_untracked) > 0);
+  if ($check_for->{unknown} && $status{has_unknown_files} &&
+      -f "$git_dir/info/ignored-unknown") {
+    my @old_unknown_files = `cat .git/info/ignored-unknown`;
+    @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
+    $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
 
   #
@@ -3297,23 +3310,23 @@ EOF
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
     exit 1;
   }
-  elsif ($check_for->{untracked} && $check_for->{partially_staged} &&
-         $status{has_untracked_files} && 
+  elsif ($check_for->{unknown} && $check_for->{partially_staged} &&
+         $status{has_unknown_files} && 
          $status{has_unstaged_changes} && $status{has_staged_changes}) {
     print STDERR <<EOF;
 Aborting: It is not clear which changes should be committed; you have new
-untracked files, staged (explictly marked as ready for commit) changes, and
+unknown files, staged (explictly marked as ready for commit) changes, and
 unstaged changes all present.  Run 'eg help $commit_type' for details.
 EOF
     exit 1;
   }
-  elsif ($check_for->{untracked} && $status{has_untracked_files}) {
+  elsif ($check_for->{unknown} && $status{has_unknown_files}) {
     print STDERR <<EOF;
-Aborting: You have new untracked files present and it is not clear whether
+Aborting: You have new unknown files present and it is not clear whether
 they should be committed.  Run 'eg help $commit_type' for details.
-New untracked files:
+New unknown files:
 EOF
-    foreach my $file (@new_untracked) {
+    foreach my $file (@new_unknown) {
       print STDERR "  $file";  # $file has a newline
     }
     exit 1;
