@@ -3082,8 +3082,12 @@ sub preprocess {
 
   # Don't let them try to use eg switch to check out older revisions of files;
   # this is just supposed to be a subset of git checkout
-  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
-  die "Use revert or checkout to obtain older versions of files.\n" if @$files;
+  if (!grep {$_ =~ /^-/} @ARGV) {
+    die "Invalid arguments to eg switch: @ARGV\n" if @ARGV > 1;
+    my $ret = ExecUtil::execute("git show-ref $ARGV[0] > /dev/null 2>&1",
+                                ignore_ret => 1);
+    die "Invalid branch: $ARGV[0]\n" if $ret != 0;
+  }
 
   $self->SUPER::preprocess();
 }
