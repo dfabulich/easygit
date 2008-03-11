@@ -2598,9 +2598,8 @@ sub preprocess {
 
   # Safety check
   if (!@ARGV) {
-    die "fatal: You must specify arguments to revert to have local changes\n" .
-        "reverted (and lost).  To revert all local changes in the working\n" .
-        "copy, use\n" .
+    die "Aborting: no arguments specified.  If you want to revert and lose\n" .
+        "all local changes in your workcopy copy, use\n" .
         "  eg revert --since HEAD\n"
   }
 
@@ -2624,6 +2623,7 @@ sub preprocess {
   die "Cannot specify -m without specifying --in.\n" if !$in && defined($m);
   die "Unrecognized options: @$opts\n" if @$opts;
   die "Can only specify one revision\n" if @$revs > 1;
+  die "Aborting: --staged is incompatible with --in\n" if $staged && $in;
 
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
