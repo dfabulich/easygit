@@ -580,7 +580,8 @@ package checkout;
 @checkout::ISA = qw(subcommand);
 INIT {
   $command{checkout} = {
-    about => 'Compatibility wrapper that duplicates other functions'
+    section => 'compatibility',
+    about => 'Compatibility wrapper for clone/switch/revert'
   };
 }
 
