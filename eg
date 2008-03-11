@@ -2219,7 +2219,7 @@ sub preprocess {
 
     die "No repository to push to specified!\n" if !$url;
 
-    $self->{args} .= " --repo=$url";
+    $self->{args} .= " $url";
   }
 
   #
