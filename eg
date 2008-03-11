@@ -226,7 +226,7 @@ package add;
 INIT {
   $command{add} = {
     unmodified_behavior => 1,
-    section => 'modification',
+    section => 'compatibility',
     about => 'Mark content in files as being ready for commit'
     };
 }
@@ -236,42 +236,9 @@ sub new {
   my $self = $class->SUPER::new();
   bless($self, $class);
   $self->{'help'} = "
-Usage:
-  eg add [--] <PATH> ...
-
 Description:
-  Marks the contents of the specified files as being ready to commit,
-  scheduling them for addition to the repository.  (This is also known as
-  staging.)  When a directory is passed, all files in that directory or any
-  subdirectory are recursively added.
-
-Examples:
-  Create a new file, and mark it for addition to the repository.
-      \$ echo hi > there
-      \$ eg add there
-
-  (Advanced) Mark some changes as good, add some verbose sanity checking code,
-  then commit just the good changes.
-      Implement some cool new feature in somefile.C
-      \$ eg add somefile.C
-      Add some verbose sanity checking code to somefile.C
-      Decide to commit the new feature code but not the sanity checking code:
-      \$ eg commit --staged
-
-  (Advanced) Show changes in a file, split by those that you have marked as
-  good and those that you haven't:
-      Make various edits
-      \$ eg add file1 file2
-      Make more edits, include some to file1
-      \$ eg diff            # Look at all the changes
-      \$ eg diff --staged   # Look at the \"ready to be committed\" changes
-      \$ eg diff --unstaged # Look at the changes not ready to be commited
-
-Options:
-  --
-    This option can be used to separate command-line options from the list
-    of files, (useful when filenames might be mistaken for command-line
-    options).
+  eg add is provided for backward compatibility; it has identical usage and
+  functionality as 'eg stage'.  See 'eg help stage' for more details.
 ";
   return $self;
 }
@@ -886,9 +853,9 @@ Examples:
       \$ eg commit -b
 
   Record brand new file and current changes.
-      \$ eg add file.c
+      \$ eg stage file.c
       \$ eg commit -a
-  Note: Running 'eg add <file>' explicitly marks <file> as being ready to
+  Note: Running 'eg stage <file>' explicitly marks <file> as being ready to
   commit.  Since you likely haven't explicitly marked your other changes as
   ready to commit, pass the -a flag to specify that both kinds of changes
   should be recorded.
@@ -1050,18 +1017,18 @@ Examples:
       \$ eg diff master~10 master
 
   (Advanced) Show changes between staged (ready-to-be-committed) version of
-  files and the working copy (use 'eg add' to stage files).  In other
+  files and the working copy (use 'eg stage' to stage files).  In other
   words, show the unstaged changes.
       \$ eg diff --unstaged
 
   (Advanced) Show changes between last recorded copy and the staged (ready-
-  to-be-committed) version of files (use 'eg add' to stage files).  In
+  to-be-committed) version of files (use 'eg stage' to stage files).  In
   other words, show the staged changes.
       \$ eg diff --staged
 
   (Advanced) Show changes between 5 versions before the last recorded
   commit and the currently staged (ready-to-be-committed) version of the
-  repository.  (Use 'eg add' to stage files).
+  repository.  (Use 'eg stage' to stage files).
       \$ eg diff --staged HEAD~5
 
 Options:
@@ -1573,14 +1540,14 @@ Examples:
       \$ cd project
       \$ eg init
       <Create and edit a file called foo.py>
-      \$ eg add foo.py
+      \$ eg stage foo.py
       \$ eg commit
 
   Create a repository to track further changes to an existing project.  Then
   start using it right away
       \$ cd cool-program
       \$ eg init
-      \$ eg add .           # Recursively adds all files
+      \$ eg stage .           # Recursively adds all files
       \$ eg commit -m \"Initial import of all files\"
       <Make more changes to fix a bug or add a new feature or...>
       \$ eg commit
@@ -2326,7 +2293,7 @@ Examples:
   Stage files (mark changes in them as good and ready for commit but
   without yet committing them), then change your mind and unstage all
   files.
-      \$ eg add foo.c bla.h
+      \$ eg stage foo.c bla.h
       \$ eg reset HEAD
   Note that using HEAD as the commit means to forget all commits since HEAD
   (always an empty set) and undo any staged changes since that commit.
@@ -2509,7 +2476,7 @@ Examples:
   parent.  This can be accomplished as follows:
       \$ eg revert -m 2 --in HEAD~4
   
-  (Advanced) Undo a previous add, marking foo.c as not being ready for
+  (Advanced) Undo a previous stage, marking foo.c as not being ready for
   commit:
       \$ eg revert --staged foo.c
 
@@ -2663,6 +2630,66 @@ sub run {
 }
 
 ###########################################################################
+# stage                                                                   #
+###########################################################################
+package stage;
+@stage::ISA = qw(subcommand);
+INIT {
+  $command{stage} = {
+    unmodified_behavior => 1,
+    section => 'modification',
+    about => 'Mark content in files as being ready for commit'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => 'add');
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg stage [--] <PATH> ...
+
+Description:
+  Marks the contents of the specified files as being ready to commit,
+  scheduling them for addition to the repository.  (This is also known as
+  staging.)  When a directory is passed, all files in that directory or any
+  subdirectory are recursively added.
+
+  You can use 'eg revert --staged PATH...' to unstage files.
+
+Examples:
+  Create a new file, and mark it for addition to the repository.
+      \$ echo hi > there
+      \$ eg stage there
+
+  (Advanced) Mark some changes as good, add some verbose sanity checking code,
+  then commit just the good changes.
+      Implement some cool new feature in somefile.C
+      \$ eg stage somefile.C
+      Add some verbose sanity checking code to somefile.C
+      Decide to commit the new feature code but not the sanity checking code:
+      \$ eg commit --staged
+
+  (Advanced) Show changes in a file, split by those that you have marked as
+  good and those that you haven't:
+      Make various edits
+      \$ eg stage file1 file2
+      Make more edits, include some to file1
+      \$ eg diff            # Look at all the changes
+      \$ eg diff --staged   # Look at the \"ready to be committed\" changes
+      \$ eg diff --unstaged # Look at the changes not ready to be commited
+
+Options:
+  --
+    This option can be used to separate command-line options from the list
+    of files, (useful when filenames might be mistaken for command-line
+    options).
+";
+  return $self;
+}
+
+###########################################################################
 # stash                                                                   #
 ###########################################################################
 package stash;
@@ -2690,7 +2717,7 @@ Description:
   be used to apply any previously stashed away changes.  This command can
   be used multiple times to have multiple sets of changes stashed away.
 
-  Unknown files (files which you have never run 'eg add' on) are
+  Unknown files (files which you have never run 'eg stage' on) are
   unaffected; they will not be stashed away or reverted.
 
   When no arguments are specified to eg stash, the current changes are
@@ -2901,7 +2928,7 @@ Description:
        ignore list such as a .gitignore file) but whose contents are still
        not tracked by git.
 
-       These files can become known by running 'eg add <filename>', or
+       These files can become known by running 'eg stage <filename>', or
        ignored by having their name added to a .gitignore file.
 
      Changed but not updated (\"unstaged\")
@@ -2918,7 +2945,7 @@ Description:
        to be committed.  This state only typically appears in advanced
        usage.
 
-       Files enter this state through the use of 'eg add'.  Files can
+       Files enter this state through the use of 'eg stage'.  Files can
        return to the unstaged state by running 'eg revert --staged <file>'.
        See 'eg help topic staging' to learn about the staging area.
 ";
@@ -3305,7 +3332,7 @@ sub commit_checks {
     print STDERR <<EOF;
 Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
 the list of files with conflicts).  You must first resolve any conflicts and
-then mark the relevant files as being ready for commit (see 'eg help add' to
+then mark the relevant files as being ready for commit (see 'eg help stage' to
 learn how to do so) before proceeding.
 EOF
     exit 1;
