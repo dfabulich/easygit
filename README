@@ -1,0 +1,16 @@
+To use eg, simply put this directory in your path.  If you are familiar
+with other version control systems, the syntax in eg is pretty similar
+('eg commit', 'eg diff', 'eg info', etc.).
+
+To help get you started, you can run
+  eg help
+which will provide a list of available subcommands.  You can also get help
+on each subcommand; for example, running
+  eg help commit
+will explain how to commit and provide many examples of doing so.
+
+Note: bash-completion-eg.sh is NOT needed to run eg; it's here just for
+the people that have bash completion set up and want to use it with eg
+(google for bash_completion if you want to know more or how to make use of
+bash-completion-eg.sh).  All you need to run eg is to make sure the 'eg'
+script is in your path.
