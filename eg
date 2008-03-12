@@ -1128,6 +1128,7 @@ sub preprocess {
     );
   die "Cannot specify both --staged and --unstaged!\n" if $staged && $unstaged;
   $self->{'opts'} .= " --cached" if $staged;
+  $self->{opts} .= " @ARGV";
 
   #
   # Parse revs
