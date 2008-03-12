@@ -165,6 +165,12 @@ sub new {
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
   }
 
+  # Quote arguments with spaces, asterisks, or backslashes, so that when we
+  # do something like
+  #   system("$command hardcoded_arg1 @ARGV")
+  # later, the arguments get passed correctly to the shell command $command
+  @ARGV = map { /[ *\\]/ ? '"'.$_.'"' : $_ } @ARGV;
+
   return $self;
 }
 
