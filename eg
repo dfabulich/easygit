@@ -2297,9 +2297,9 @@ Description:
   default.  See 'eg help topic staging' to learn about the staging area.
 
   From a computer science point of view, eg reset moves the current branch
-  tip pointer to point at an older commit, and also optionally changes the
-  working copy and staging area to match the version of the repository
-  recorded in the older commit.
+  tip to point at an older commit, and also optionally changes the working
+  copy and staging area to match the version of the repository recorded in
+  the older commit.
 
   Note that this function should be used with caution; it is often used to
   discard unwanted data or to modify recent local \"history\" of commits.
@@ -2311,8 +2311,8 @@ Description:
 Examples:
   Throw away all changes since the last commit
       \$ eg reset --working-copy HEAD
-  Note that HEAD is always a pointer to the current branch, and the current
-  branch always points to its last commit.
+  Note that HEAD always refers to the current branch, and the current
+  branch always refers to its last commit.
 
   Throw away the last three commits and all current changes (this is a bad
   idea if someone has gotten a copy of these commits from you; this should
@@ -2355,8 +2355,8 @@ Options:
     copy will not be modified.
 
   --no-unstaging
-    Do not modify the staging area; only change the current branch
-    pointer to the older commit.
+    Do not modify the staging area; only change the current branch tip to
+    point to the older commit.
 
   REVISION
     A reference to a recorded version of the repository, defaulting to HEAD
