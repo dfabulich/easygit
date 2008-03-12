@@ -169,7 +169,15 @@ sub new {
   # do something like
   #   system("$command hardcoded_arg1 @ARGV")
   # later, the arguments get passed correctly to the shell command $command
-  @ARGV = map { /[ *\\]/ ? '"'.$_.'"' : $_ } @ARGV;
+  my @newargs;
+  foreach my $arg (@ARGV) {
+    if ($arg =~ /[ "*\\]/) {
+      $arg =~ s#"#\\"#;      # Backslash escape quotes
+      $arg = '"'.$arg.'"';   # Quote the characters in this argument
+    }
+    push(@newargs, $arg);
+  }
+  @ARGV = @newargs;
 
   return $self;
 }
