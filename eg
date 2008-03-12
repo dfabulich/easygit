@@ -1498,7 +1498,8 @@ sub run {
   }
   $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
                    RepoUtil::get_config("default.branch.$current_branch.merge");
-  print "  Default remote repository:      $default_repo\n" if $default_repo;
+  $default_merge =~ s#refs/heads/##;
+  print "  Default remote repository:      $default_repo\n"  if $default_repo;
   print "  Default remote branch to merge: $default_merge\n" if $default_merge;
 
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
