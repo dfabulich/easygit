@@ -260,7 +260,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg apply [--staged] [-R | --reverse] [-p<NUM>]
+  eg apply [--staged] [-R | --reverse] [-pNUM]
 
 Description:
   Applies a patch to a git repository.
@@ -269,9 +269,25 @@ Examples:
   Reverse changes since the last commit in the working copy
       \$ git diff | git apply -R
 
-  (Advanced) Reverse changes since the last commit to the version of
-  foo.c in the staging area:
+  (Advanced) Reverse changes since the last commit to the version of foo.c
+  in the staging area:
       \$ eg diff --staged | git apply -R --staged
+
+Options:
+  --staged
+    Apply the patch to the staged (explicitly marked as ready to be committed)
+    versions of files
+
+  --reverse, -R
+    Apply the patch in reverse.
+
+  -pNUM
+    Remove NUM leading paths from filenames.  For example, with the filename
+      /home/user/bla/foo.c
+    using -p0 would leave the name unmodified, using -p1 would yield
+      home/user/bla/foo.c
+    and using -p3 would yield
+      bla/foo.c
 ";
   $self->{'differences'} = '
   eg apply is identical to git apply except that it accepts --staged as a
@@ -310,8 +326,8 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg branch [-r]
-  eg branch <branchname> [<startpoint>]
-  eg branch -d <branchname>
+  eg branch NEWBRANCH [STARTPOINT]
+  eg branch -d BRANCH
 
 Description:
   List the existing branches that you can switch to, create a new (local)
@@ -331,20 +347,28 @@ Examples
   Create a new local branch named sec_48 based off the local 4.8 branch
       \$ eg branch sec_48 4.8
 
-  Create a new local branch named bling, based off the remote branch of the
-  same name (see 'eg help topic storage' for more details)
-      \$ eg branch bling origin/bling
-
   Delete the local branch named bling
       \$ eg branch -d bling
+
+  Create a new branch named my_fixes in the default remote repository
+      \$ eg branch my_fixes
+      \$ eg push --branch my_fixes
+
+  (Advanced) Create a new local branch named bling, based off the remote
+  tracking branch of the same name
+      \$ eg branch bling origin/bling
+  See 'eg remote' for more details about setting up named remotes and
+  remote tracking branches, and 'eg help topic storage' for more details on
+  differences between branches and remote tracking branches.
 
 Options:
   -d
     Delete specified branch
 
   -r
-    List remote tracking branches (see 'eg help topic storage') for
-    more details.
+    List remote tracking branches (see 'eg help topic storage') for more
+    details.  This is useful when using named remote repositories (see 'eg
+    help remote')
 ";
   return $self;
 }
@@ -369,13 +393,13 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg cat [<revision>:]<file>...
+  eg cat [REVISION:]FILE...
 
 Description:
   Output the specified file(s) as of the given revisions.
 
-  Note that this basically just a compatibility alias provided for
-  users of other SCMs.  You should consider using 'git show' instead.
+  Note that this basically just a compatibility alias provided for users of
+  other SCMs.  You should consider using 'git show' instead.
 
 Examples
   Output the most recently committed version of foo.c
@@ -390,8 +414,8 @@ Examples
       \$ eg cat HEAD~1:hello.c timbuktu:world.h
 ";
   $self->{'differences'} = '
-  The output of "git show <file>" is probably confusing to users at first.
-  Thus, "eg cat <file>" calls "git show HEAD:<file>".
+  The output of "git show FILE" is probably confusing to users at first.
+  Thus, "eg cat FILE" calls "git show HEAD:FILE".
 ';
   return $self;
 }
@@ -558,9 +582,9 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg checkout [--depth <depth>] <repository> [<directory>]
-  eg checkout [-b] <branch>
-  eg checkout [<commit>] <paths>...
+  eg checkout [--depth DEPTH] REPOSITORY [DIRECTORY]
+  eg checkout [-b] BRANCH
+  eg checkout [REVISION] PATH...
 
 Description:
   eg checkout simulates the checkout command from both git and svn - if you
@@ -681,15 +705,15 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg clone [--depth <depth>] <repository> [<directory>]
+  eg clone [--depth DEPTH] REPOSITORY [DIRECTORY]
 
 Description:
-  Obtains a copy of a remote repository, including all history by
-  default.  A --depth option can be passed to only include a specified
-  number of recent commits instead of all history (however, this
-  option exists mostly due to the fact that users of other SCMs fail
-  to understand that all history can be compressed into a size that is
-  often smaller than the working copy).
+  Obtains a copy of a remote repository, including all history by default.
+  A --depth option can be passed to only include a specified number of
+  recent commits instead of all history (however, this option exists mostly
+  due to the fact that users of other SCMs fail to understand that all
+  history can be compressed into a size that is often smaller than the
+  working copy).
 
 Examples:
   Get a local clone of cairo
@@ -698,14 +722,14 @@ Examples:
   Get a clone of a local project in a new directory 'mycopy'
       \$ eg clone /path/to/existing/repo mycopy
 
-  Get a clone of a project hosted on someone's website, asking for only
-  the most recent 20 commits instead of all history, and storing it in
-  the local directory mydir
+  Get a clone of a project hosted on someone's website, asking for only the
+  most recent 20 commits instead of all history, and storing it in the
+  local directory mydir
       \$ eg clone --depth 20 http://www.random.machine/path/to/git.repo mydir
 
 Options:
-  --depth <depth>
-    Only download the <depth> most recent commits instead of all history
+  --depth DEPTH
+    Only download the DEPTH most recent commits instead of all history
 ";
   $self->{'differences'} = "
   eg clone and git clone are very similar, but eg clone does a bit more work.
@@ -823,8 +847,8 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg commit [-a|--all-known] [-b|--bypass-unknown-check]
-            [--staged|-d|--dirty] [-F <file> | -m <msg> | --amend]
-            [--] [<file>...]
+            [--staged|-d|--dirty] [-F FILE | -m MSG | --amend]
+            [--] [FILE...]
 
 Description:
   Records changes locally along with a log message describing the
@@ -832,13 +856,14 @@ Description:
   is opened for you to enter a log message.
 
   In order to prevent common errors, the commit will abort with a warning
-  message if there are no changes to commit or if it detects that the
-  choice of what to commit is ambiguous.  In particular, if you have any
-  \"newly created\" unknown files present, or if you have both staged
-  changes (i.e. changes explicitly marked as ready for commit) and unstaged
-  changes, then you will get a warning rather than having the commit occur.
-  You can run 'eg status' to get the status of various files and their
-  changes.  These commit checks can be bypassed with various options.
+  message if there are no changes to commit, there are conflicts from a
+  merge, or if eg detects that the choice of what to commit is ambiguous.
+  In particular, if you have any \"newly created\" unknown files present,
+  or if you have both staged changes (i.e. changes explicitly marked as
+  ready for commit) and unstaged changes, then you will get a warning
+  rather than having the commit occur.  You can run 'eg status' to get the
+  status of various files and their changes.  These commit checks can be
+  bypassed with various options.
 
 Examples:
   Record current changes locally, not changing anything in CVS...OR...get
@@ -855,7 +880,7 @@ Examples:
   Record brand new file and current changes.
       \$ eg stage file.c
       \$ eg commit -a
-  Note: Running 'eg stage <file>' explicitly marks <file> as being ready to
+  Note: Running 'eg stage FILE' explicitly marks FILE as being ready to
   commit.  Since you likely haven't explicitly marked your other changes as
   ready to commit, pass the -a flag to specify that both kinds of changes
   should be recorded.
@@ -865,7 +890,7 @@ Examples:
       \$ eg commit --staged
 
 Options:
-  -a|--all-known
+  --all-known, -a
     (Could also be called --act-like-other-vcses).  Commit both staged
     (i.e. explictly marked as ready for commit) changes and unstaged
     changes.
@@ -873,13 +898,13 @@ Options:
     Incompatible with explicitly specifying files to commit on the command
     line, and incompatible with the --staged option.
 
-  -b|--bypass-unknown-check
+  --bypass-unknown-check, -b
     Commit local changes, even if there are unknown files around.  If this
     flag is not used and unknown files are currently present that were not
     present the last time the -b flag was used, then the commit will be
     aborted with a warning message.
 
-  --staged|-d|--dirty
+  --staged, --dirty, -d
     Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
     as a synonym in order to provide a short (-d) form.  The term \"dirty\"
     is used to convey the fact that the working area will likely not be
@@ -891,11 +916,11 @@ Options:
     Incompatible with explicitly specifying files to commit on the command
     line, and incompatible with the --all-known option.
 
-  -F <file>
-    Use the contents of <file> as the commit message
+  -F FILE
+    Use the contents of FILE as the commit message
 
-  -m <msg>
-    Use <msg> as the commit message.
+  -m MSG
+    Use MSG as the commit message.
 
   --amend
     Amend the last commit on the current branch.
@@ -917,6 +942,19 @@ Options:
   The "--all-known" alias for "-a" is known as "--all" to git-commit; I
   find the latter confusing and misleading and thus renamed to the former
   for eg commit.
+
+  To be precise about the behavior of a plain "eg commit":
+     If the working copy is clean             -> warn user: nothing to commit
+     else if there are unmerged files         -> warn user: unmerged files
+     else if there are new untracked files    -> warn user: new unknown files
+     else if both staged and unstaged changes -> warn user: mix
+     else                                     -> run "git commit -a"
+  Actually, I do not pass -a if there are only staged changes present, but
+  the result is the same.  Note that this essentially boils down to making
+  the user do less work (no need to remember -a in the common case) and
+  extending the sanity checks git commit does (which currently only covers
+  the clean working copy case) to also prevent a number of other very
+  common user pitfalls.
 ';
   return $self;
 }
@@ -995,7 +1033,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg diff [--unstaged|--staged] [<commit>] [<commit>]
+  eg diff [--unstaged | --staged] [REVISION] [REVISION]
 
 Description:
   Shows differences between different versions of the project.  By default,
@@ -1032,24 +1070,24 @@ Examples:
       \$ eg diff --staged HEAD~5
 
 Options:
-  <commit>
+  REVISION
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
     topic revisions' for more details.
 
-  --staged|--cached
+  --staged
     Show changes between the last commit and the staged copy of files.
-    Cannot be used when two <commit>s have been specified.
+    Cannot be used when two revisions have been specified.
 
   --unstaged
     Show changes between the staged copy of files and the current working
-    directory.  Cannot be used when a <commit> is specified.
+    directory.  Cannot be used when a revision is specified.
 ";
   $self->{'differences'} = '
   The following illustrate the two changed defaults of eg diff:
     eg diff            <=> git diff HEAD
     eg diff --unstaged <=> git diff
-  In more detail:
+  (Which is not 100% accurate due to merges; see below.)  In more detail:
 
   The "--unstaged" option is unique to eg diff; to get the same behavior
   with git diff you simply list no revisions and omit the "--cached" flag.
@@ -1061,6 +1099,12 @@ Options:
   The "--staged" option is an alias for "--cached" unique to eg diff (the
   purpose of the alias is to reduce the number of different names in git
   used to refer to the same concept.)
+
+  Merges: The above is slightly modified if the user has an incomplete
+  merge; if the user has conflicts during a merge (or uses --no-commit when
+  calling merge) and then tries "eg diff", it will abort with a message
+  telling the user that there is no "last" commit and will provide
+  alternative suggestions.
 ';
   return $self;
 }
@@ -1179,8 +1223,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg help [<command>]
-  eg help topic [<topic>]
+  eg help [COMMAND]
+  eg help topic [TOPIC]
 
 Description:
   Shows general help for eg, for one of its subcommands, or for a
@@ -1204,14 +1248,13 @@ Examples:
   that eg help will call git help if asked for help on a subcommand it does
   not recognize.
 
-  "git help <command>" simply calls "man git-<command>".  The git man pages
-  are really nice for people who are experts with git; they are
-  comprehensive and detailed.  However, new users tend to get lost in a sea
-  of details and advanced topics (among other problems).  "eg help
-  <command>" provides much simpler pages of its own and refers to the
-  manpages for more details.  The eg help pages also list any differences
-  between the eg commands and the git ones, to allow users to easily learn
-  git.
+  "git help COMMAND" simply calls "man git-COMMAND".  The git man pages are
+  really nice for people who are experts with git; they are comprehensive
+  and detailed.  However, new users tend to get lost in a sea of details
+  and advanced topics (among other problems).  "eg help COMMAND" provides
+  much simpler pages of its own and refers to the manpages for more
+  details.  The eg help pages also list any differences between the eg
+  commands and the git ones, to allow users to easily learn git.
 ';
 
   return $self;
@@ -1280,7 +1323,7 @@ sub run {
 
   # And let them know how to get more detailed help...
   print OUTPUT "Additional help:\n";
-  print OUTPUT "  eg help <command>  Get more help on <command>.\n";
+  print OUTPUT "  eg help COMMAND    Get more help on COMMAND.\n";
   print OUTPUT "  eg help --all      List more commands (not really all)\n";
   print OUTPUT "  eg help topic      List specialized help topics.\n";
   close(OUTPUT);
@@ -1358,16 +1401,19 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg info [/path/to/repository]
+  eg info [/PATH/TO/REPOSITORY]
 
 Description:
   Shows information about the specified repository, or the current repository
   none is specified.
 ";
   $self->{'differences'} = '
-  eg info is unique to eg; git does not have a similar command.  It is mostly
-  intended to do something nice if svn converts happen to try this command
-  out.
+  eg info is unique to eg; git does not have a similar command.  It
+  originally was intended just to do something nice if svn converts happen
+  to try this command, but I have found it to be a really nice way of
+  helping users get their bearings.  It also provides some nice statistics
+  that git users may appreciate (particularly when it comes time to fill
+  out the Git User Survey).
 ';
   return $self;
 }
@@ -1539,7 +1585,7 @@ Examples:
       \$ mkdir project
       \$ cd project
       \$ eg init
-      <Create and edit a file called foo.py>
+      Create and edit a file called foo.py
       \$ eg stage foo.py
       \$ eg commit
 
@@ -1549,7 +1595,7 @@ Examples:
       \$ eg init
       \$ eg stage .           # Recursively adds all files
       \$ eg commit -m \"Initial import of all files\"
-      <Make more changes to fix a bug or add a new feature or...>
+      Make more changes to fix a bug or add a new feature or...
       \$ eg commit
 
   (Advanced) Create a new blank repository meant to be used in a
@@ -1557,7 +1603,7 @@ Examples:
       \$ mkdir new-project
       \$ cd new-project
       \$ eg init --shared
-      <Check repository ownership and user groups to ensure they are right>
+      Check repository ownership and user groups to ensure they are right
 
 Options:
   --shared
@@ -1641,7 +1687,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg publish <remote directory>
+  eg publish REMOTE_DIRECTORY
 
 Description:
   Publishes a copy of the current repository on a remote machine.  Note
@@ -1653,12 +1699,11 @@ Description:
   The remote directory should be specified using rsync syntax, even if the
   remote repository will be accessed by some other protocol.  Typical rsync
   syntax for a (usually remote) directory is
-     [[<user>@]<machine>:]<path>
-  If <path> is not absolute and <machine> is specified, it is taken as
-  relative to the user's home directory on <machine>.  See the examples
-  below for more detail, or the rsync(1) manpage.  If any files or
-  directories exist below the specified remote directory, they will be
-  removed or replaced.
+     [[USER@]MACHINE:]PATH
+  If PATH is not absolute and MACHINE is specified, it is taken as relative
+  to the user's home directory on MACHINE.  See the examples below for more
+  detail, or the rsync(1) manpage.  If any files or directories exist below
+  the specified remote directory, they will be removed or replaced.
 
   Note that if git is not installed on the remote machine, you will be
   unable to push updates to the remote repository (however, you can
@@ -1690,12 +1735,17 @@ Examples:
       git --bare update-server-info
       chmod u+x hooks/post-update
       cd ..
-      rsync -e ssh -az --delete .git <remote directory>
-      git config core.lastpushurl <remote directory>
+      rsync -e ssh -az --delete .git REMOTE_DIRECTORY
   Since this does make some minor changes to the local repository that are
   unnecessary after the rsync command has completed, I might add some code
   to try to clean the .git directory back up.  I doubt any of it will hurt
   if I do not get around to it, though.
+
+  eg publish also does some extra work so that future pushes and pulls will
+  use the published repository by default.  It does this by setting the
+  default.branch.BRANCH.(remote|merge) and default.push.(url|remote)
+  variables.  See "eg changes --details" for more information about these
+  (unique to eg) configuration variables.
 ';
   return $self;
 }
@@ -2036,8 +2086,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg push [--branch <branch>] [--tag <tag>] [--all-branches] [--all-tags] 
-          [--mirror] [<repository>]
+  eg push [--branch BRANCH] [--tag TAG] [--all-branches] [--all-tags] 
+          [--mirror] [REPOSITORY]
 
 Description:
   Push committed changes in the current repository to a published remote
@@ -2081,16 +2131,16 @@ Examples:
       \$ eg push --branch stable 
 
 Options
-  --branch <branch>
+  --branch BRANCH
     Push commits in the specified branch.  May be reused multiple times to
     push commits in multiple branches.
 
-    As an advanced option, one can use the syntax <local>:<remote> for
-    <branch>.  For example, \"--branch my_bugfix:stable\" would mean to use
+    As an advanced option, one can use the syntax LOCAL:REMOTE for the
+    branch.  For example, \"--branch my_bugfix:stable\" would mean to use
     the my_bugfix branch of the current repository to update the stable
     branch of the remote repository.
 
-  --tag <tag>
+  --tag TAG
     Push the specified tag to the remote repository.
 
   --all-branches
@@ -2238,7 +2288,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg reset [--working-copy | --no-unstaging] [<commit>]
+  eg reset [--working-copy | --no-unstaging] [REVISION]
 
 Description:
   Forgets local commits for the active branch and (optionally) undoes their
@@ -2277,7 +2327,7 @@ Examples:
   While working on the \"stable\" branch, you decide that the last 5 commits
   should have been part of a separate branch.  Here's how you retroactively
   make it so:
-      <Verify that your working copy is clean>
+      Verify that your working copy is clean...then
       \$ eg branch difficult_bugfix
       \$ eg reset --working-copy HEAD~5
       \$ eg switch difficult_bugfix
@@ -2308,7 +2358,7 @@ Options:
     Do not modify the staging area; only change the current branch
     pointer to the older commit.
 
-  <commit>
+  REVISION
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
     topic revisions' for more details.
@@ -2372,7 +2422,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg resolved <path>...
+  eg resolved PATH...
 
 Description:
   Declare conflicts resolved for the specified paths, and mark contents of
@@ -2416,8 +2466,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg revert [--commit | --no-commit] [-m <parent-number>] [--staged]
-            [--in | --since] [<commit>] [--] [<path>...]
+  eg revert [--commit | --no-commit] [-m PARENT_NUMBER] [--staged]
+            [--in | --since] [REVISION] [--] [PATH...]
 
 Description:
   Undoes previous changes, optionally also immediately making a commit once
@@ -2495,7 +2545,7 @@ Options:
     The opposite of --commit, this flag is the default and exists just for
     completeness.
 
-  -m <parent-number>
+  -m PARENT_NUMBER
     When reverting the changes made in a merge commit, the revert command
     needs to know which parent of the merge the revert should be relative
     to.  Use this flag with the parent number (1, 2, 3...) to specify which
@@ -2516,7 +2566,7 @@ Options:
     changes.  This takes the difference between the specified commit and
     the current version of the files and reverses these changes.
 
-  <commit>
+  REVISION
     A reference to a recorded version of the repository, defaulting to HEAD
     (meaning the most recent commit on the current branch).  See 'eg help
     topic revisions' for more details.
@@ -2526,7 +2576,7 @@ Options:
     from the list of files, (useful when filenames might be mistaken for
     command-line options or be mistaken as a branch or tag name).
 
-  <path>...
+  PATH...
     One or more files or directories.  The changes reverted will be limited
     to the listed files or files below the listed directories.
 ";
@@ -2648,7 +2698,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg stage [--] <PATH> ...
+  eg stage [--] PATH...
 
 Description:
   Marks the contents of the specified files as being ready to commit,
@@ -2707,8 +2757,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg stash (list [--details] | save <description> | apply [<description>] |
-            show [<description>] | clear)
+  eg stash (list [--details] | save DESCRIPTION | apply [DESCRIPTION] |
+            show [DESCRIPTION] | clear)
   eg stash
 
 Description:
@@ -2753,15 +2803,15 @@ Options:
     Show the saved stash descriptions.  If the --details flag is present,
     provide more information about each stash.
 
-  save <description>
-    Save current changes with the specified description
+  save DESCRIPTION
+    Save current changes with the description DESCRIPTION.
 
-  apply [<description>]
+  apply [DESCRIPTION]
     Apply the stashed changes with the specified description.  If no
     description is specified, and more than one stash has been saved, an
     error message will be shown.  The description cannot start with \"--\".
 
-  show [<description>]
+  show [DESCRIPTION]
     Show the stashed changes with the specified description.  If no
     description is specified, and more than one stash has been saved, an
     error message will be shown.  The description cannot start with \"--\".
@@ -2928,7 +2978,7 @@ Description:
        ignore list such as a .gitignore file) but whose contents are still
        not tracked by git.
 
-       These files can become known by running 'eg stage <filename>', or
+       These files can become known by running 'eg stage FILENAME', or
        ignored by having their name added to a .gitignore file.
 
      Changed but not updated (\"unstaged\")
@@ -2946,7 +2996,7 @@ Description:
        usage.
 
        Files enter this state through the use of 'eg stage'.  Files can
-       return to the unstaged state by running 'eg revert --staged <file>'.
+       return to the unstaged state by running 'eg revert --staged FILE'.
        See 'eg help topic staging' to learn about the staging area.
 ";
   $self->{'differences'} = '
@@ -3072,7 +3122,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg switch [-b] <branch>
+  eg switch [-b] BRANCH
 
 Description:
   Switches to another branch (an operation that can be done locally, without
