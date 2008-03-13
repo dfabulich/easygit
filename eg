@@ -3130,6 +3130,7 @@ sub postprocess {
   my $output = shift;
 
   my $branch;
+  my $initial_commit = 0;
   my %files = ( unknown => undef, unstaged => undef, staged => undef );
 
   my @lines = split('\n', $output);
@@ -3140,6 +3141,8 @@ sub postprocess {
 
     if ($line =~ m/^# On branch (.*)$/) {
       $branch = $1;
+    } elsif ($line =~ m/^# Initial commit$/) {
+      $initial_commit = 1;
     } elsif ($line =~ m/^# Untracked files:$/) {
       $cur_state = 1;
       $section = 'unknown';
@@ -3190,7 +3193,9 @@ sub postprocess {
   }
 
   # Print out the branch we are on
-  print "(On branch $branch)\n";
+  print "(On branch $branch";
+  print ", no commits yet" if $initial_commit;
+  print ")\n";
 
   # Print out all the various changes
   foreach my $section ('staged', 'unstaged', 'unknown') {
