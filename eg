@@ -165,6 +165,13 @@ sub new {
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
   }
 
+  # Many commands do not work if no commit has yet been made
+  if ($self->{initial_commit_error_msg} &&
+      RepoUtil::initial_commit() &&
+      (@ARGV < 1 || $ARGV[0] ne "--help")) {
+    die "$self->{initial_commit_error_msg}\n";
+  }
+
   # Quote arguments with spaces, asterisks, or backslashes, so that when we
   # do something like
   #   system("$command hardcoded_arg1 @ARGV")
@@ -247,7 +254,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Description:
@@ -270,7 +277,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -335,7 +342,11 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "No branches can be created, deleted, or " .
+                                "listed until a commit has been made.",
+    @_
+    );
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -403,7 +414,12 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'show');
+  my $self = $class->SUPER::new(
+    git_equivalent => 'show',
+    initial_commit_error_msg => "Error: Cannot show committed versions of " .
+                                "files when no commits have occurred.",
+    @_
+    );
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -474,7 +490,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '');
+  my $self = $class->SUPER::new(git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -540,7 +556,7 @@ sub run {
       next if $command{$c}{unmodified_help} || $command{$c}{unmodified_behavior};
 
       next if !$c->can("new");
-      my $obj = $c->new();
+      my $obj = $c->new(initial_commit_error_msg => '');
       $obj->{differences} =~ s/^\n//;
 
       print OUTPUT "Changes to $c:\n";
@@ -592,7 +608,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_repo_needed => 0);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -715,7 +731,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_repo_needed => 0);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -856,7 +872,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1043,7 +1059,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1197,7 +1213,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1303,7 +1319,7 @@ sub run {
           "want to try running 'git help $subcommand'.\n";
     }
 
-    my $subcommand_obj = $subcommand->new();
+    my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '');
     $subcommand_obj->help();
   }
 
@@ -1412,7 +1428,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '', git_repo_needed => 0);
+  my $self = $class->SUPER::new(git_equivalent => '', git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1442,12 +1458,15 @@ sub preprocess {
   if ($path) {
     die "$path does not look like a directory.\n" if ! -d $path;
     my ($ret, $useless_output) =
-      ExecUtil::execute_captured("git ls-remote $path");
-    die "$path does not appear to be a git archive.\n" if $ret != 0;
+      ExecUtil::execute_captured("git ls-remote $path", ignore_ret => 1);
+    if ($ret != 0) {
+      die "$path does not appear to be a git archive " .
+          "(maybe it has no commits yet?).\n";
+    }
     chdir($path);
   }
 
-  # Set to set git_dir
+  # Set git_dir
   $self->{git_dir} = RepoUtil::git_dir();
   die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
 }
@@ -1456,6 +1475,19 @@ sub run {
   my $self=shift;
 
   my $current_branch = ExecUtil::output("git symbolic-ref HEAD |sed -e s#.*/##");
+
+  #
+  # Special case the situation of no commits being present
+  #
+  if (RepoUtil::initial_commit()) {
+    print STDERR <<EOF;
+Total commits: 0
+Local repository: $self->{git_dir}
+There are no commits in this repository.  Please use eg stage to mark new
+files as being ready to commit, and eg commit to commit them.
+EOF
+    exit 1;
+  }
 
   #
   # Repository-global information
@@ -1606,7 +1638,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_repo_needed => 0);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1676,7 +1708,9 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "Error: No recorded commits to show yet.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1730,7 +1764,10 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '');
+  my $self = $class->SUPER::new(
+    git_equivalent => '',
+    initial_commit_error_msg => "Error: No recorded commits to publish.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1859,7 +1896,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2139,7 +2176,9 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "Error: No recorded commits to push.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2341,7 +2380,9 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "Error: No recorded commits to forget.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2475,7 +2516,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'add');
+  my $self = $class->SUPER::new(git_equivalent => 'add', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2519,7 +2560,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2751,7 +2792,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'add');
+  my $self = $class->SUPER::new(git_equivalent => 'add', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -2810,7 +2851,10 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "Error: Cannot stash away changes when there " .
+                                "is no commit yet.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3019,7 +3063,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new();
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3175,7 +3219,11 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'checkout');
+  my $self = $class->SUPER::new(
+    git_equivalent => 'checkout',
+    initial_commit_error_msg => "Error: Cannot create or switch branches " .
+                                "until a commit has been made.",
+    @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3242,7 +3290,7 @@ package version;
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_repo_needed => 0);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
 }
 
@@ -3382,6 +3430,19 @@ sub git_dir {
   return undef if $ret != 0;
   chomp($output);
   return $output;
+}
+
+sub initial_commit {
+  my @output = `git show-ref -h`;
+  foreach my $line (@output) {
+    next if $line !~ /^[0-9a-f]+ HEAD$/;
+
+    # We found a commit id for HEAD, so this must not be the initial commit
+    return 0;  
+  }
+
+  # We couldn't find a commit id for HEAD, so this must be the initial commit
+  return 1;
 }
 
 sub get_config {
