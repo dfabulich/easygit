@@ -1455,15 +1455,20 @@ sub preprocess {
 sub run {
   my $self=shift;
 
+  my $current_branch = ExecUtil::output("git symbolic-ref HEAD |sed -e s#.*/##");
+
   #
-  # Print total commits
+  # Repository-global information
   #
+
+  # total commits
   my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
   print "Total commits: $total_commits\n";
 
-  #
-  # Print local and remote repos
-  #
+  # local repo
+  print "Local repository: $self->{git_dir}\n";
+
+  # named remote repos
   my %remotes;
   my $longest = 0;
   my @abbrev_remotes = `git remote`;
@@ -1473,8 +1478,6 @@ sub run {
     $remotes{$remote} = $url;
     $longest = main::max($longest, length($remote));
   }
-
-  print "Local repository: $self->{git_dir}\n";
   if (scalar keys %remotes > 0) {
     print "Named remote repositories: (name -> location)\n";
     foreach my $remote (sort keys %remotes) {
@@ -1482,8 +1485,21 @@ sub run {
     }
   }
 
+  # Default push repo
+  my $default_push_repo;
+  $default_push_repo = RepoUtil::get_config("branch.$current_branch.remote");
+  if (!$default_push_repo) {
+    my $url = RepoUtil::get_config("default.push.remote");
+    if (defined $url && $url eq "default.push.url") {
+      $url = RepoUtil::get_config($url) ;
+    }
+    if (defined $url) {
+      print "Default remote repository to push to: $url\n";
+    }
+  }
+
   #
-  # File and directory stats...
+  # Stats for the current branch...
   #
 
   # File & directory stats only work if we're in the toplevel directory
@@ -1496,12 +1512,19 @@ sub run {
   }
   chdir($topdir);
 
-  my $current_branch = ExecUtil::output("git symbolic-ref HEAD |sed -e s#.*/##");
+  # Name
   print "Current branch: $current_branch\n";
 
+  # Sha1sum
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
   print "  Cryptographic checksum (sha1sum): $current_commit\n";
 
+  # Default push repo
+  if ($default_push_repo) {
+    print "  Default remote repository to push to:   $default_push_repo\n";
+  }
+
+  # Default pull repo & branch
   my ($default_repo, $default_merge);
   $default_repo = RepoUtil::get_config("branch.$current_branch.remote");
   if (!$default_repo) {
@@ -1514,15 +1537,22 @@ sub run {
   $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
                    RepoUtil::get_config("default.branch.$current_branch.merge");
   $default_merge =~ s#refs/heads/##;
-  print "  Default remote repository:      $default_repo\n"  if $default_repo;
-  print "  Default remote branch to merge: $default_merge\n" if $default_merge;
+  if ($default_repo) {
+    print "  Default remote repository to pull from: $default_repo\n";
+  }
+  if ($default_merge) {
+    print "  Default remote branch to merge from:    $default_merge\n";
+  }
 
+  # No. contributors
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
   print "  Number of contributors: $contributors\n";
 
+  # No. files
   my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
   print "  Number of files: $num_files\n";
 
+  # No. dirs
   my $num_dirs = ExecUtil::output(
                     "git ls-tree -r --full-name --name-only HEAD " .
                     " | grep '/'" .
@@ -1551,13 +1581,14 @@ sub run {
   my $biggest_file = "$biggest{size} ($biggest{name})";
   print "  Biggest file size, in bytes: $biggest_file\n";
 
+  # No. commits
   my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
   print "  Commits: $branch_depth\n";
 
   # Other possibilities:
   #   Disk space used by respository (du -hs .git, or packfile size?)
   #   Disk space used by working copy (???)
-  #   Somthing about remote tracking branches?
+  #   Number of unpacked objects?
 }
 
 ###########################################################################
