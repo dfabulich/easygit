@@ -3576,7 +3576,8 @@ sub launch {
 }
 
 sub version {
-  print "eg version $version\n";
+  my $version_obj = "version"->new();
+  $version_obj->run();
   exit 0;
 }
 
