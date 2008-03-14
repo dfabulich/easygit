@@ -1013,10 +1013,11 @@ sub preprocess {
   #
   # Lots of sanity checks
   #
-  my $status = RepoUtil::commit_checks($package_name,
-                                       {no_changes       => 1,
-                                        unknown          => $check_unknown,
-                                        partially_staged => $check_mixed});
+  my $status =
+    RepoUtil::commit_push_checks($package_name,
+                                 {no_changes       => 1,
+                                  unknown          => $check_unknown,
+                                  partially_staged => $check_mixed});
   if (!$all_known && 
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
     $self->{'commit_flags'} .= " -a";
@@ -1764,7 +1765,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg publish REMOTE_DIRECTORY
+  eg publish [--bypass-modification-check] REMOTE_DIRECTORY
 
 Description:
   Publishes a copy of the current repository on a remote machine.  Note
@@ -1801,6 +1802,13 @@ Examples:
       \$ eg publish fake\@www.gnome.org:public_html/myproj
       \$ cd 
       \$ eg clone http://www.gnome.org/~fake/myproj another-myproj
+
+Options
+  --bypass-modification-check, -b
+    To prevent you from publishing an incomplete set of changes, publish
+    typically checks whether you have new unknown files or modified files
+    present and aborts if so.  You can bypass these checks with this
+    option.
 ";
   $self->{'differences'} = '
   eg publish is unique to eg; git makes publishing repositories annoyingly
@@ -1831,15 +1839,23 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  die "eg publish takes exactly one argument (the remote directory).\n"
-    if @ARGV != 1;
+  my $bypass_modification_check = 0;
+  my $result = main::GetOptions(
+    "--help"           => sub { $self->help() },
+    "bypass-modification-check|b" => \$bypass_modification_check,
+    );
 
-  $self->SUPER::preprocess();
+  die "Invalid args to eg publish: @ARGV.\n" if @ARGV != 1;
+  $self->{remote_dir} = shift @ARGV;
+
+  if (!$bypass_modification_check) {
+    my $status = RepoUtil::commit_push_checks($package_name,
+                                              {unknown => 1, changes => 1});
+  }
 }
 
 sub run {
   my $self = shift;
-  my $repository = shift @ARGV;
 
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
@@ -1849,7 +1865,7 @@ sub run {
   ExecUtil::execute("git --bare update-server-info");
   ExecUtil::execute("chmod u+x hooks/post-update");
   print "Copy local repository to remote location...\n";
-  ExecUtil::execute("rsync -e ssh -az --delete ./ $repository");
+  ExecUtil::execute("rsync -e ssh -az --delete ./ $self->{remote_dir}");
 
   # Set up the configuration variables default.branch.BRANCH.(remote|merge)
   # for each BRANCH (used later as default pull locations)
@@ -1858,14 +1874,14 @@ sub run {
     chomp($branch);
     $branch =~ s#..##;
     next if $branch eq "HEAD";
-    RepoUtil::set_config("default.branch.$branch.remote", $repository);
+    RepoUtil::set_config("default.branch.$branch.remote", $self->{remote_dir});
     RepoUtil::set_config("default.branch.$branch.merge",  $branch);
     RepoUtil::unset_config("default.remote.$branch.url");
   }
 
   # Set up the configuration variable default.push.remote (use later as
   # a default push location)
-  RepoUtil::set_config("default.push.url",    $repository);
+  RepoUtil::set_config("default.push.url",    $self->{remote_dir});
   RepoUtil::set_config("default.push.remote", "default.push.url");
   RepoUtil::unset_config("default.push.branches");
 
@@ -2175,8 +2191,8 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg push [--branch BRANCH] [--tag TAG] [--all-branches] [--all-tags] 
-          [--mirror] [REPOSITORY]
+  eg push [--bypass-modification-check] [--branch BRANCH] [--tag TAG]
+          [--all-branches] [--all-tags] [--mirror] [REPOSITORY]
 
 Description:
   Push committed changes in the current repository to a published remote
@@ -2220,6 +2236,12 @@ Examples:
       \$ eg push --branch stable 
 
 Options
+  --bypass-modification-check, -b
+    To prevent you from pushing an incomplete set of changes, push
+    typically checks whether you have new unknown files or modified files
+    present and aborts if so.  You can bypass these checks with this
+    option.
+
   --branch BRANCH
     Push commits in the specified branch.  May be reused multiple times to
     push commits in multiple branches.
@@ -2267,6 +2289,7 @@ sub preprocess {
   my ($all_branches, $all_tags, $mirror, $thin, $repo) = (0, 0, 0, 0);
   my @branches;
   my @tags;
+  my $bypass_modification_check = 0;
   my $result = main::GetOptions(
     "--help"           => sub { $self->help() },
     "--branch=s"       => sub { push(@branches, $_[1]) },
@@ -2281,6 +2304,7 @@ sub preprocess {
     "thin"             => sub { &$record_arg(@_) },
     "no-thin"          => sub { &$record_arg(@_) },
     "verbose|v"        => sub { &$record_arg(@_) },
+    "bypass-modification-check|b" => \$bypass_modification_check,
     );
   die "Cannot specify individual branches and request all branches too!\n"
     if @branches && ($all_branches || $mirror);
@@ -2288,6 +2312,11 @@ sub preprocess {
     if @tags && ($all_tags || $mirror);
   my $repository = shift @ARGV;
   my @git_refspecs = @ARGV;
+
+  if (!$bypass_modification_check) {
+    my $status = RepoUtil::commit_push_checks($package_name,
+                                              {unknown => 1, changes => 1});
+  }
 
   $self->{args} .= " --all"    if $all_branches;
   $self->{args} .= " --tags"   if $all_tags;
@@ -3558,19 +3587,125 @@ sub unset_config {
   ExecUtil::execute("git config --unset $key", ignore_ret => 1);
 }
 
-sub commit_checks {
-  my ($commit_type, $check_for) = @_;
+# Error messages spewed by commit with non-clean working copies
+sub commit_error_message_checks {
+  my ($clean_check_type, $check_for, $status, $new_unknown) = @_;
+
+  if ($status->{has_unmerged_changes}) {
+    print STDERR <<EOF;
+Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
+the list of files with conflicts).  You must first resolve any conflicts and
+then mark the relevant files as being ready for commit (see 'eg help stage' to
+learn how to do so) before proceeding.
+EOF
+    exit 1;
+  }
+
+  if ($check_for->{no_changes} && $status->{has_no_changes}) {
+    print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
+    exit 1;
+  }
+  elsif ($check_for->{unknown} && $check_for->{partially_staged} &&
+         $status->{has_unknown_files} && 
+         $status->{has_unstaged_changes} && $status->{has_staged_changes}) {
+    print STDERR <<EOF;
+Aborting: It is not clear which changes should be committed; you have new
+unknown files, staged (explictly marked as ready for commit) changes, and
+unstaged changes all present.  Run 'eg help $commit_type' for details.
+New unknown files:
+EOF
+    foreach my $file (@$new_unknown) {
+      print STDERR "  $file";  # $file has a newline
+    }
+    exit 1;
+  }
+  elsif ($check_for->{unknown} && $status->{has_unknown_files}) {
+    print STDERR <<EOF;
+Aborting: You have new unknown files present and it is not clear whether
+they should be committed.  Run 'eg help $commit_type' for details.
+New unknown files:
+EOF
+    foreach my $file (@$new_unknown) {
+      print STDERR "  $file";  # $file has a newline
+    }
+    exit 1;
+  }
+  elsif ($check_for->{partially_staged} &&
+         $status->{has_unstaged_changes} && $status->{has_staged_changes}) {
+    print STDERR <<EOF;
+Aborting: It is not clear which changes should be committed; you have both
+staged (explictly marked as ready for commit) changes and unstaged changes
+present.  Run 'eg help $commit_type' for details.
+EOF
+    exit 1;
+  }
+}
+
+# Error messages spewed by push, publish for non-clean working copies
+sub push_error_message_checks {
+  my ($clean_check_type, $check_for, $status, $new_unknown) = @_;
+
+  if ($status->{has_unmerged_changes}) {
+    print STDERR <<EOF;
+Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
+the list of files with conflicts).  You should first resolve any conflicts
+before trying to $clean_check_type your work elsewhere.
+EOF
+    exit 1;
+  }
+
+  if ($check_for->{unknown} && $check_for->{changes} &&
+      $status->{has_unknown_files} && 
+      ($status->{has_unstaged_changes} || $status->{has_staged_changes})) {
+    print STDERR <<EOF;
+Aborting: You have new unknown files and changed files present.  You should
+first commit any such changes (or use the -b flag to bypass this check) before
+trying to $clean_check_type your work elsewhere.
+New unknown files:
+EOF
+    foreach my $file (@$new_unknown) {
+      print STDERR "  $file";  # $file has a newline
+    }
+    exit 1;
+  }
+  elsif ($check_for->{unknown} && $status->{has_unknown_files}) {
+    print STDERR <<EOF;
+Aborting: You have new unknown files present.  You should either commit these
+new files before trying to $clean_check_type your work elsewhere, or use the
+-b flag to bypass this check.
+New unknown files:
+EOF
+    foreach my $file (@$new_unknown) {
+      print STDERR "  $file";  # $file has a newline
+    }
+    exit 1;
+  }
+  elsif ($check_for->{changes} &&
+         ($status->{has_unstaged_changes} || $status->{has_staged_changes})) {
+    print STDERR <<EOF;
+Aborting: You have modified your files since the last commit.  You should
+first commit any such changes before trying to $clean_check_type your work
+elsewhere, or use the -b flag to bypass this check.
+EOF
+    exit 1;
+  }
+}
+
+sub commit_push_checks {
+  my ($clean_check_type, $check_for) = @_;
   my %status;
 
   #
   # Determine which types of changes are present
   #
   my ($ret, $output) = ExecUtil::execute_captured("eg status");
+  my @unmerged_files = `git ls-files --unmerged`;
   $status{has_unknown_files}    = ($output =~ /^Unknown files:$/m);
   $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
   $status{has_staged_changes}   = ($output =~ /^Changes ready to be commit/m);
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
+  $status{has_unmerged_changes} = (scalar @unmerged_files > 0);
 
   #
   # Determine which unknown files are "newly created"
@@ -3585,75 +3720,18 @@ sub commit_checks {
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
 
-  #
-  # Perform the relevant checks and spew any necessary warning messages
-  #
-  my @unmerged_files = `git ls-files --unmerged`;
-  if (@unmerged_files) {
-    print STDERR <<EOF;
-Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
-the list of files with conflicts).  You must first resolve any conflicts and
-then mark the relevant files as being ready for commit (see 'eg help stage' to
-learn how to do so) before proceeding.
-EOF
-    exit 1;
-  }
-
-  if ($check_for->{no_changes} && $status{has_no_changes}) {
-    print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
-    exit 1;
-  }
-  elsif ($check_for->{unknown} && $check_for->{partially_staged} &&
-         $status{has_unknown_files} && 
-         $status{has_unstaged_changes} && $status{has_staged_changes}) {
-    print STDERR <<EOF;
-Aborting: It is not clear which changes should be committed; you have new
-unknown files, staged (explictly marked as ready for commit) changes, and
-unstaged changes all present.  Run 'eg help $commit_type' for details.
-New unknown files:
-EOF
-    foreach my $file (@new_unknown) {
-      print STDERR "  $file";  # $file has a newline
-    }
-    exit 1;
-  }
-  elsif ($check_for->{unknown} && $status{has_unknown_files}) {
-    print STDERR <<EOF;
-Aborting: You have new unknown files present and it is not clear whether
-they should be committed.  Run 'eg help $commit_type' for details.
-New unknown files:
-EOF
-    foreach my $file (@new_unknown) {
-      print STDERR "  $file";  # $file has a newline
-    }
-    exit 1;
-  }
-  elsif ($check_for->{partially_staged} &&
-         $status{has_unstaged_changes} && $status{has_staged_changes}) {
-    print STDERR <<EOF;
-Aborting: It is not clear which changes should be committed; you have both
-staged (explictly marked as ready for commit) changes and unstaged changes
-present.  Run 'eg help $commit_type' for details.
-EOF
-    exit 1;
-  }
-
-  if ($check_for->{has_tabs}) {
-    my $diff_flags = "--staged";
-    if ($status{has_unstaged_changes} && !$status{has_staged_changes}) {
-      $diff_flags = "";
-    }
-
-    ($ret, $output) = ExecUtil::execute_captured("eg diff $diff_flags");
-    $status{has_tabs_added} = ($output =~ /^\+.*\t/m);
-
-    if ($status{has_tabs_added}) {
-      print STDERR
-        "Your changes (see output of 'eg diff $diff_flags') include tabs\n" .
-        "in the added lines (or new version of the changed lines).  Please\n" .
-        "remove them before committing.\n";
-      exit 1;
-    }
+  if ($clean_check_type =~ /commit/) {
+    commit_error_message_checks($clean_check_type,
+                                $check_for,
+                                \%status,
+                                \@new_unknown);
+  } elsif ($clean_check_type eq "push" || $clean_check_type eq "publish") {
+    push_error_message_checks($clean_check_type,
+                              $check_for,
+                              \%status,
+                              \@new_unknown);
+  } else {
+    die "Unrecognized clean_check_type: $clean_check_type";
   }
 
   return \%status;
