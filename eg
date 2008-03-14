@@ -106,13 +106,6 @@ INIT {
       section => 'collaboration',
       about => 'Manage named remote repositories',
       },
-    tag => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      extra => 1,
-      section => 'modification',
-      about => 'Provide a name for a specific version of the repository'
-      },
 
     update => { # ???  pull --rebase, maybe?
       new_command => 1,
@@ -3403,6 +3396,67 @@ sub run {
   my $package_name = ref($self);
 
   return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
+}
+
+###########################################################################
+# tag                                                                     #
+###########################################################################
+package tag;
+@tag::ISA = qw(subcommand);
+INIT {
+  $command{tag} = {
+    unmodified_behavior => 1,
+    extra => 1,
+    section => 'modification',
+    about => 'Provide a name for a specific version of the repository'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "No tags can be created, deleted, or " .
+                                "listed until a commit has been made.",
+    @_
+    );
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg tag TAG [REVISION]
+  eg tag -d TAG
+
+Description:
+  Create or delete a tag (i.e. a nickname) for a specific version of the
+  project.  (Tags can also be annotated or digitally signed; see the 'See
+  Also section.)
+
+  Note that tags are local; creation of tags in a remote repository can be
+  accomplished by first creating a local tag and then pushing the new tag
+  to the remote repository using eg push.
+
+Examples
+  List the available local tags
+      \$ eg tag
+
+  Create a new tag named good-version for the last commit.
+      \$ eg tag good-version
+
+  Create a new tag named version-2.0.3 for 3 versions before the last commit
+  (assuming one is on a branch named project-2.0)
+      \$ eg tag version-2.0.3 project-2.0~3
+
+  Delete the tag named gooey
+      \$ eg tag -d gooey
+
+  Create a new tag named look_at_me in the default remote repository
+      \$ eg tag look_at_me
+      \$ eg push --tag look_at_me
+
+Options:
+  -d
+    Delete the specified tag
+";
+  return $self;
 }
 
 ###########################################################################
