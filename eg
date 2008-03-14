@@ -2712,6 +2712,8 @@ sub preprocess {
         "  eg revert --since HEAD\n"
   }
 
+  my $initial_commit = RepoUtil::initial_commit();
+
   # Parsing opts
   my ($commit, $staged, $in) = (0, 0, 0);
   my $m;
@@ -2733,6 +2735,14 @@ sub preprocess {
   die "Unrecognized options: @$opts\n" if @$opts;
   die "Can only specify one revision\n" if @$revs > 1;
   die "Aborting: --staged is incompatible with --in\n" if $staged && $in;
+
+  if ($initial_commit) {
+    die "Cannot revert a previous commit since there are no previous commits"
+      if $in;
+    die "Cannot revert to a previous commit since there are no previous " .
+        "commits" if !$in && (@$revs || !$staged);
+    $self->{initial_commit} = 1;
+  }
 
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
@@ -2762,9 +2772,14 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  ExecUtil::execute(
-    "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
-    "  eg apply $self->{staged} -R");
+  if ($self->{initial_commit}) {
+    die "Oops" if $self->{staged} ne "--staged";
+    ExecUtil::execute("eg rm $self->{staged} -q $self->{files}");
+  } else {
+    ExecUtil::execute(
+      "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
+      "  eg apply $self->{staged} -R");
+  }
   if ($self->{commit}) {
     ExecUtil::execute("eg commit $self->{staged}");
   }
