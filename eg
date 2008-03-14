@@ -348,32 +348,33 @@ Usage:
   eg branch -d BRANCH
 
 Description:
-  List the existing branches that you can switch to, create a new (local)
-  branch, or delete an existing (local) branch.
+  List the existing branches that you can switch to, create a new branch,
+  or delete an existing branch.  For switching the working copy to a
+  different branch, use the eg switch command instead.
 
-  Note that creation of branches in a remote repository can be accomplished
-  by first creating a local branch and then pushing your changes to the
-  remote repository using eg push.
+  Note that branches are local; creation of branches in a remote repository
+  can be accomplished by first creating a local branch and then pushing the
+  new branch to the remote repository using eg push.
 
 Examples
   List the available local branches
       \$ eg branch
 
-  Create a new local branch named random_stuff, based off the last commit.
+  Create a new branch named random_stuff, based off the last commit.
       \$ eg branch random_stuff
 
-  Create a new local branch named sec_48 based off the local 4.8 branch
-      \$ eg branch sec_48 4.8
+  Create a new branch named sec-48 based off the 4.8 branch
+      \$ eg branch sec-48 4.8
 
-  Delete the local branch named bling
+  Delete the branch named bling
       \$ eg branch -d bling
 
   Create a new branch named my_fixes in the default remote repository
       \$ eg branch my_fixes
       \$ eg push --branch my_fixes
 
-  (Advanced) Create a new local branch named bling, based off the remote
-  tracking branch of the same name
+  (Advanced) Create a new branch named bling, based off the remote tracking
+  branch of the same name
       \$ eg branch bling origin/bling
   See 'eg remote' for more details about setting up named remotes and
   remote tracking branches, and 'eg help topic storage' for more details on
