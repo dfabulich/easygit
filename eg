@@ -3589,7 +3589,7 @@ sub unset_config {
 
 # Error messages spewed by commit with non-clean working copies
 sub commit_error_message_checks {
-  my ($clean_check_type, $check_for, $status, $new_unknown) = @_;
+  my ($commit_type, $check_for, $status, $new_unknown) = @_;
 
   if ($status->{has_unmerged_changes}) {
     print STDERR <<EOF;
