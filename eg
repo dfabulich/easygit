@@ -106,13 +106,6 @@ INIT {
       section => 'collaboration',
       about => 'Manage named remote repositories',
       },
-    rm => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      extra => 1,
-      section => 'modification',
-      about => 'Remove files'
-      },
     tag => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -2774,6 +2767,86 @@ sub run {
     "  eg apply $self->{staged} -R");
   if ($self->{commit}) {
     ExecUtil::execute("eg commit $self->{staged}");
+  }
+}
+
+###########################################################################
+# rm                                                                      #
+###########################################################################
+package rm;
+@rm::ISA = qw(subcommand);
+INIT {
+  $command{rm} = {
+    extra => 1,
+    section => 'modification',
+    about => 'Remove files from subsequent commits and the working copy'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(@_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg rm [-f] [-r] [--staged] FILE...
+
+Description:
+  Marks the contents of the specified files for removal from the next
+  commit.  Also removes the given files from the working copy, unless
+  otherwise specified with the --staged flag.
+
+  To prevent data loss, the removal will be aborted if the file has
+  modifications.  This check can be overriden with the -f flag.
+
+Examples:
+  Mark the content of the files foo and bar for removal from the next
+  commit, and delete these files from the working copy.
+      \$ eg rm foo bar
+
+  Mark the content of the file baz.c for removal from the next commit, but
+  keep baz.c in the working copy as an unknown file.
+      \$ eg rm --staged baz.c
+
+  (Advanced) Remove all *.txt files under the Documentation directory OR
+  any of its subdirectories.  Note that the asterisk must be preceded with
+  a backslash to prevent standard shell expansion.  (Google for 'shell
+  expansion' if that makes no sense to you.)
+      \$ eg rm Documentation/\\*.txt
+
+Options:
+  -f
+    Override the file-modification check.
+
+  -r
+    Allow recursive removal when a directory name is given.  Without this
+    option attempted removal of directories will fail.
+
+  --staged
+    Only remove the files from the staging area (the area with changes
+    marked as ready to be recorded in the next commit).  When using this
+    flag, the given files will not be removed from the working copy and
+    will instead become \"unknown\" files.
+
+  --
+    This option can be used to separate command-line options from the list
+    of files, (useful when filenames might be mistaken for command-line
+    options).
+";
+  $self->{'differences'} = '
+  eg rm is identical to git rm except that it accepts --staged as a synonym
+  for --cached.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $result = main::GetOptions("--help" => sub { $self->help() });
+  foreach my $i (0..$#ARGV) {
+    $ARGV[$i] = "--cached" if $ARGV[$i] eq "--staged";
   }
 }
 
