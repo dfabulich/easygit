@@ -3909,7 +3909,8 @@ sub main {
   #
   # Get any global options 
   #
-  Getopt::Long::Configure("no_bundling", "no_permute", "pass_through");
+  Getopt::Long::Configure("no_bundling", "no_permute",
+                          "pass_through", "no_auto_abbrev");
   my $result=GetOptions(
                "--help"    => sub { help() },
                "--verbose" => \$verbose,
