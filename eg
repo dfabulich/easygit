@@ -1068,7 +1068,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg diff [--unstaged | --staged] [REVISION] [REVISION]
+  eg diff [--unstaged | --staged] [REVISION] [REVISION] [FILE...]
 
 Description:
   Shows differences between different versions of the project.  By default,
@@ -1085,9 +1085,10 @@ Examples:
   Or do the same using \"HEAD\" which is a synonym for the current branch:
       \$ eg diff HEAD~1
 
-  Show changes between 10 versions before last recorded commit and the last
-  recorded commit (assumes the current branch is 'master').
-      \$ eg diff master~10 master
+  Show changes to the file myscript.py between 10 versions before last
+  recorded commit and the last recorded commit (assumes the current branch
+  is 'master').
+      \$ eg diff master~10 master myscript.py
 
   (Advanced) Show changes between staged (ready-to-be-committed) version of
   files and the working copy (use 'eg stage' to stage files).  In other
