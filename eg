@@ -146,7 +146,7 @@ sub new {
   }
 
   # Most commands must be run inside a git working directory
-  unless (!$self->{git_repo_needed}) {
+  unless (!$self->{git_repo_needed} || (@ARGV > 0 && $ARGV[0] eq "--help")) {
     $self->{git_dir} = RepoUtil::git_dir();
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
   }
@@ -1324,7 +1324,8 @@ sub run {
           "want to try running 'git help $subcommand'.\n";
     }
 
-    my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '');
+    my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '',
+                                          git_repo_needed => 0);
     $subcommand_obj->help();
   }
 
