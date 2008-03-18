@@ -4,6 +4,10 @@
 ## Copyright 2008 by Elijah Newren
 ## Licensed under GNU GPL, version 2.
 
+## To use eg, simply stick this file in your path.  Then fire off an
+## 'eg help' to get oriented.  See http://www.gnome.org/~newren/eg for
+## more information.
+
 package main;
 
 use warnings;
