@@ -1579,11 +1579,11 @@ EOF
   }
   $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
                    RepoUtil::get_config("default.branch.$current_branch.merge");
-  $default_merge =~ s#refs/heads/##;
   if ($default_repo) {
     print "  Default remote repository to pull from: $default_repo\n";
   }
   if ($default_merge) {
+    $default_merge =~ s#refs/heads/##;
     print "  Default remote branch to merge from:    $default_merge\n";
   }
 
