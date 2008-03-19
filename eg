@@ -111,13 +111,6 @@ INIT {
       section => 'collaboration',
       about => 'Manage named remote repositories',
       },
-
-    update => { # ???  pull --rebase, maybe?
-      new_command => 1,
-      extra => 1,
-      section => 'compatibility',
-      about => 'Use antiquated workflow for refreshing working copy, if safe'
-      },
   );
 }
 
@@ -3484,6 +3477,135 @@ Options:
 }
 
 ###########################################################################
+# update                                                                  #
+###########################################################################
+package update;
+@update::ISA = qw(subcommand);
+INIT {
+  $command{update} = {
+    new_command => 1,
+    extra => 1,
+    section => 'compatibility',
+    about => 'Use antiquated workflow for refreshing working copy, if safe'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    git_equivalent => 'pull',
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg update
+
+Description:
+  Gets updates from the default remote repository if updating is safe, and
+  provides suggestions on proceeding otherwise.
+
+Examples:
+  Get any updates from the remote repository
+      \$ eg update
+";
+  $self->{'differences'} = '
+  eg update is unique to eg; it exists primarily to ease the transition for
+  cvs/svn users and to do something useful for them.  In particular, eg
+  update is used just to do fast-forward updates when there are no local
+  changes; if anything more than this is needed, eg advises users to run
+  other commands.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+
+  # Check for the --help arg
+  my $result=main::GetOptions("--help" => sub { $self->help() });
+
+  # Abort if the user specified any args other than --help
+  if (@ARGV) {
+    print STDERR <<EOF;
+Aborting: No arguments to update are allowed.  If you are trying to switch
+to a different revision, use eg switch.
+EOF
+    exit 1;
+  }
+
+  # Check if there are local changes
+  my $status = RepoUtil::commit_push_checks();
+  my $has_changes = $status->{has_staged_changes} ||
+    $status->{has_unstaged_changes} || $status->{has_unknown_files} ||
+    $status->{has_unmerged_changes};
+  if ($has_changes) {
+    print STDERR <<EOF;
+Aborting: You have local changes, and pulling updates could put your
+working copy in a nonworking state.  Consider committing your changes
+before updating, or using eg stash to stash the changes away and reapply
+them after the update.
+EOF
+    exit 1;
+  }
+
+  # Check if there is a default repository to pull from
+  # <This code mostly taken from pull, but "origin" serves as extra backup>
+  my $branch = RepoUtil::current_branch() || "HEAD";
+  my $url = RepoUtil::get_config("branch.$branch.remote");
+  if (!$url) {
+    $url = RepoUtil::get_config("default.branch.$branch.remote") if !$url;
+    if (defined $url &&  $url =~ /^default\.remote\./) {
+      $url = RepoUtil::get_config("$url.url");
+    }
+  }
+  if (!$url) {
+    my $ret = ExecUtil::execute("git remote | grep origin > /dev/null",
+                                ignore_ret => 1);
+    $url = "origin" if $ret == 0;
+  }
+  die "No repository to update from (perhaps try eg pull instead?)\n" if !$url;
+  $self->{repository} = $url;
+  $self->{local_branch} = $branch;
+
+  # Check if there is a default branch to pull
+  my $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+  if (!$merge_branch) {
+    my $defaults = RepoUtil::get_config("default.branch.$branch.merge");
+    my @default_branches;
+    @default_branches = split(' ', $defaults) if $defaults;
+    if (@default_branches == 1) {
+      $merge_branch = $defaults;
+    }
+  }
+  if (!$merge_branch) {
+    # Check if the remote repository has exactly 1 branch...if so, return it,
+    # otherwise throw an error
+    my ($ret, $output) = 
+      ExecUtil::execute_captured("git ls-remote -h $self->{repository}");
+    if ($ret == 0) {
+      my @remote_refs = split('\n', $output);
+      if (@remote_refs == 1) {
+        $merge_branch = $remote_refs[0];
+      }
+    }
+  }
+  die "No remote branch to update from (perhaps try eg pull instead?\n"
+    if !$merge_branch;
+  $self->{merge_branch} = $merge_branch;
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  # Should only do the reset if the fetch worked...?
+  my $ret = ExecUtil::execute("git fetch $self->{repository} " .
+                              "$self->{merge_branch}:$self->{local_branch}",
+                              ignore_ret => 1);
+  ExecUtil::execute("git reset --hard $self->{local_branch}");
+}
+
+###########################################################################
 # version                                                                 #
 ###########################################################################
 package version;
@@ -3798,6 +3920,8 @@ sub commit_push_checks {
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
+
+  return \%status if !defined $clean_check_type;
 
   if ($clean_check_type =~ /commit/) {
     commit_error_message_checks($clean_check_type,
