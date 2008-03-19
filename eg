@@ -3514,6 +3514,9 @@ Examples:
   update is used just to do fast-forward updates when there are no local
   changes; if anything more than this is needed, eg advises users to run
   other commands.
+
+  eg update does not accept any options.  Period.  Well, okay, other than
+  --help.
 ';
   return $self;
 }
