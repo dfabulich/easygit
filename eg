@@ -21,6 +21,7 @@ my $verbose=0;
 # globals :-(
 my $outfh;
 my $version = "0.5.4.alphabeticalcharactersdontbelonginversionnumbers";
+my $eg_exec = abs_path($0);
 my %command;    # command=>{section, short_description} mapping
 my $section = {
   'creation' =>
@@ -704,7 +705,7 @@ sub run {
 
     return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
   } else {
-    return ExecUtil::execute("eg  clone    @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("$eg_exec  clone    @ARGV", ignore_ret => 1);
   }
 }
 
@@ -2820,14 +2821,14 @@ sub run {
 
   if ($self->{initial_commit}) {
     die "Oops" if $self->{staged} ne "--staged";
-    ExecUtil::execute("eg rm $self->{staged} -q $self->{files}");
+    ExecUtil::execute("$eg_exec rm $self->{staged} -q $self->{files}");
   } else {
     ExecUtil::execute(
       "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
       "  eg apply $self->{staged} -R");
   }
   if ($self->{commit}) {
-    ExecUtil::execute("eg commit $self->{staged}");
+    ExecUtil::execute("$eg_exec commit $self->{staged}");
   }
 }
 
@@ -3108,7 +3109,7 @@ sub preprocess {
     } else {
       # Will need to compare arguments to existing stash descriptions...
       my ($retval, $output) =
-        ExecUtil::execute_captured("eg stash list --refs");
+        ExecUtil::execute_captured("$eg_exec stash list --refs");
       my @lines = split('\n', $output);
       my %refs;
       my %bad_refs;
@@ -3776,7 +3777,7 @@ sub commit_push_checks {
   #
   # Determine which types of changes are present
   #
-  my ($ret, $output) = ExecUtil::execute_captured("eg status");
+  my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
   my @unmerged_files = `git ls-files --unmerged`;
   $status{has_unknown_files}    = ($output =~ /^Unknown files:$/m);
   $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
