@@ -5,8 +5,10 @@
 ## Licensed under GNU GPL, version 2.
 
 ## To use eg, simply stick this file in your path.  Then fire off an
-## 'eg help' to get oriented.  See http://www.gnome.org/~newren/eg for
-## more information.
+## 'eg help' to get oriented.  You may also be interested in
+##   http://www.gnome.org/~newren/eg/git-for-svn-users.html
+## to get a comparison to svn in terms of capabilities and commands.
+## Webpage for eg: http://www.gnome.org/~newren/eg
 
 package main;
 
