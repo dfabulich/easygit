@@ -1964,9 +1964,11 @@ Description:
     immediately merge with is that you can then later inspect, review, or
     merge with such changes (using 'eg merge') even if not connected to the
     network.  Naming the remote repositories also allows you to use the
-    shorter name instead of the full location of the repository.  See 'eg
-    help remote' and 'eg help topic storage' for more information about
-    named remote repositories and remote tracking branches.
+    shorter name instead of the full location of the repository.  (eg
+    remote also provides the ability to update from groups of remote
+    repositories simultaneously.)  See 'eg help remote' and 'eg help topic
+    storage' for more information about named remote repositories and
+    remote tracking branches.
 
 Examples:
   Pull changes from myserver.com:git-stuff/my-repo.git
