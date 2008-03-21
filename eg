@@ -2145,7 +2145,7 @@ sub preprocess {
 
     # Repository option #3: default.branch.<active branch>.remote variable
     $url = RepoUtil::get_config("default.branch.$branch.remote") if !$url;
-    $url = RepoUtil::get_config("$url.url") if $url =~ /^default\.remote\./;
+    $url = RepoUtil::get_config("$url.url") if $url && $url =~ /^default\.remote\./;
 
     die "No repository to pull from specified!\n" if !$url;
 
@@ -3787,7 +3787,7 @@ sub get_config {
 sub set_config {
   my $key = shift;
   my $value = shift;
-  ExecUtil::execute("git config $key $value");
+  ExecUtil::execute("git config $key \"$value\"");
 }
 
 sub unset_config {
