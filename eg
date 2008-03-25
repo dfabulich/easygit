@@ -544,10 +544,14 @@ sub run {
 
       next if !$c->can("new");
       my $obj = $c->new(initial_commit_error_msg => '');
-      $obj->{differences} =~ s/^\n//;
 
       print OUTPUT "Changes to $c:\n";
-      print OUTPUT $obj->{differences};
+      if ($obj->{differences}) {
+        $obj->{differences} =~ s/^\n//;
+        print OUTPUT $obj->{differences};
+      } else {
+        print OUTPUT "  <Unknown>.\n";
+      }
     }
     print OUTPUT <<EOF;
 Other general changes:
