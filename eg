@@ -2408,7 +2408,6 @@ package reset;
 @reset::ISA = qw(subcommand);
 INIT {
   $command{reset} = {
-    unmodified_behavior => 1,
     extra => 1,
     section => 'modification',
     about => 'Forget local commits and (optionally) undo their changes'
@@ -2916,7 +2915,7 @@ package stage;
 @stage::ISA = qw(subcommand);
 INIT {
   $command{stage} = {
-    unmodified_behavior => 1,
+    new_command => 1,
     section => 'modification',
     about => 'Mark content in files as being ready for commit'
     };
