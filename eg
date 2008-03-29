@@ -193,13 +193,7 @@ sub help {
   if ($git_equiv) {
     print OUTPUT "\nSee also\n";
     print OUTPUT <<EOF;
-  If thou, brave knight, canst tame the mighty dragons, travel to the land
-  of desolation by running
-    man git-$git_equiv
-  where thou canst find lurking treasures of available options.  But, be
-  warned, many a brave knight hath been slain at the foot of the
-  treacherous dragons.
-
+  Run 'man git-$git_equiv' for a comprehensive list of options available.
   eg $package_name is designed to accept the same options as git $git_equiv, and
   with the same meanings unless specified otherwise in the above
   "Differences" section.
