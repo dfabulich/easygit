@@ -3607,10 +3607,19 @@ sub run {
   my $package_name = ref($self);
 
   # Should only do the reset if the fetch worked...?
-  my $ret = ExecUtil::execute("git fetch $self->{repository} " .
-                              "$self->{merge_branch}:$self->{local_branch}",
-                              ignore_ret => 1);
-  ExecUtil::execute("git reset --hard $self->{local_branch}");
+  my ($ret, $output) = 
+    ExecUtil::execute_captured("git fetch $self->{repository} " .
+                               "$self->{merge_branch}:$self->{local_branch}",
+                               ignore_ret => 1);
+  if ($output =~ /\[rejected\].*\(non fast forward\)/) {
+    die "fatal: Cannot update because you have local commits; " .
+        "try 'eg pull' instead.\n";
+  } elsif ($ret != 0) {
+    die "Error updating (output = $output); please report the bug, and\n" .
+        "try using 'eg pull' instead.\n";
+  } else {
+    print "Updated the current branch.\n";
+  }
 }
 
 ###########################################################################
