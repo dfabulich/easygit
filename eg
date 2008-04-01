@@ -3383,24 +3383,21 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg switch [-b] BRANCH
+  eg switch BRANCH
+  eg switch REVISION
 
 Description:
-  Switches to another branch (an operation that can be done locally, without
-  any network connectivity).  Creates the branch first if the -b option is
-  passed.
+  Switches to another branch, or to another tag, or to a different
+  revision.  (Switch is an operation that can be done locally, without any
+  network connectivity).
 
 Examples:
   Switch to the 4.8 branch
       \$ eg switch 4.8
 
-  Create a new branch called new_whizbang_feature and switch to it.
-      \$ eg switch -b new_whizbang_feature
+  Switch the working copy to the v4.3 tag
+      \$ eg switch v4.3
 
-Options:
-  -b
-    Specifies that the branch should first be created (an error will be shown
-    if the specified branch already exists).
 ";
   $self->{'differences'} = '
   eg switch is a subset of the functionality of git checkout; the abilities
@@ -3409,9 +3406,6 @@ Options:
 
   The ability of git checkout to get older versions of files is not part of
   eg switch; instead that ability can be found with eg revert.
-
-  (One can also use eg checkout identically to git checkout for backwards
-   compatibility; it simply is not an advertised function.)
 ';
   return $self;
 }
