@@ -315,7 +315,6 @@ package branch;
 @branch::ISA = qw(subcommand);
 INIT {
   $command{branch} = {
-    unmodified_behavior => 1,
     section => 'projects',
     about => 'List, create, or delete branches'
     };
@@ -332,7 +331,7 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg branch [-r]
-  eg branch NEWBRANCH [STARTPOINT]
+  eg branch [-s] NEWBRANCH [STARTPOINT]
   eg branch -d BRANCH
 
 Description:
@@ -376,8 +375,26 @@ Options:
     List remote tracking branches (see 'eg help topic storage') for more
     details.  This is useful when using named remote repositories (see 'eg
     help remote')
+
+  -s
+    After creating the new branch, switch to it
 ";
   return $self;
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $switch = 0;
+  if (scalar(@ARGV) > 1 && $ARGV[0] eq "-s") {
+    $switch = 1;
+    shift @ARGV;
+  }
+
+  ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
+  ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
+    if ($switch);
 }
 
 ###########################################################################
