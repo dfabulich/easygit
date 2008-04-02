@@ -3946,12 +3946,12 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my @new_unknown = `git ls-files --exclude-standard --others --directory`;
   my $git_dir = git_dir();
+  my @new_unknown = `(cd $git_dir/.. && git ls-files --exclude-standard --others --directory)`;
   die "Must run within a git repository.\n" if !defined $git_dir;
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
-    my @old_unknown_files = `cat .git/info/ignored-unknown`;
+    my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
