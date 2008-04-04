@@ -1045,6 +1045,10 @@ sub preprocess {
                                  {no_changes       => 1,
                                   unknown          => $check_unknown,
                                   partially_staged => $check_mixed});
+
+  die "No staged changes, but --staged given"
+      if (!$status->{has_staged_changes} && $staged);
+
   if (!$all_known && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
     $self->{'commit_flags'} .= " -a";
