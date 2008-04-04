@@ -2988,6 +2988,13 @@ Options:
   return $self;
 }
 
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
+}
+
 ###########################################################################
 # stash                                                                   #
 ###########################################################################
