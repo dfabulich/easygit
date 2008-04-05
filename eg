@@ -3387,9 +3387,14 @@ Usage:
   eg switch REVISION
 
 Description:
-  Switches to another branch, or to another tag, or to a different
+  Switches the working copy to another branch, or to another tag or
   revision.  (Switch is an operation that can be done locally, without any
   network connectivity).
+
+  To list, create, or delete branches to switch to, use eg branch.  To
+  list, create, or delete tags to switch to, use eg tag.  To list, create,
+  or delete revisions, use eg log, eg commit, or eg reset, respectively.
+  :-)
 
 Examples:
   Switch to the 4.8 branch
