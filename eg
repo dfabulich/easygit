@@ -1508,12 +1508,14 @@ sub run {
   # Special case the situation of no commits being present
   #
   if (RepoUtil::initial_commit()) {
-    print STDERR <<EOF;
+    if ($debug < 2) {
+      print STDERR <<EOF;
 Total commits: 0
 Local repository: $self->{git_dir}
 There are no commits in this repository.  Please use eg stage to mark new
 files as being ready to commit, and eg commit to commit them.
 EOF
+    }
     exit 1;
   }
 
@@ -1523,22 +1525,22 @@ EOF
 
   # total commits
   my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
-  print "Total commits: $total_commits\n";
+  print "Total commits: $total_commits\n" if $debug < 2;
 
   # local repo
-  print "Local repository: $self->{git_dir}\n";
+  print "Local repository: $self->{git_dir}\n" if $debug < 2;
 
   # named remote repos
   my %remotes;
   my $longest = 0;
-  my @abbrev_remotes = `git remote`;
+  my @abbrev_remotes = split('\n', ExecUtil::output("git remote"));
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
     my $url = RepoUtil::get_config("remote.$remote.url");
     $remotes{$remote} = $url;
     $longest = main::max($longest, length($remote));
   }
-  if (scalar keys %remotes > 0) {
+  if (scalar keys %remotes > 0 && $debug < 2) {
     print "Named remote repositories: (name -> location)\n";
     foreach my $remote (sort keys %remotes) {
       printf "  %${longest}s -> %s\n", $remote, $remotes{$remote};
@@ -1553,7 +1555,7 @@ EOF
     if (defined $url && $url eq "default.push.url") {
       $url = RepoUtil::get_config($url) ;
     }
-    if (defined $url) {
+    if (defined $url && $debug < 2) {
       print "Default remote repository to push to: $url\n";
     }
   }
@@ -1573,14 +1575,14 @@ EOF
   chdir($topdir);
 
   # Name
-  print "Current branch: $current_branch\n";
+  print "Current branch: $current_branch\n" if $debug < 2;
 
   # Sha1sum
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
-  print "  Cryptographic checksum (sha1sum): $current_commit\n";
+  print "  Cryptographic checksum (sha1sum): $current_commit\n" if $debug < 2;
 
   # Default push repo
-  if ($default_push_repo) {
+  if ($default_push_repo && $debug < 2) {
     print "  Default remote repository to push to:   $default_push_repo\n";
   }
 
@@ -1596,21 +1598,21 @@ EOF
   }
   $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
                    RepoUtil::get_config("default.branch.$current_branch.merge");
-  if ($default_repo) {
+  if ($default_repo && $debug < 2) {
     print "  Default remote repository to pull from: $default_repo\n";
   }
-  if ($default_merge) {
+  if ($default_merge && $debug < 2) {
     $default_merge =~ s#refs/heads/##;
     print "  Default remote branch to merge from:    $default_merge\n";
   }
 
   # No. contributors
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
-  print "  Number of contributors: $contributors\n";
+  print "  Number of contributors: $contributors\n" if $debug < 2;
 
   # No. files
   my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
-  print "  Number of files: $num_files\n";
+  print "  Number of files: $num_files\n" if $debug < 2;
 
   # No. dirs
   my $num_dirs = ExecUtil::output(
@@ -1620,7 +1622,7 @@ EOF
                     " | sort " .
                     " | uniq " .
                     " | wc -l");
-  print "  Number of directories: $num_dirs\n";
+  print "  Number of directories: $num_dirs\n" if $debug < 2;
 
   # Some ugly, nasty code to get the biggest file.  Seems to be the only
   # method I could find that would work given the corner case filenames
@@ -1639,11 +1641,11 @@ EOF
     }
   }
   my $biggest_file = "$biggest{size} ($biggest{name})";
-  print "  Biggest file size, in bytes: $biggest_file\n";
+  print "  Biggest file size, in bytes: $biggest_file\n" if $debug < 2;
 
   # No. commits
   my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
-  print "  Commits: $branch_depth\n";
+  print "  Commits: $branch_depth\n" if $debug < 2;
 
   # Other possibilities:
   #   Disk space used by respository (du -hs .git, or packfile size?)
