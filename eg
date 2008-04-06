@@ -19,7 +19,7 @@ use Cwd qw(getcwd abs_path);
 use List::Util qw(max);
 
 # configurables
-my $verbose=0;
+my $debug=0;
 
 # globals :-(
 my $outfh;
@@ -3708,9 +3708,9 @@ sub _execute_impl {
   my ($ret, $output);
   my %options = ( ignore_ret => 0, capture_output => 0, @opts );
 
-  if ($verbose) {
-    print "eg: running >>$command<<";
-    print "\n";
+  if ($debug) {
+    print "    >>Running: '$command'<<\n";
+    return $options{capture_output} ? (0, "") : 0 if $debug == 2;
   }
 
   #
@@ -3743,7 +3743,7 @@ sub _execute_impl {
       print STDERR "eg: received signal ".($? & 127)."\n";
     }
     elsif (! $options{ignore_ret}) {
-      print STDERR "eg: failed ($ret)\n" if $verbose;
+      print STDERR "eg: failed ($ret)\n" if $debug;
       if ($ret >> 8 != 0) {
         print STDERR "eg: command ($command) failed\n";
       }
@@ -4036,23 +4036,43 @@ package main;
 
 sub launch {
   my $job=shift;
+  my $orig_debug = $debug;
 
+  # Create the action to execute
   my $action;
   $action = $job->new()                      if  $job->can("new");
   $action = subcommand->new(command => $job) if !$job->can("new");
-  $action->preprocess() if $action->can("preprocess");
 
+  # preprocess
+  if ($action->can("preprocess")) {
+    if ($debug) {
+      print ">>Stage: Preprocess<<\n";
+      $debug = 1 if $debug == 2;  # Allow preprocess actions to run
+      $action->preprocess();
+      $debug = $orig_debug;
+    } else {
+      $action->preprocess();
+    }
+  }
+
+  # run & postprocess
   if (!$action->can("postprocess")) {
+    print ">>Stage: Run<<\n" if $debug;
     $action->run();
   } else {
     my $output = "";
     open($outfh, '>', \$output) || die "eg $job: cannot open \$outfh: $!";
+    print ">>Stage: Run<<\n" if $debug;
     $action->run();
+    print ">>Stage: Postprocess<<\n" if $debug;
     $action->postprocess($output);
   }
 
-  # Do any wrapup required
-  $action->wrapup() if $action->can("wrapup");;
+  # wrapup
+  if ($action->can("wrapup")) {
+    print ">>Stage: Wrapup<<\n" if $debug;
+    $action->wrapup();
+  }
 }
 
 sub version {
@@ -4088,9 +4108,10 @@ sub main {
   Getopt::Long::Configure("no_bundling", "no_permute",
                           "pass_through", "no_auto_abbrev");
   my $result=GetOptions(
-               "--help"    => sub { help() },
-               "--verbose" => \$verbose,
-               "--version" => sub { version() },
+               "--debug"     => sub { $debug = 1 },
+               "--help"      => sub { help() },
+               "--translate" => sub { $debug = 2 },
+               "--version"   => sub { version() },
                         );
   die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
   die "eg: No subcommand specified. (Try 'eg help')\n" if @ARGV < 1;

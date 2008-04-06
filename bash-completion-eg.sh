@@ -149,6 +149,8 @@ _eg ()
     case "${COMP_WORDS[COMP_CWORD]}" in
     --*=*) COMPREPLY=() ;;
     --*)   __gitcomp "
+      --debug
+      --translate
       --no-pager
       --git-dir=
       --bare
