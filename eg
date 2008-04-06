@@ -4040,22 +4040,29 @@ sub launch {
   my $job=shift;
   my $orig_debug = $debug;
 
+  # Let action setup commands (consisting entirely of getting the location
+  # of the git repository) run without printing diagnostics, since it doesn't
+  # seem enlightening at all
+  $debug = 0 if $orig_debug;
+
   # Create the action to execute
   my $action;
+  print ">>Stage: Action Setup<<\n" if $debug;
   $action = $job->new()                      if  $job->can("new");
   $action = subcommand->new(command => $job) if !$job->can("new");
 
+  # Let preprocess actions run
+  $debug = 1 if $orig_debug;
+
   # preprocess
   if ($action->can("preprocess")) {
-    if ($debug) {
-      print ">>Stage: Preprocess<<\n";
-      $debug = 1 if $debug == 2;  # Allow preprocess actions to run
-      $action->preprocess();
-      $debug = $orig_debug;
-    } else {
-      $action->preprocess();
-    }
+    print ">>Stage: Preprocess<<\n" if $debug;
+    $action->preprocess();
   }
+
+  # Now that we are up to the executation stage of running the action, honor
+  # the requested debug level (i.e. the --debug and --translate options)
+  $debug = $orig_debug;
 
   # run & postprocess
   if (!$action->can("postprocess")) {
