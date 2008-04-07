@@ -3800,8 +3800,18 @@ sub current_branch {
 }
 
 sub git_dir {
+  # None of the cases where we need to get the git_dir (except maybe the
+  # indirect one used by eg log) would enlighten the user if we showed them
+  # the actual command, so disable it.
+  my $orig_debug = $debug;
+  $debug = 0;
+
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
+
+  # Reenable command showing
+  $debug = $orig_debug;
+
   return undef if $ret != 0;
   chomp($output);
   return $output;
@@ -4043,31 +4053,25 @@ package main;
 
 sub launch {
   my $job=shift;
-  my $orig_debug = $debug;
-
-  # Let action setup commands (consisting entirely of getting the location
-  # of the git repository) run without printing diagnostics, since it doesn't
-  # seem enlightening at all
-  $debug = 0 if $orig_debug;
 
   # Create the action to execute
   my $action;
-  print ">>Stage: Action Setup<<\n" if $debug;
   $action = $job->new()                      if  $job->can("new");
   $action = subcommand->new(command => $job) if !$job->can("new");
 
-  # Let preprocess actions run
-  $debug = 1 if $orig_debug;
-
   # preprocess
   if ($action->can("preprocess")) {
+    # Do not skip commands normally executed during the preprocess stage,
+    # since they just gather data.
+    my $orig_debug = $debug;
+    $debug = 1 if $orig_debug;
+
     print ">>Stage: Preprocess<<\n" if $debug;
     $action->preprocess();
-  }
 
-  # Now that we are up to the executation stage of running the action, honor
-  # the requested debug level (i.e. the --debug and --translate options)
-  $debug = $orig_debug;
+    # Return to original debug stage
+    $debug = $orig_debug;
+  }
 
   # run & postprocess
   if (!$action->can("postprocess")) {
