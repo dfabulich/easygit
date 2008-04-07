@@ -827,7 +827,18 @@ sub run {
   # Perform the clone
   #
   my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
-  if ($ret == 0) {
+  if ($debug == 2) {
+    print "    >>Running: 'cd $self->{directory}'<<\n";
+    print "    >>Running: 'git branch -r'<<\n";
+    print "    --- Setting up extra branches by default ---\n";
+    print "    >>Running, for each remote branch besides master (referred to as BRANCH):\n";
+    print "        git branch --no-track BRANCH origin/BRANCH\n";
+    print "    --- Default push/pull location setup ---\n";
+    print "    >>Running: 'git config --remove-section branch.master'<<\n";
+    print "    >>Running, for each remote branch (referred to as BRANCH):\n";
+    print "        git config default.branch.BRANCH.remote origin\n";
+    print "        git config default.branch.BRANCH.merge  BRANCH\n";
+  } elsif ($ret == 0) {
     # Switch to the appropriate directory, remembering the repository we
     # checked out
     die "$self->{directory} does not exist after checkout!"
