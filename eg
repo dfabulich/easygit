@@ -521,6 +521,11 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
   # Print valid subcommands sorted by section
   my $indent = "  ";
   my $header_indent = "";
