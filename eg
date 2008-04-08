@@ -2402,7 +2402,9 @@ sub preprocess {
   #
   # Get the repository to push to, including more general fallbacks
   #
+  Util::push_debug(new_value => 0);
   my $branch = RepoUtil::current_branch() || "HEAD";
+  Util::pop_debug();
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository";
