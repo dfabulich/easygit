@@ -3347,6 +3347,11 @@ sub postprocess {
   my $self = shift;
   my $output = shift;
 
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
   my $branch;
   my $initial_commit = 0;
   my %files = ( unknown => undef, unstaged => undef, staged => undef );
