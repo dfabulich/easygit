@@ -832,17 +832,20 @@ sub run {
     chdir($self->{directory});
 
     # Set up a branch for each remote branch, not just master
+    my @local_branches = split('\n', `git branch | sed -e s/^..//`);
     my @branches = `git branch -r`;
     foreach my $branch (@branches) {
       chomp($branch);
       $branch =~ s#  origin/##;
       next if $branch eq "HEAD";
-      next if $branch eq "master";
+      next if grep {$branch eq $_} @local_branches;
       ExecUtil::execute("git branch --no-track $branch origin/$branch");
     }
 
-    # Unset branch.master.(remote|merge)
-    ExecUtil::execute("git config --remove-section branch.master");
+    # Unset branch.$branch.(remote|merge)
+    foreach my $branch (@local_branches) {
+      ExecUtil::execute("git config --remove-section branch.$branch");
+    }
 
     # Set up the configuration variables default.branch.BRANCH.(remote|merge)
     # for each BRANCH (used later as default pull locations)
