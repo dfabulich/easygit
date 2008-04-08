@@ -1783,6 +1783,14 @@ Description:
 
 sub run {
   my $branch = RepoUtil::current_branch();
+
+  if ($debug) {
+    print "    >>Running: git log @ARGV | \\\n" .
+       "               git name-rev --stdin --refs=refs/heads/$branch | \\\n" .
+       "               less\n";
+    return if $debug == 2;
+  }
+
   open(INPUT, "git log @ARGV | " .
               "git name-rev --stdin --refs=refs/heads/$branch |");
   open(OUTPUT, "| less");
@@ -3802,7 +3810,16 @@ package RepoUtil;
 
 # current_branch: Get the currently active branch
 sub current_branch {
+  # Always allow the git symbolic-ref command to run, since it simply
+  # gathers information
+  my $orig_debug = $debug;
+  $debug = 1 if $debug;
+
   my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
+
+  # Restore debugging state
+  $debug = $orig_debug;
+
   return undef if $ret != 0;
   chomp($output);
   $output =~ s#refs/heads/## || die "Current branch ($output) is funky.\n";
