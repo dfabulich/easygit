@@ -3816,15 +3816,9 @@ package RepoUtil;
 
 # current_branch: Get the currently active branch
 sub current_branch {
-  # Always allow the git symbolic-ref command to run, since it simply
-  # gathers information
-  my $orig_debug = $debug;
-  $debug = 1 if $debug;
-
+  Util::push_debug(new_value => $debug ? 1 : 0);
   my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
-
-  # Restore debugging state
-  $debug = $orig_debug;
+  Util::pop_debug();
 
   return undef if $ret != 0;
   chomp($output);
@@ -3833,17 +3827,10 @@ sub current_branch {
 }
 
 sub git_dir {
-  # None of the cases where we need to get the git_dir (except maybe the
-  # indirect one used by eg log) would enlighten the user if we showed them
-  # the actual command, so disable it.
-  my $orig_debug = $debug;
-  $debug = 0;
-
+  Util::push_debug(new_value => 0);
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
-
-  # Reenable command showing
-  $debug = $orig_debug;
+  Util::pop_debug();
 
   return undef if $ret != 0;
   chomp($output);
@@ -3851,10 +3838,7 @@ sub git_dir {
 }
 
 sub get_dirs {
-  # It's not enlightening to show the commands for determining the
-  # repository directories, so turn debugging spew off
-  my $orig_debug = $debug;
-  $debug = 0;
+  Util::push_debug(new_value => 0);
 
   my $curdir = main::getcwd();
 
@@ -3871,8 +3855,7 @@ sub get_dirs {
 
   my $gitdir = git_dir();
 
-  # Return to normal debugging mode
-  $debug = $orig_debug;
+  Util::pop_debug();
 
   return ($curdir, $topdir, $gitdir);
 }
@@ -4022,9 +4005,8 @@ sub commit_push_checks {
   my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
 
   # Save debug mode, print out commands used up front
-  my $orig_debug = $debug;
+  Util::push_debug(new_value => 0);
   if ($debug) {
-    $debug = 0;
     print "    >>Commands to gather data for pre-$clean_check_type sanity checks:\n";
     print "        git status\n";
     print "        git ls-files --unmerged\n";
@@ -4054,8 +4036,7 @@ sub commit_push_checks {
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
 
-  # Restore original debug mode
-  $debug = $orig_debug;
+  Util::pop_debug();
 
   return \%status if !defined $clean_check_type;
 
@@ -4099,11 +4080,7 @@ sub difference {
 sub git_rev_parse {
   my @args = @_;
 
-  # The call to git rev-parse is not enlightening as to how eg calls git
-  # to do work; it's an implementational detail that we were too lazy to
-  # parse our own arguments.  So, don't print out the command
-  my $orig_debug = $debug;
-  $debug = 0;
+  Util::push_debug(new_value => 0);
 
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse @ARGV", ignore_ret => 1);
@@ -4116,12 +4093,26 @@ sub git_rev_parse {
   my @revs  = split('\n', `git rev-parse --revs-only          @ARGV`);
   my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
 
-  # Restore debug status
-  $debug = $orig_debug;
+  Util::pop_debug();
 
   return (\@opts, \@revs, \@files);
 }
 
+{
+my @debug_values;
+sub push_debug {
+  my @opts = @_;
+  my %options = ( @opts );
+  die "Called without new_value!" if !defined($options{new_value});
+
+  push(@debug_values, $debug);
+  $debug = $options{new_value};
+}
+
+sub pop_debug {
+  $debug = pop @debug_values;
+}
+}
 
 
 #*************************************************************************#
@@ -4146,14 +4137,12 @@ sub launch {
   if ($action->can("preprocess")) {
     # Do not skip commands normally executed during the preprocess stage,
     # since they just gather data.
-    my $orig_debug = $debug;
-    $debug = 1 if $orig_debug;
+    Util::push_debug(new_value => $debug ? 1 : 0);
 
     print ">>Stage: Preprocess<<\n" if $debug;
     $action->preprocess();
 
-    # Return to original debug stage
-    $debug = $orig_debug;
+    Util::pop_debug();
   }
 
   # run & postprocess
