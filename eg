@@ -2854,13 +2854,15 @@ sub preprocess {
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
   $self->{staged} = '';
-  $self->{staged} = '--staged' if $staged;
+  $self->{staged} = '--cached' if $staged;
   $self->{revs} = "@$revs";
   $self->{revs} = "HEAD" if !@$revs;
   if ($in) {
     # One more sanity check
+    Util::push_debug(new_value => 0);
     my $links = ExecUtil::output(
                   "git rev-list --parents --max-count=1 $self->{revs}");
+    Util::pop_debug();
     my @list = split(' ', $links);  # commit id + parent ids
     die "Cannot revert a merge commit without specifying a parent!\n"
       if !defined($m) && @list > 2;
@@ -2880,15 +2882,22 @@ sub run {
   my $self = shift;
 
   if ($self->{initial_commit}) {
-    die "Oops" if $self->{staged} ne "--staged";
-    ExecUtil::execute("$eg_exec rm $self->{staged} -q $self->{files}");
+    die "Oops" if $self->{staged} ne "--cached";
+    ExecUtil::execute("git rm $self->{staged} -q $self->{files}");
   } else {
     ExecUtil::execute(
-      "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
-      "  eg apply $self->{staged} -R");
+      "git diff $self->{staged} $self->{revs} $self->{files} | " .
+      "git apply $self->{staged} -R");
   }
   if ($self->{commit}) {
-    ExecUtil::execute("$eg_exec commit $self->{staged}");
+    # We could just execute "eg commit $self->{staged}" if we 
+    # $self->{staged} =~ s/cached/staged/, but that isn't as helpful for
+    # debug output anyway, so split it into two commands...
+    if ($self->{staged}) {
+      ExecUtil::execute("git commit")
+    } else {
+      ExecUtil::execute("git commit -a")
+    }
   }
 }
 
