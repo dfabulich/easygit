@@ -3647,6 +3647,10 @@ EOF
     exit 1;
   }
 
+  if ($debug) {
+    print "  >>Commands to determine where to update from:\n";
+  }
+
   # Check if there is a default repository to pull from
   # <This code mostly taken from pull, but "origin" serves as extra backup>
   my $branch = RepoUtil::current_branch() || "HEAD";
@@ -3709,7 +3713,8 @@ sub run {
     die "Error updating (output = $output); please report the bug, and\n" .
         "try using 'eg pull' instead.\n";
   } else {
-    print "Updated the current branch.\n";
+    ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
+    print "Updated the current branch.\n" if ($debug < 2);
   }
 }
 
@@ -4037,12 +4042,18 @@ sub commit_push_checks {
   my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
 
   # Save debug mode, print out commands used up front
-  Util::push_debug(new_value => 0);
   if ($debug) {
-    print "    >>Commands to gather data for pre-$clean_check_type sanity checks:\n";
+    Util::push_debug(new_value => 0);
+    if ($clean_check_type) {
+      print "    >>Commands to gather data for pre-$clean_check_type sanity checks:\n";
+    } else {
+      print "    >>Commands to gather data for sanity checks:\n";
+    }
     print "        git status\n";
     print "        git ls-files --unmerged\n";
     print "        cd $top_dir && git ls-files --exclude-standard --others --directory\n";
+  } else {
+    Util::push_debug(new_value => 0);
   }
 
   #
