@@ -1904,7 +1904,7 @@ sub preprocess {
     "bypass-modification-check|b" => \$bypass_modification_check,
     );
 
-  die "Invalid args to eg publish: @ARGV.\n" if @ARGV != 1;
+  die "Invalid/insufficient args to eg publish: @ARGV\n" if @ARGV != 1;
   $self->{remote_dir} = shift @ARGV;
 
   if (!$bypass_modification_check) {
@@ -1918,17 +1918,23 @@ sub run {
 
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
+  print "    >>Running: 'cd $self->{git_dir}'<<\n" if $debug;
   ExecUtil::execute("touch git-daemon-export-ok");
-  print "Optimizing local repository and compressing it...\n";
+  print "Optimizing local repository and compressing it...\n" if $debug < 2;
   ExecUtil::execute("git gc");
   ExecUtil::execute("git --bare update-server-info");
   ExecUtil::execute("chmod u+x hooks/post-update");
-  print "Copy local repository to remote location...\n";
+  print "Copy local repository to remote location...\n" if $debug < 2;
   ExecUtil::execute("rsync -e ssh -az --delete ./ $self->{remote_dir}");
+
+  print "  >>Setting up default push & pull locations for the local repo,<<\n".
+        "  >>so that it pushes/pulls from the published repository:      <<\n"
+    if $debug;
 
   # Set up the configuration variables default.branch.BRANCH.(remote|merge)
   # for each BRANCH (used later as default pull locations)
   my @branches = `git branch`;
+  print "    >>Running: 'git branch'<<\n" if $debug;
   foreach my $branch (@branches) {
     chomp($branch);
     $branch =~ s#..##;
