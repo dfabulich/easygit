@@ -3751,7 +3751,8 @@ Description:
 sub run {
   my $self = shift;
 
-  print "eg version $version\n";
+  print "eg version $version\n" if $debug < 2;
+  print "    >>(We can print the eg version directly)<<\n" if $debug == 2;
   $self->SUPER::run();
 }
 
