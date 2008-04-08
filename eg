@@ -3184,6 +3184,8 @@ sub preprocess {
       push(@args, $stash_description)
     } else {
       # Will need to compare arguments to existing stash descriptions...
+      print "  >>Getting stash descriptions to compare to arguments:\n"
+        if $debug;
       my ($retval, $output) =
         ExecUtil::execute_captured("$eg_exec stash list --refs");
       my @lines = split('\n', $output);
@@ -3239,6 +3241,11 @@ sub preprocess {
 sub postprocess {
   my $self = shift;
   my $output = shift;
+
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
 
   my @lines = split('\n', $output);
   if ($self->{subcommand} eq 'list') {
