@@ -1581,14 +1581,8 @@ EOF
   #
 
   # File & directory stats only work if we're in the toplevel directory
-  my $orig_dir = main::getcwd();
-  my $topdir = $orig_dir;
-  my $rel_dir = ExecUtil::output("git rev-parse --show-prefix");
-  if ($rel_dir) {
-    $rel_dir =~ s#/$##;  # Remove trailing slash
-    $topdir =~ s#\Q$rel_dir\E$##;
-  }
-  chdir($topdir);
+  my ($orig_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+  chdir($top_dir);
 
   # Name
   print "Current branch: $current_branch\n" if $debug < 2;
@@ -3828,6 +3822,33 @@ sub git_dir {
   return $output;
 }
 
+sub get_dirs {
+  # It's not enlightening to show the commands for determining the
+  # repository directories, so turn debugging spew off
+  my $orig_debug = $debug;
+  $debug = 0;
+
+  my $curdir = main::getcwd();
+
+  # Get the toplevel repository directory
+  my $topdir = $curdir;
+  my ($ret, $rel_dir) = 
+    ExecUtil::execute_captured("git rev-parse --show-prefix", ignore_ret => 1);
+  if ($ret != 0) {
+    $topdir = undef;
+  } elsif ($rel_dir) {
+    $rel_dir =~ s#/$##;  # Remove trailing slash
+    $topdir =~ s#\Q$rel_dir\E$##;
+  }
+
+  my $gitdir = git_dir();
+
+  # Return to normal debugging mode
+  $debug = $orig_debug;
+
+  return ($curdir, $topdir, $gitdir);
+}
+
 sub initial_commit {
   my @output = `git show-ref -h`;
   foreach my $line (@output) {
@@ -3969,6 +3990,19 @@ sub commit_push_checks {
   my ($clean_check_type, $check_for) = @_;
   my %status;
 
+  # Determine some useful directories
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+
+  # Save debug mode, print out commands used up front
+  my $orig_debug = $debug;
+  if ($debug) {
+    $debug = 0;
+    print "    >>Commands to gather data for pre-$clean_check_type sanity checks:\n";
+    print "        git status\n";
+    print "        git ls-files --unmerged\n";
+    print "        cd $top_dir && git ls-files --exclude-standard --others --directory\n";
+  }
+
   #
   # Determine which types of changes are present
   #
@@ -3984,15 +4018,16 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my $git_dir = git_dir();
-  my @new_unknown = `(cd $git_dir/.. && git ls-files --exclude-standard --others --directory)`;
-  die "Must run within a git repository.\n" if !defined $git_dir;
+  my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory)`;
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
     my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
+
+  # Restore original debug mode
+  $debug = $orig_debug;
 
   return \%status if !defined $clean_check_type;
 
@@ -4036,6 +4071,12 @@ sub difference {
 sub git_rev_parse {
   my @args = @_;
 
+  # The call to git rev-parse is not enlightening as to how eg calls git
+  # to do work; it's an implementational detail that we were too lazy to
+  # parse our own arguments.  So, don't print out the command
+  my $orig_debug = $debug;
+  $debug = 0;
+
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse @ARGV", ignore_ret => 1);
   if ($ret != 0) {
@@ -4046,6 +4087,9 @@ sub git_rev_parse {
   my @opts  = split('\n', `git rev-parse --no-revs --flags    @ARGV`);
   my @revs  = split('\n', `git rev-parse --revs-only          @ARGV`);
   my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
+
+  # Restore debug status
+  $debug = $orig_debug;
 
   return (\@opts, \@revs, \@files);
 }
