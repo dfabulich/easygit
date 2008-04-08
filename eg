@@ -3649,6 +3649,7 @@ sub run {
     die "Error updating (output = $output); please report the bug, and\n" .
         "try using 'eg pull' instead.\n";
   } else {
+    ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
     print "Updated the current branch.\n";
   }
 }
