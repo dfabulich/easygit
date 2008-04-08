@@ -2091,6 +2091,11 @@ Options
 sub _get_only_branch {
   my $repository = shift;
 
+  if ($debug == 2) {
+    print "    >>Running: 'git ls-remote -h $repository'<<\n";
+    return;
+  }
+
   # Check if the remote repository has exactly 1 branch...if so, return it,
   # otherwise throw an error
   my ($ret, $output) = 
@@ -2170,7 +2175,9 @@ sub preprocess {
   #
   # Get the repository to pull from
   #
+  Util::push_debug(new_value => 0);
   my $branch = RepoUtil::current_branch() || "HEAD";
+  Util::pop_debug();
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository";
