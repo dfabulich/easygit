@@ -1347,6 +1347,11 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
   # Check if we were asked to get help on a subtopic rather than toplevel help
   if (@ARGV > 0) {
     my $subcommand = shift @ARGV;
