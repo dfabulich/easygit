@@ -19,7 +19,7 @@ use Cwd qw(getcwd abs_path);
 use List::Util qw(max);
 
 # configurables
-my $verbose=0;
+my $debug=0;
 
 # globals :-(
 my $outfh;
@@ -521,6 +521,11 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
   # Print valid subcommands sorted by section
   my $indent = "  ";
   my $header_indent = "";
@@ -822,7 +827,18 @@ sub run {
   # Perform the clone
   #
   my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
-  if ($ret == 0) {
+  if ($debug == 2) {
+    print "    >>Running: 'cd $self->{directory}'<<\n";
+    print "    >>Running: 'git branch -r'<<\n";
+    print "    --- Setting up extra branches by default ---\n";
+    print "    >>Running, for each remote branch besides master (referred to as BRANCH):\n";
+    print "        git branch --no-track BRANCH origin/BRANCH\n";
+    print "    --- Default push/pull location setup ---\n";
+    print "    >>Running: 'git config --remove-section branch.master'<<\n";
+    print "    >>Running, for each remote branch (referred to as BRANCH):\n";
+    print "        git config default.branch.BRANCH.remote origin\n";
+    print "        git config default.branch.BRANCH.merge  BRANCH\n";
+  } elsif ($ret == 0) {
     # Switch to the appropriate directory, remembering the repository we
     # checked out
     die "$self->{directory} does not exist after checkout!"
@@ -1334,6 +1350,11 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
   # Check if we were asked to get help on a subtopic rather than toplevel help
   if (@ARGV > 0) {
     my $subcommand = shift @ARGV;
@@ -1511,12 +1532,14 @@ sub run {
   # Special case the situation of no commits being present
   #
   if (RepoUtil::initial_commit()) {
-    print STDERR <<EOF;
+    if ($debug < 2) {
+      print STDERR <<EOF;
 Total commits: 0
 Local repository: $self->{git_dir}
 There are no commits in this repository.  Please use eg stage to mark new
 files as being ready to commit, and eg commit to commit them.
 EOF
+    }
     exit 1;
   }
 
@@ -1526,22 +1549,22 @@ EOF
 
   # total commits
   my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
-  print "Total commits: $total_commits\n";
+  print "Total commits: $total_commits\n" if $debug < 2;
 
   # local repo
-  print "Local repository: $self->{git_dir}\n";
+  print "Local repository: $self->{git_dir}\n" if $debug < 2;
 
   # named remote repos
   my %remotes;
   my $longest = 0;
-  my @abbrev_remotes = `git remote`;
+  my @abbrev_remotes = split('\n', ExecUtil::output("git remote"));
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
     my $url = RepoUtil::get_config("remote.$remote.url");
     $remotes{$remote} = $url;
     $longest = main::max($longest, length($remote));
   }
-  if (scalar keys %remotes > 0) {
+  if (scalar keys %remotes > 0 && $debug < 2) {
     print "Named remote repositories: (name -> location)\n";
     foreach my $remote (sort keys %remotes) {
       printf "  %${longest}s -> %s\n", $remote, $remotes{$remote};
@@ -1556,7 +1579,7 @@ EOF
     if (defined $url && $url eq "default.push.url") {
       $url = RepoUtil::get_config($url) ;
     }
-    if (defined $url) {
+    if (defined $url && $debug < 2) {
       print "Default remote repository to push to: $url\n";
     }
   }
@@ -1566,24 +1589,18 @@ EOF
   #
 
   # File & directory stats only work if we're in the toplevel directory
-  my $orig_dir = main::getcwd();
-  my $topdir = $orig_dir;
-  my $rel_dir = ExecUtil::output("git rev-parse --show-prefix");
-  if ($rel_dir) {
-    $rel_dir =~ s#/$##;  # Remove trailing slash
-    $topdir =~ s#\Q$rel_dir\E$##;
-  }
-  chdir($topdir);
+  my ($orig_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+  chdir($top_dir);
 
   # Name
-  print "Current branch: $current_branch\n";
+  print "Current branch: $current_branch\n" if $debug < 2;
 
   # Sha1sum
   my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");;
-  print "  Cryptographic checksum (sha1sum): $current_commit\n";
+  print "  Cryptographic checksum (sha1sum): $current_commit\n" if $debug < 2;
 
   # Default push repo
-  if ($default_push_repo) {
+  if ($default_push_repo && $debug < 2) {
     print "  Default remote repository to push to:   $default_push_repo\n";
   }
 
@@ -1599,21 +1616,21 @@ EOF
   }
   $default_merge = RepoUtil::get_config("branch.$current_branch.merge") ||
                    RepoUtil::get_config("default.branch.$current_branch.merge");
-  if ($default_repo) {
+  if ($default_repo && $debug < 2) {
     print "  Default remote repository to pull from: $default_repo\n";
   }
-  if ($default_merge) {
+  if ($default_merge && $debug < 2) {
     $default_merge =~ s#refs/heads/##;
     print "  Default remote branch to merge from:    $default_merge\n";
   }
 
   # No. contributors
   my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");;
-  print "  Number of contributors: $contributors\n";
+  print "  Number of contributors: $contributors\n" if $debug < 2;
 
   # No. files
   my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
-  print "  Number of files: $num_files\n";
+  print "  Number of files: $num_files\n" if $debug < 2;
 
   # No. dirs
   my $num_dirs = ExecUtil::output(
@@ -1623,7 +1640,7 @@ EOF
                     " | sort " .
                     " | uniq " .
                     " | wc -l");
-  print "  Number of directories: $num_dirs\n";
+  print "  Number of directories: $num_dirs\n" if $debug < 2;
 
   # Some ugly, nasty code to get the biggest file.  Seems to be the only
   # method I could find that would work given the corner case filenames
@@ -1642,11 +1659,11 @@ EOF
     }
   }
   my $biggest_file = "$biggest{size} ($biggest{name})";
-  print "  Biggest file size, in bytes: $biggest_file\n";
+  print "  Biggest file size, in bytes: $biggest_file\n" if $debug < 2;
 
   # No. commits
   my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
-  print "  Commits: $branch_depth\n";
+  print "  Commits: $branch_depth\n" if $debug < 2;
 
   # Other possibilities:
   #   Disk space used by respository (du -hs .git, or packfile size?)
@@ -1769,6 +1786,14 @@ Description:
 
 sub run {
   my $branch = RepoUtil::current_branch();
+
+  if ($debug) {
+    print "    >>Running: git log @ARGV | \\\n" .
+       "               git name-rev --stdin --refs=refs/heads/$branch | \\\n" .
+       "               less\n";
+    return if $debug == 2;
+  }
+
   open(INPUT, "git log @ARGV | " .
               "git name-rev --stdin --refs=refs/heads/$branch |");
   open(OUTPUT, "| less");
@@ -1882,7 +1907,7 @@ sub preprocess {
     "bypass-modification-check|b" => \$bypass_modification_check,
     );
 
-  die "Invalid args to eg publish: @ARGV.\n" if @ARGV != 1;
+  die "Invalid/insufficient args to eg publish: @ARGV\n" if @ARGV != 1;
   $self->{remote_dir} = shift @ARGV;
 
   if (!$bypass_modification_check) {
@@ -1896,17 +1921,23 @@ sub run {
 
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
+  print "    >>Running: 'cd $self->{git_dir}'<<\n" if $debug;
   ExecUtil::execute("touch git-daemon-export-ok");
-  print "Optimizing local repository and compressing it...\n";
+  print "Optimizing local repository and compressing it...\n" if $debug < 2;
   ExecUtil::execute("git gc");
   ExecUtil::execute("git --bare update-server-info");
   ExecUtil::execute("chmod u+x hooks/post-update");
-  print "Copy local repository to remote location...\n";
+  print "Copy local repository to remote location...\n" if $debug < 2;
   ExecUtil::execute("rsync -e ssh -az --delete ./ $self->{remote_dir}");
+
+  print "  >>Setting up default push & pull locations for the local repo,<<\n".
+        "  >>so that it pushes/pulls from the published repository:      <<\n"
+    if $debug;
 
   # Set up the configuration variables default.branch.BRANCH.(remote|merge)
   # for each BRANCH (used later as default pull locations)
   my @branches = `git branch`;
+  print "    >>Running: 'git branch'<<\n" if $debug;
   foreach my $branch (@branches) {
     chomp($branch);
     $branch =~ s#..##;
@@ -2063,6 +2094,11 @@ Options
 sub _get_only_branch {
   my $repository = shift;
 
+  if ($debug == 2) {
+    print "    >>Running: 'git ls-remote -h $repository'<<\n";
+    return;
+  }
+
   # Check if the remote repository has exactly 1 branch...if so, return it,
   # otherwise throw an error
   my ($ret, $output) = 
@@ -2142,7 +2178,9 @@ sub preprocess {
   #
   # Get the repository to pull from
   #
+  Util::push_debug(new_value => 0);
   my $branch = RepoUtil::current_branch() || "HEAD";
+  Util::pop_debug();
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository";
@@ -2367,7 +2405,9 @@ sub preprocess {
   #
   # Get the repository to push to, including more general fallbacks
   #
+  Util::push_debug(new_value => 0);
   my $branch = RepoUtil::current_branch() || "HEAD";
+  Util::pop_debug();
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository";
@@ -2817,13 +2857,15 @@ sub preprocess {
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
   $self->{staged} = '';
-  $self->{staged} = '--staged' if $staged;
+  $self->{staged} = '--cached' if $staged;
   $self->{revs} = "@$revs";
   $self->{revs} = "HEAD" if !@$revs;
   if ($in) {
     # One more sanity check
+    Util::push_debug(new_value => 0);
     my $links = ExecUtil::output(
                   "git rev-list --parents --max-count=1 $self->{revs}");
+    Util::pop_debug();
     my @list = split(' ', $links);  # commit id + parent ids
     die "Cannot revert a merge commit without specifying a parent!\n"
       if !defined($m) && @list > 2;
@@ -2843,15 +2885,22 @@ sub run {
   my $self = shift;
 
   if ($self->{initial_commit}) {
-    die "Oops" if $self->{staged} ne "--staged";
-    ExecUtil::execute("$eg_exec rm $self->{staged} -q $self->{files}");
+    die "Oops" if $self->{staged} ne "--cached";
+    ExecUtil::execute("git rm $self->{staged} -q $self->{files}");
   } else {
     ExecUtil::execute(
-      "  eg diff $self->{staged} $self->{revs} $self->{files} | " .
-      "  eg apply $self->{staged} -R");
+      "git diff $self->{staged} $self->{revs} $self->{files} | " .
+      "git apply $self->{staged} -R");
   }
   if ($self->{commit}) {
-    ExecUtil::execute("$eg_exec commit $self->{staged}");
+    # We could just execute "eg commit $self->{staged}" if we 
+    # $self->{staged} =~ s/cached/staged/, but that isn't as helpful for
+    # debug output anyway, so split it into two commands...
+    if ($self->{staged}) {
+      ExecUtil::execute("git commit")
+    } else {
+      ExecUtil::execute("git commit -a")
+    }
   }
 }
 
@@ -3138,6 +3187,8 @@ sub preprocess {
       push(@args, $stash_description)
     } else {
       # Will need to compare arguments to existing stash descriptions...
+      print "  >>Getting stash descriptions to compare to arguments:\n"
+        if $debug;
       my ($retval, $output) =
         ExecUtil::execute_captured("$eg_exec stash list --refs");
       my @lines = split('\n', $output);
@@ -3193,6 +3244,11 @@ sub preprocess {
 sub postprocess {
   my $self = shift;
   my $output = shift;
+
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
 
   my @lines = split('\n', $output);
   if ($self->{subcommand} eq 'list') {
@@ -3293,6 +3349,11 @@ Description:
 sub postprocess {
   my $self = shift;
   my $output = shift;
+
+  if ($debug == 2) {
+    print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
 
   my $branch;
   my $initial_commit = 0;
@@ -3436,8 +3497,10 @@ sub preprocess {
   # this is just supposed to be a subset of git checkout
   if (!grep {$_ =~ /^-/} @ARGV) {
     die "Invalid arguments to eg switch: @ARGV\n" if @ARGV > 1;
+    Util::push_debug(new_value => 0);
     my $ret = ExecUtil::execute("git show-ref $ARGV[0] > /dev/null 2>&1",
                                 ignore_ret => 1);
+    Util::pop_debug();
     die "Invalid branch: $ARGV[0]\n" if $ret != 0;
   }
 
@@ -3587,6 +3650,10 @@ EOF
     exit 1;
   }
 
+  if ($debug) {
+    print "  >>Commands to determine where to update from:\n";
+  }
+
   # Check if there is a default repository to pull from
   # <This code mostly taken from pull, but "origin" serves as extra backup>
   my $branch = RepoUtil::current_branch() || "HEAD";
@@ -3650,7 +3717,7 @@ sub run {
         "try using 'eg pull' instead.\n";
   } else {
     ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
-    print "Updated the current branch.\n";
+    print "Updated the current branch.\n" if ($debug < 2);
   }
 }
 
@@ -3687,7 +3754,8 @@ Description:
 sub run {
   my $self = shift;
 
-  print "eg version $version\n";
+  print "eg version $version\n" if $debug < 2;
+  print "    >>(We can print the eg version directly)<<\n" if $debug == 2;
   $self->SUPER::run();
 }
 
@@ -3712,9 +3780,9 @@ sub _execute_impl {
   my ($ret, $output);
   my %options = ( ignore_ret => 0, capture_output => 0, @opts );
 
-  if ($verbose) {
-    print "eg: running >>$command<<";
-    print "\n";
+  if ($debug) {
+    print "    >>Running: '$command'<<\n";
+    return $options{capture_output} ? (0, "") : 0 if $debug == 2;
   }
 
   #
@@ -3747,7 +3815,7 @@ sub _execute_impl {
       print STDERR "eg: received signal ".($? & 127)."\n";
     }
     elsif (! $options{ignore_ret}) {
-      print STDERR "eg: failed ($ret)\n" if $verbose;
+      print STDERR "eg: failed ($ret)\n" if $debug;
       if ($ret >> 8 != 0) {
         print STDERR "eg: command ($command) failed\n";
       }
@@ -3789,7 +3857,10 @@ package RepoUtil;
 
 # current_branch: Get the currently active branch
 sub current_branch {
+  Util::push_debug(new_value => $debug ? 1 : 0);
   my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
+  Util::pop_debug();
+
   return undef if $ret != 0;
   chomp($output);
   $output =~ s#refs/heads/## || die "Current branch ($output) is funky.\n";
@@ -3797,11 +3868,37 @@ sub current_branch {
 }
 
 sub git_dir {
+  Util::push_debug(new_value => 0);
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
+  Util::pop_debug();
+
   return undef if $ret != 0;
   chomp($output);
   return $output;
+}
+
+sub get_dirs {
+  Util::push_debug(new_value => 0);
+
+  my $curdir = main::getcwd();
+
+  # Get the toplevel repository directory
+  my $topdir = $curdir;
+  my ($ret, $rel_dir) = 
+    ExecUtil::execute_captured("git rev-parse --show-prefix", ignore_ret => 1);
+  if ($ret != 0) {
+    $topdir = undef;
+  } elsif ($rel_dir) {
+    $rel_dir =~ s#/$##;  # Remove trailing slash
+    $topdir =~ s#\Q$rel_dir\E$##;
+  }
+
+  my $gitdir = git_dir();
+
+  Util::pop_debug();
+
+  return ($curdir, $topdir, $gitdir);
 }
 
 sub initial_commit {
@@ -3945,6 +4042,24 @@ sub commit_push_checks {
   my ($clean_check_type, $check_for) = @_;
   my %status;
 
+  # Determine some useful directories
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+
+  # Save debug mode, print out commands used up front
+  if ($debug) {
+    Util::push_debug(new_value => 0);
+    if ($clean_check_type) {
+      print "    >>Commands to gather data for pre-$clean_check_type sanity checks:\n";
+    } else {
+      print "    >>Commands to gather data for sanity checks:\n";
+    }
+    print "        git status\n";
+    print "        git ls-files --unmerged\n";
+    print "        cd $top_dir && git ls-files --exclude-standard --others --directory\n";
+  } else {
+    Util::push_debug(new_value => 0);
+  }
+
   #
   # Determine which types of changes are present
   #
@@ -3960,15 +4075,15 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my $git_dir = git_dir();
-  my @new_unknown = `(cd $git_dir/.. && git ls-files --exclude-standard --others --directory)`;
-  die "Must run within a git repository.\n" if !defined $git_dir;
+  my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory)`;
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
     my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
+
+  Util::pop_debug();
 
   return \%status if !defined $clean_check_type;
 
@@ -4012,6 +4127,8 @@ sub difference {
 sub git_rev_parse {
   my @args = @_;
 
+  Util::push_debug(new_value => 0);
+
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse @ARGV", ignore_ret => 1);
   if ($ret != 0) {
@@ -4023,9 +4140,26 @@ sub git_rev_parse {
   my @revs  = split('\n', `git rev-parse --revs-only          @ARGV`);
   my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
 
+  Util::pop_debug();
+
   return (\@opts, \@revs, \@files);
 }
 
+{
+my @debug_values;
+sub push_debug {
+  my @opts = @_;
+  my %options = ( @opts );
+  die "Called without new_value!" if !defined($options{new_value});
+
+  push(@debug_values, $debug);
+  $debug = $options{new_value};
+}
+
+sub pop_debug {
+  $debug = pop @debug_values;
+}
+}
 
 
 #*************************************************************************#
@@ -4041,22 +4175,41 @@ package main;
 sub launch {
   my $job=shift;
 
+  # Create the action to execute
   my $action;
   $action = $job->new()                      if  $job->can("new");
   $action = subcommand->new(command => $job) if !$job->can("new");
-  $action->preprocess() if $action->can("preprocess");
 
+  # preprocess
+  if ($action->can("preprocess")) {
+    # Do not skip commands normally executed during the preprocess stage,
+    # since they just gather data.
+    Util::push_debug(new_value => $debug ? 1 : 0);
+
+    print ">>Stage: Preprocess<<\n" if $debug;
+    $action->preprocess();
+
+    Util::pop_debug();
+  }
+
+  # run & postprocess
   if (!$action->can("postprocess")) {
+    print ">>Stage: Run<<\n" if $debug;
     $action->run();
   } else {
     my $output = "";
     open($outfh, '>', \$output) || die "eg $job: cannot open \$outfh: $!";
+    print ">>Stage: Run<<\n" if $debug;
     $action->run();
+    print ">>Stage: Postprocess<<\n" if $debug;
     $action->postprocess($output);
   }
 
-  # Do any wrapup required
-  $action->wrapup() if $action->can("wrapup");;
+  # wrapup
+  if ($action->can("wrapup")) {
+    print ">>Stage: Wrapup<<\n" if $debug;
+    $action->wrapup();
+  }
 }
 
 sub version {
@@ -4092,9 +4245,10 @@ sub main {
   Getopt::Long::Configure("no_bundling", "no_permute",
                           "pass_through", "no_auto_abbrev");
   my $result=GetOptions(
-               "--help"    => sub { help() },
-               "--verbose" => \$verbose,
-               "--version" => sub { version() },
+               "--debug"     => sub { $debug = 1 },
+               "--help"      => sub { help() },
+               "--translate" => sub { $debug = 2 },
+               "--version"   => sub { version() },
                         );
   die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
   die "eg: No subcommand specified. (Try 'eg help')\n" if @ARGV < 1;
