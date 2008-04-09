@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 ## Easy GIT (eg), a usable version of git
-## Version .66
+## Version .70
 ## Copyright 2008 by Elijah Newren
 ## Licensed under GNU GPL, version 2.
 
@@ -23,7 +23,7 @@ my $debug=0;
 
 # globals :-(
 my $outfh;
-my $version = ".66";
+my $version = ".70";
 my $eg_exec = abs_path($0);
 my %command;    # command=>{section, short_description} mapping
 my $section = {
