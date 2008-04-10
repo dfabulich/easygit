@@ -2102,7 +2102,8 @@ sub _get_only_branch {
   # Check if the remote repository has exactly 1 branch...if so, return it,
   # otherwise throw an error
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git ls-remote -h $repository");
+    ExecUtil::execute_captured("git ls-remote -h $repository",
+                               capture_stdout_only => 1);
   die "Could not determine remote branches from repository '$repository'\n"
     if $ret != 0;
   my @remote_refs = split('\n', $output);
@@ -3790,7 +3791,11 @@ sub _execute_impl {
   # stdout and stderr if wanted
   #
   if ($options{capture_output}) {
-    $output = `$command 2>&1`;
+    if ($options{capture_stdout_only}) {
+      $output = `$command`;
+    } else {
+      $output = `$command 2>&1`;
+    }
     $ret = $?;
   } elsif (defined $outfh) {
     open(OUTPUT, "$command 2>&1 |");
