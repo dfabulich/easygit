@@ -813,8 +813,9 @@ sub preprocess {
   $self->{repository} = shift @ARGV;
   die "No repository specified!\n" if !$self->{repository};
   my $basename = $self->{repository};
-  $basename =~ s#.*/##;
-  $basename =~ s#\.git$##;
+  $basename =~ s#/*$##;     # Remove trailing slashes
+  $basename =~ s#.*[/:]##;  # Remove everything but final dirname
+  $basename =~ s#\.git$##;  # Remote .git suffix, if present
   $self->{directory} = shift @ARGV || $basename;
 
   $self->{args} .= " $self->{repository} $self->{directory}";
