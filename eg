@@ -2674,12 +2674,11 @@ Description:
   developer's repository and working copy, you should have them use 'eg
   pull' rather than trying to use 'eg push' on your end.
 
-  Branches and tags are typically considered private; thus only branches
-  that exist in both the current and remote repositories will be involved
-  by default (no tags will be sent).  The --all-branches, --all-tags, and
-  --mirror options exist to extend the list of changes included.  The
-  --branch and --tag options can be used to narrow the changes sent to
-  those explicitly specified.
+  Branches and tags are typically considered private; thus only the current
+  branch will be involved by default (no tags will be sent).  The
+  --all-branches, --all-tags, and --mirror options exist to extend the list of
+  changes included.  The --branch and --tag options can be used to
+  specifically send additional changes.
 
   See 'eg help topic remote-urls' for valid syntax for remote repositories.
   If the repository to push the changes to is not specified, the last
@@ -2687,11 +2686,11 @@ Description:
   repository this is.
 
 Examples:
-  Push commits in common branches
+  Push commits in current branch
       \$ eg push myserver.com:git-stuff/my-repo.git
 
-  Push commits in all branches, including branches that do not already
-  exist remotely, and all tags to the last repository we pushed to 
+  Push commits in all branches that exist remotely, and all tags to the last
+  repository we pushed to 
       \$ eg push --all-branches --all-tags
 
   Push all local branches and tags and delete anything on the remote end
@@ -2726,8 +2725,7 @@ Options
     Push the specified tag to the remote repository.
 
   --all-branches
-    Push commits from all branches, including branches that do not yet
-    exist in the remote repository.
+    Push commits from all branches that exist locally and remotely
 
   --all-tags
     Push all tags to the remote repository.
@@ -2739,13 +2737,12 @@ Options
     the remote repository.
 ";
   $self->{'differences'} = '
-  eg push tries to simplify git push, but is essentially the same other
-  than presentation.  refspecs are put off until later with the --branch
-  tag being introduced to specify branch(es) to push (which also makes push
-  commands more self-documenting), --all becomes the more specific
-  --all-branches, and eg push tries to save the user some work by
-  remembering the last pushed-to repository instead of always defaulting to
-  "origin".
+  eg push tries to simplify git push and avoid the common error of
+  pushing too much.  refspecs are put off until later with the --branch
+  tag being introduced to specify branch(es) to push (which also makes
+  push commands more self-documenting) and eg push tries to save the
+  user some work by remembering the last pushed-to repository instead of
+  always defaulting to "origin".
 ';
   return $self;
 }
@@ -2846,7 +2843,6 @@ sub preprocess {
                                               {unknown => 1, changes => 1});
   }
 
-  $self->{args} .= " --all"    if $all_branches;
   $self->{args} .= " --tags"   if $all_tags;
   $self->{args} .= " --mirror" if $mirror;
 
@@ -2960,6 +2956,8 @@ EOF
     RepoUtil::set_config("default.push.branches", "@branches");
   } elsif (!@branches &&  @default_branches && !@tags) {
     @branches = @default_branches
+  } elsif (!@branches && !$all_branches && !@tags) {
+    push @branches, "HEAD";
   }
 
   $self->{args} .= " @branches";
