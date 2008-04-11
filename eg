@@ -4301,7 +4301,7 @@ sub main {
   # Get any global options 
   #
   Getopt::Long::Configure("no_bundling", "no_permute",
-                          "pass_through", "no_auto_abbrev");
+                          "pass_through", "no_auto_abbrev", "no_ignore_case");
   my $result=GetOptions(
                "--debug"     => sub { $debug = 1 },
                "--help"      => sub { help() },
