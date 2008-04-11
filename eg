@@ -3446,9 +3446,13 @@ sub postprocess {
   }
 
   # Print out the branch we are on
-  print "(On branch $branch";
-  print ", no commits yet" if $initial_commit;
-  print ")\n";
+  if (defined $branch) {
+    print "(On branch $branch";
+    print ", no commits yet" if $initial_commit;
+    print ")\n";
+  } else {
+    print "(No active branch)\n";
+  }
 
   # Print out all the various changes
   foreach my $section ('staged', 'unstaged', 'unknown') {
