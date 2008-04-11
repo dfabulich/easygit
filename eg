@@ -914,7 +914,7 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg commit [-a|--all-known] [-b|--bypass-unknown-check]
-            [--bypass-detached-check] [--staged|-d|--dirty]
+            [--bypass-no-branch-check] [--staged|-d|--dirty]
             [-F FILE | -m MSG | --amend] [--] [FILE...]
 
 Description:
@@ -971,10 +971,12 @@ Options:
     present the last time the -b flag was used, then the commit will be
     aborted with a warning message.
 
-  --bypass-detached-check
+  --bypass-no-branch-check
     Commit local changes, even if it would not be recorded to a branch.
-    This only make sense during rebase, or if you really know what you
-    are doing.
+    Most users do not know how to recover changes that were recorded when
+    there was no active branch.  You should probably create a branch before
+    committing (using eg branch), but this flag exists for special cases
+    (such as special splitting of commits during a rebase operation.)
 
   --staged, --dirty, -d
     Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
@@ -1003,10 +1005,10 @@ Options:
   like the --staged flag was passed UNLESS either the -a option is passed
   or files are explicitly listed on the command line.
 
-  The "--bypass-unknown-check" and "--bypass-detached-check" are unique
+  The "--bypass-unknown-check" and "--bypass-no-branch-check" are unique
   to eg commit; git commit behavior differs by always turning on this
   functionality -- there is no way to have git commit do an unknown
-  files sanity check for you.
+  files sanity check or a no active branch check for you.
 
   "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
   has the same behavior in both, but the "smart" behavior of eg commit
@@ -1021,7 +1023,7 @@ Options:
      else if there are unmerged files         -> warn user: unmerged files
      else if there are new untracked files    -> warn user: new unknown files
      else if both staged and unstaged changes -> warn user: mix
-     else if HEAD is detached                 -> warn user: detached head
+     else if there is no active branch        -> warn user: no active branch
      else                                     -> run "git commit -a"
   Actually, I do not pass -a if there are only staged changes present, but
   the result is the same.  Note that this essentially boils down to making
@@ -1043,12 +1045,12 @@ sub preprocess {
   $self->{args} = "";
   my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
   my $record_args  = sub { $self->{args} .= " --@_";    };
-  my ($all_known, $bypass_unknown, $bypass_detached, $staged) = (0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $bypass_no_branch, $staged) = (0, 0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
     "bypass-unknown-check|b"      => \$bypass_unknown,
-    "bypass-detached-check"       => \$bypass_detached,
+    "bypass-no-branch-check"      => \$bypass_no_branch,
     "staged|staged|d"             => \$staged,
     "s"                           => sub { &$record_arg(@_) },
     "v"                           => sub { &$record_arg(@_) },
@@ -1069,14 +1071,14 @@ sub preprocess {
   #
   # Set up flags based on options, do sanity checking of options
   #
-  my ($check_unknown, $check_mixed, $check_detached);
+  my ($check_unknown, $check_mixed, $check_no_branch);
   $self->{'commit_flags'} = "";
   die "Cannot specify both --all-known (-a) and --staged (-d)!\n" if
     $all_known && $staged;
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
-  $check_unknown = !$bypass_unknown && !$staged && !@$files;
-  $check_mixed   = !$all_known      && !$staged && !@$files;
-  $check_detached= !$bypass_detached;
+  $check_unknown   = !$bypass_unknown && !$staged && !@$files;
+  $check_mixed     = !$all_known      && !$staged && !@$files;
+  $check_no_branch = !$bypass_no_branch;
   $self->{'commit_flags'} .= " -a" if $all_known;
 
   #
@@ -1086,15 +1088,11 @@ sub preprocess {
     RepoUtil::commit_push_checks($package_name,
                                  {no_changes       => 1,
                                   unknown          => $check_unknown,
-                                  detached         => $check_detached,
+                                  no_branch        => $check_no_branch,
                                   partially_staged => $check_mixed});
 
-  die "No staged changes, but --staged given"
+  die "No staged changes, but --staged given.\n"
       if (!$status->{has_staged_changes} && $staged);
-
-  die "This operation requires a branch.\n"
-     ."Specify --bypass-detached-check to continue anyway\n"
-    if (!$bypass_detached && $status->{has_detached_head});
 
   if (!$all_known && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
@@ -3992,6 +3990,14 @@ EOF
   }
 
   if ($check_for->{no_changes} && $status->{has_no_changes}) {
+    print STDERR <<EOF;
+Committing changes should (usually) only be done on a branch.  Specify
+--bypass-no-branch-check to commit anyway.
+EOF
+    exit 1;
+  }
+
+  if ($check_for->{no_changes} && $status->{has_no_changes}) {
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
     exit 1;
   }
@@ -4128,9 +4134,9 @@ sub commit_push_checks {
 
   Util::pop_debug();
 
-  if ($check_for->{detached}) {
-      my $rc = system('git symbolic-ref HEAD >/dev/null 2>&1');
-      $status{has_detached_head} = $rc >> 8;
+  if ($check_for->{no_branch}) {
+    my $rc = system('git symbolic-ref -q HEAD >/dev/null');
+    $status{has_no_branch} = $rc >> 8;
   }
 
   return \%status if !defined $clean_check_type;
