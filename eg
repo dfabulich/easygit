@@ -1475,6 +1475,7 @@ sub help {
     $topic = "Topics";
     $help_msg = "
 glossary      <Not yet written; this is just a stub>
+refspecs      <Not yet written; this is just a stub>
 remote-urls   Format for referring to remote repositories
 revisions     <Not yet written; this is just a stub>
 staging       <Not yet written; this is just a stub>
@@ -2383,6 +2384,60 @@ Options
   return $self;
 }
 
+# _check_if_bare: Return whether the given repository is bare.  Returns
+# undef the repository doesn't specify a valid repository or the repository
+# is not of a type where we can determine bare-ness.  Otherwise returns
+# either the string "true" or "false".
+sub _check_if_bare {
+  my $repository = shift;
+
+  # Don't know how to check rsync, http, https, or git repositories to see
+  # if they are bare.
+  return undef if $repository =~ m#^(rsync|http|https|git)://#;
+
+  #
+  # Check local directories
+  #
+  if ($repository =~ m#^file://(.*)#) {
+    $repository = $1;
+  }
+  if (-d $repository) {
+    my $orig_dir = main::getcwd();
+    chdir($repository);
+
+    my ($ret, $output) = 
+      ExecUtil::execute_captured("git rev-parse --is-bare-repository",
+                                 ignore_ret => 1);
+
+    chdir($orig_dir);
+    return undef if $ret != 0;
+    chomp($output);
+    return $output;
+  }
+
+  #
+  # Check ssh systems
+  #
+  my ($machine, $path);
+  if ($repository =~ m#^ssh://(?:.*?@)?([^/:]*)(?::[0-9]+)?(.*)$#) {
+    $machine = $1;
+    $path = $2;
+    $path =~ s#^/~#~#;  # Change leading /~ into plain ~
+  } elsif ($repository =~ m#^(?:.*?@)?([^:]*):(.*)$#) {
+    $machine = $1;
+    $path = $2;
+  }
+  return undef if !defined $machine || !defined $path;
+
+  my ($ret, $output) = 
+    ExecUtil::execute_captured(
+      "ssh $machine 'cd $path && git rev-parse --is-bare-repository'",
+      ignore_ret => 1);
+  return undef if $ret != 0;
+  chomp($output);
+  return $output;
+}
+
 sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
@@ -2435,6 +2490,8 @@ sub preprocess {
   Util::push_debug(new_value => 0);
   my $branch = RepoUtil::current_branch() || "HEAD";
   Util::pop_debug();
+
+  my $remote;
   if ($repository) {
     # Repository option #1: The one they listed on the command line
     $self->{args} .= " $repository";
@@ -2444,8 +2501,13 @@ sub preprocess {
     #
     if (system("git remote | grep '^$repository\$' >/dev/null") == 0) {
       # The remote repository is a remote name, not a url
+      $remote = $repository;
+      $repository = `git config --get remote.$repository.url`;
+      chomp($repository);
+
+      # Record the new default push location
       RepoUtil::unset_config("default.push.url");
-      RepoUtil::set_config("default.push.remote", $repository);
+      RepoUtil::set_config("default.push.remote", $remote);
     } else {
       # The remote repository is a url
       $repository = main::abs_path($repository) if -d $repository;
@@ -2456,15 +2518,68 @@ sub preprocess {
     RepoUtil::unset_config("default.push.branches")
   } elsif (!$repo) {
     # Repository option #2: branch.<active branch>.remote variable
-    my $url = RepoUtil::get_config("branch.$branch.remote");
+    $remote = RepoUtil::get_config("branch.$branch.remote");
+    if ($remote) {
+      $repository = `git config --get remote.$remote.url`;
+      chomp($repository);
+    }
 
     # Repository option #3: default.push.remote variable
-    $url = RepoUtil::get_config("default.push.remote") if !$url;
-    $url = RepoUtil::get_config($url) if $url eq "default.push.url";
+    if (!$remote) {
+      $default = RepoUtil::get_config("default.push.remote");
+      if ($default eq "default.push.url") {
+        $repository = RepoUtil::get_config($default);
+      } else {
+        $remote = $default;
+      }
+    }
 
-    die "No repository to push to specified!\n" if !$url;
+    die "No repository to push to specified!\n" if !$repository;
 
-    $self->{args} .= " $url";
+    if ($remote) {
+      $self->{args} .= " $remote";
+    } else {
+      $self->{args} .= " $repository ";
+    }
+  }
+
+  #
+  # Prevent pushing to a non-bare repository...in most cases
+  #
+  my $push_to_non_bare_repo;
+  if ($repository) {
+
+    # If the user uses a refspec including a colon character, assume
+    # they know what they are doing and skip the non-bare check
+    if (! grep {$_ =~ /:/} @git_refspecs) {
+
+      # Check if we have already determined this repository to be bare
+      my $is_bare;
+      $is_bare = RepoUtil::get_config("remote.$remote.bare") if $remote;
+      if (defined $is_bare) {
+        $push_to_non_bare_repo = ($is_bare eq "false");
+      } else {
+        $is_bare = _check_if_bare($repository);
+        if (defined $is_bare && defined $remote) {
+          RepoUtil::set_config("remote.$remote.bare", $is_bare);
+        }
+        $push_to_non_bare_repo = (defined $is_bare && $is_bare eq "false");
+      }
+    }
+  }
+  # Throw an error if the user is trying to push to a bare repository
+  # (and not using a refspec with a colon character)
+  if ($push_to_non_bare_repo) {
+    print STDERR <<EOF;
+Aborting: You are trying to push to a repository with an associated working
+copy, which will leave its working copy out of sync with its repository.
+Rather than pushing changes to that repository, you should go to where that
+repository is located and pull changes into it (using eg pull).  See
+  eg help topic refspecs
+for advanced methods of pushing (and pulling), including ways to override
+this check and deal with the consequences.
+EOF
+    exit 1;
   }
 
   #
