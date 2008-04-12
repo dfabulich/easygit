@@ -2,7 +2,7 @@
 
 ## Easy GIT (eg), a usable version of git
 ## Version .70
-## Copyright 2008 by Elijah Newren
+## Copyright 2008 by Elijah Newren, and others
 ## Licensed under GNU GPL, version 2.
 
 ## To use eg, simply stick this file in your path.  Then fire off an
@@ -767,6 +767,9 @@ Description:
   history can be compressed into a size that is often smaller than the
   working copy).
 
+  See 'eg help topic remote-urls' for a detailed list of the different ways
+  to refer to remote repositories.
+
 Examples:
   Get a local clone of cairo
       \$ eg clone git://git.cairographics.org/git/cairo
@@ -1453,8 +1456,33 @@ sub new {
 }
 
 sub remote_urls {
+#
+# NOTE: The help for remote_urls is basically lifted from the git manpages,
+# which are licensed under GPLv2 (as is eg).
+#
   return "
-<Sorry, this help page has not been written yet.  This is just a stub.>
+Any of the following notations can be used to name the remote repository:
+  rsync://host.xz/path/to/repo.git/
+  http://host.xz/path/to/repo.git/
+  https://host.xz/path/to/repo.git/
+  git://host.xz/path/to/repo.git/
+  git://host.xz/~user/path/to/repo.git/
+  ssh://[user@]host.xz[:port]/path/to/repo.git/
+  ssh://[user@]host.xz/path/to/repo.git/
+  ssh://[user@]host.xz/~user/path/to/repo.git/
+  ssh://[user@]host.xz/~/path/to/repo.git
+You can also use any of the following, which are identical to the last
+three above, respectively
+  [user@]host.xz:/path/to/repo.git/
+  [user@]host.xz:~user/path/to/repo.git/
+  [user@]host.xz:path/to/repo.git
+Finally, you can also use the following notation to name a not-so-remote
+repository:
+  /path/to/repo.git/
+  file:///path/to/repo.git/
+These last two are identical other than that the latter disables some local
+optimizations (such as hardlinking copies of history when cloning, in order
+to save disk space).
 ";
 }
 
@@ -1476,7 +1504,7 @@ sub help {
     $help_msg = "
 glossary      <Not yet written; this is just a stub>
 refspecs      <Not yet written; this is just a stub>
-remote-urls   Format for referring to remote repositories
+remote-urls   Format for referring to remote (and not-so-remote) repositories
 revisions     <Not yet written; this is just a stub>
 staging       <Not yet written; this is just a stub>
 storage       <Not yet written; this is just a stub>
