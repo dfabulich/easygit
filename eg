@@ -1585,16 +1585,17 @@ Suffixes for counting backwards
   Here is an illustration with an unusually high amount of merging.  The
   illustration has 10 revisions each tagged with a different letter of the
   alphabet, with A referring to the most recent revision:
-       G   H   I   J
-        \ /     \ /
-         D   E   F
-          \  |  / \
-           \ | /   |
-            \|/    |
-             B     C
-              \   /
-               \ /
                 A
+               / \\
+              /   \\
+             B     C
+            /|\\    |
+           / | \\   |
+          /  |  \\ /
+         D   E   F
+        / \\     / \\
+       G   H   I   J
+
   From the illustration, the following equalities hold:
        A =      = A^0
        B = A^   = A^1     = A~1
@@ -1681,6 +1682,14 @@ Basics
   When a new commit is made on a branch, the branch just replaces the
   cryptographic checksum of the old commit with the new one.
 
+  Remote tracking branches, if used (see 'eg help remote'), differ from
+  normal branches only in that they have a slash in their name.  For
+  example, the remote tracking branch that tracks the contents of the
+  stable branch of the remote named bob would be called bob/stable.  By
+  their nature, remote tracking branches only track the contents of a
+  branch of a remote repository; one does not switch to and commit to these
+  branches.
+
   Tags simply record a single revision, much like branches, but tags are
   not advanced when additional commits are made.  Tags are not stored as
   part of a branch, though by default tags that point to commits which are
@@ -1755,9 +1764,12 @@ Pictorial explanation
   probably created after these two branches separated.  This is simply due
   to recording both parents in merge commits.
 
-FIXME: Stuff to cover
-  remote tracking branches
-  various directories under .git
+  Note that this tree-like or graph-like structure of branches is an
+  example of something that computer scientists call a Directed Acyclic
+  Graph (DAG); referring to it as such provides us the opportunity to
+  make the glossary of special terminology longer.
+
+FIXME: Add coverage of files and directories under .git
 ";
 }
 
