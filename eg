@@ -1461,7 +1461,7 @@ sub remote_urls {
 # which are licensed under GPLv2 (as is eg).
 #
   return "
-Any of the following notations can be used to name the remote repository:
+Any of the following notations can be used to name a remote repository:
   rsync://host.xz/path/to/repo.git/
   http://host.xz/path/to/repo.git/
   https://host.xz/path/to/repo.git/
@@ -1780,22 +1780,29 @@ sub help {
   # Get the topic we want more info on (replace dashes, since they can't
   # be in function names)
   my $topic = shift @ARGV;
+  my $orig_topic = $topic;
   $topic =~ s/-/_/g if $topic;
 
-  if (defined $topic) {
-    die "No topic help for '$topic' exists.  Try 'eg help topic'.\n"
-      if !$self->can($topic);
-    $help_msg = $self->$topic();
-  } else {
-    $topic = "Topics";
-    $help_msg = "
+  my $topics = "
 glossary      <Not yet written; this is just a stub>
 refspecs      <Not yet written; this is just a stub>
 remote-urls   Format for referring to remote (and not-so-remote) repositories
 revisions     Various methods for referring to revisions
 staging       <Not yet written; this is just a stub>
-storage       <Not yet written; this is just a stub>
+storage       High level overview of how commits, tags, and branches are stored
 ";
+
+
+  if (defined $topic) {
+    die "No topic help for '$topic' exists.  Try 'eg help topic'.\n"
+      if !$self->can($topic);
+    $help_msg = $self->$topic();
+    if ($topics =~ m#^(\Q$orig_topic\E.*)#m) {
+      $topic = $1;
+    }
+  } else {
+    $topic = "Topics";
+    $help_msg = $topics;
   }
 
   open(OUTPUT, ">&STDOUT");
