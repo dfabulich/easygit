@@ -1668,6 +1668,99 @@ Other methods
 ";
 }
 
+sub storage {
+  return "
+Basics
+  Each revision is referred to by a cryptographic checksum (in particular,
+  a sha1sum) of its contents.  Each revision also knows which revision(s)
+  it was derived from, known as the revision's parent(s).
+
+  Each branch records the cryptographic checksum of the most recent commit
+  for the branch.  Since each commit records its parent(s), a branch
+  consists of its most recent commit plus all ancestors of that commit.
+  When a new commit is made on a branch, the branch just replaces the
+  cryptographic checksum of the old commit with the new one.
+
+  Tags simply record a single revision, much like branches, but tags are
+  not advanced when additional commits are made.  Tags are not stored as
+  part of a branch, though by default tags that point to commits which are
+  downloaded (as part of merging changes from a branch) are themselves
+  downloaded as well.
+
+  Neither branches nor tags are revision controlled, though there is a log
+  of changes made to each branch (known as a reflog, short for \"reference
+  log\", because calling it a \"branch log\" wouldn't make the glossary of
+  special terms long enough).
+
+Pictorial explanation
+  Using the letters A-P as shorthand for different revisions and their
+  cryptographic checksums (which we'll assume were created in the order
+  A...P for purposes of illustration), an example of the kind of structure
+  built up by having commits track their parents is:
+        N
+        |
+        M   P
+        |   |
+        L   O
+        | \\ |
+        J   K
+        |   |
+        H   I
+        | /
+        G
+        |
+        F
+       / \\
+      C   E
+      |   |
+      B   D
+      |
+      A
+  In this picture, F has two parents (C and E) and is thus a merge commit.
+  L is also a merge commit, having parents J and K.  There are two branches
+  depicted here, which can be identified by N and P (due to the fact that
+  branches simply track their most recent commit).  This history is
+  somewhat unusual in that there is no unique start of history; instead
+  there are two beginnings of history -- A and D.  Such a history can be
+  created by pulling from, and merging with, a branch from another
+  repository that shares no common history.  While unusual, it is fully
+  supported.
+
+  For further illustration, let's assume that the following branches exist:
+      stable: N
+      bling:  P
+  Then the picture of each branch, side by side (using revision identifiers
+  explained in \"eg help topic revisions\"), is:
+            stable
+              |
+           stable~1                                     bling
+              |                                           |   
+           stable~2                                    bling~1
+              |   \\                                       |   
+        stable~3  stable~2^2                           bling~2
+              |     |                                     |   
+        stable~4  stable~2^2~1                         bling~3
+              |  /                                     /      
+          stable~6                                bling~4     
+              |                                     |         
+          stable~7                                bling~5     
+            /   \\                                 /   \\       
+      stable~8  stable~7^2                   bling~6  bling~5^2
+          |       |                             |       |     
+      stable~9  stable~7^2~1                 bling~7  bling~5^2~1     
+          |                                     |             
+      stable~10                              bling~8             
+  Note that there are many commits which are part of both branches,
+  including two commits (I and K in the original picture) which were
+  probably created after these two branches separated.  This is simply due
+  to recording both parents in merge commits.
+
+FIXME: Stuff to cover
+  remote tracking branches
+  various directories under .git
+";
+}
+
 sub help {
   my $self = shift;
   my $help_msg;
