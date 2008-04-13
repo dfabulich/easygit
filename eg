@@ -1486,6 +1486,188 @@ to save disk space).
 ";
 }
 
+sub revisions {
+#
+# NOTE: The pictoral example of revision suffixes is taken from the
+# git-rev-parse manpage, which is licensed under GPLv2 (as is eg).
+#
+  return "
+There are MANY different ways to refer to revisions (also referred to as
+commits) of the repository.  Most are only needed for fine-grained control
+in very large projects; the basics should be sufficient for most.
+
+Basics
+  The most common ways of referring to revisions (or commits), are:
+    - Branch or tag name (e.g. stable, v0.77, master, 2.28branch, version-1-0)
+    - Counting back from another revision (e.g. stable~1, stable~2, stable~3)
+    - Cryptographic checksum (e.g. dae86e1950b1277e545cee180551750029cfe735)
+    - Abbreviated checksum (e.g. dae86e)
+
+  The output of 'eg log' shows (up to) two names for each revision: its
+  cryptographic checksum and the count backward relative to the currently
+  active branch (if the revision being shown in eg log is not part of the
+  currently active branch then only the cryptographic checksum is shown).
+
+  One can always check the validity of a revision name and what revision
+  it refers to using 'eg log -1 REVISION' (the -1 to show only one revision).
+
+Branches and Tags
+  Users can specify a tag name to refer to the revision marked by that tag.
+  Run 'eg tag' to get a list of existing tags.
+
+  Users can specify a branch name to refer to the most recent revision of
+  that branch.  Use 'eg branch' to get a list of existing branches.
+
+Cryptographic checksums
+  Each revision of a repository has an associated cryptographic checksum
+  (in particular, a sha1sum) identifying it.  This cryptographic checksum
+  is a sequence of 40 letters and numbers from 0-9 and a-f.  For example,
+    dae86e1950b1277e545cee180551750029cfe735
+  In addition to using these sha1sums to refer to revisions, one can also
+  use an abbreviation of a sha1sum so long as enough characters are used to
+  uniquely identify the revision (typically 6-8 characters are enough).
+
+Special Names
+  There are a few special revision names.
+
+  Names that always exist:
+    HEAD - A reference to the most recent revision of the current branch
+           (thus HEAD refers to the same revision as using the branch
+           name).  If there is no active branch, such as after running
+           'eg switch TAG', then HEAD refers to the revision switched to.
+
+           Note that the files in the working copy are always considered to
+           be a (possibly modifed) copy of the revision pointed to by HEAD.
+
+  Names that only exist in special cases:
+    ORIG_HEAD -  Some operations (such as merge or reset) change which
+                 revision the working copy is relative to.  These will
+                 record the old value of HEAD in ORIG_HEAD.  This allows
+                 one to undo such operations by running
+                   eg reset --working-copy ORIG_HEAD
+    FETCH_HEAD - When downloading branches from other repositories (via
+                 the fetch or pull commands), the tip of the last fetched
+                 branch is stored in FETCH_HEAD.
+    MERGE_HEAD - If a merge operation results in conflicts, then the merge
+                 will stop and wait for you to manually fix the conflicts.
+                 In such a case, MERGE_HEAD will store the tip of the
+                 branch(es) being merged into the current branch.  (The
+                 current branch can be accessed, as always, through HEAD.)
+
+Suffixes for counting backwards
+  There are two suffixes for counting backwards from revisions to other
+  revisions: ~ and ^.
+
+  Adding ~N after a revision, with N a non-negative integer, means to count
+  backwards N commits before the specified revision.  If any revision along
+  the path has more than one parent (i.e. if any revision is a merge
+  commit), then the first parent is always followed.  Thus, if stable is a
+  branch, then
+    stable   means the last revision on the stable branch
+    stable~1 means one revision before the last on the stable branch
+    stable~2 means two revisions before the last on the stable branch
+    stable~3 means three revisions before the last on the stable branch
+  In short, ~N goes back N generation of parents, always following the
+  first parent.
+
+  Adding ^N after a revision, with N a non-negative integer, means the Nth
+  parent of the specified revision.  N can be omitted in which case it is
+  assumed to have the value 1.  Thus, if stable is a branch, then
+    stable   means the last revision on the stable branch
+    stable^1 means the first parent of the last revision on the stable branch
+    stable^2 means the second parent of the last revision on the stable branch
+    stable^3 means the third parent of the last revision on the stable branch
+  In short, ^N picks out one parent from the first generation of parents.
+
+  Revisions with suffixes can themselves have suffixes, thus
+    stable~5 = stable~3~2
+
+  Here is an illustration with an unusually high amount of merging.  The
+  illustration has 10 revisions each tagged with a different letter of the
+  alphabet, with A referring to the most recent revision:
+       G   H   I   J
+        \ /     \ /
+         D   E   F
+          \  |  / \
+           \ | /   |
+            \|/    |
+             B     C
+              \   /
+               \ /
+                A
+  From the illustration, the following equalities hold:
+       A =      = A^0
+       B = A^   = A^1     = A~1
+       C = A^2  = A^2
+       D = A^^  = A^1^1   = A~2
+       E = B^2  = A^^2
+       F = B^3  = A^^3
+       G = A^^^ = A^1^1^1 = A~3
+       H = D^2  = B^^2    = A^^^2  = A~2^2
+       I = F^   = B^3^    = A^^3^
+       J = F^2  = B^3^2   = A^^3^2
+
+Revisions from logged branch tip history
+  By default, all changes to each branch and to the special identifier HEAD
+  are recorded in something called a reflog (short for \"reference log\",
+  because calling it a \"branch log\" would not have made the glossary of
+  special terms long enough).  Each entry of the reflog records the
+  previous revision recorded by the branch, the new revision the branch was
+  changed to, the command used to make the change (commit, merge, reset,
+  pull, checkout, etc.), and when the change was made.  One can get an
+  overview of the changes made to a branch (including the special branch
+  'HEAD') by running
+    eg reflog show BRANCHNAME
+
+  One can make use of the reflog to refer to revisions that a branch used
+  to point to.  The format for referring to revisions from the reflog are
+    BRANCH\@{HISTORY_REFERENCE}
+  Examples follow.
+
+  Revisions that the branch pointed to, in order
+    Assuming that ultra-bling is the name of a branch, the following can be
+    used to refer to revisions ultra-bling used to point to:
+      ultra-bling\@{0} is the same as ultra-bling
+      ultra-bling\@{1} is the revision pointed to before the last change
+      ultra-bling\@{2} is the revision ultra-bling pointed to two changes ago
+      ultra-bling\@{3} is the revision ultra-bling pointed to three changes ago
+    Note that any of these beyond the first could easily refer to commits
+    that are no longer part of the ultra-bling branch (due to using a
+    command like reset or commit --amend).
+
+  Revisions that the branch pointed to at a previous time
+    Assuing that fixes is the name of a branch, the following can be used to
+    refer to revisions that fixes used to point to:
+      fixes\@{yesterday}           - revision fixes pointed to yesterday
+      fixes\@{1 day 3 hours ago}   - revision fixes pointed to 1 day 3 hours ago
+      fixes\@{2008-02-29 12:34:00} - revision fixes had at 12:34 on Feb 29, 2008
+    Again, these could refer to revisions that are no longer part of the
+    fixes branch, 
+
+  Using the branch log can be used to recover \"lost\" revisions that are
+  no longer part of (or have never been part of) any branch reported by 'eg
+  branch'.
+
+Commit messages
+  One can also refer a revision using the beginning of the commit message
+  recorded in it.  This is done using with the two-character prefix :/
+  followed by the beginning of the commit message.  Note that quotation marks
+  are also often used to avoid having the shell split the commit message into
+  different arguments.  Examples:
+    :/\"Fix the biggest bug blocking the 1.0 release\"
+    :/\"Make the translation from url\"
+    :/\"Add a README file\"
+  Note that if the commit message starts with an exclamation mark ('!'), then
+  you need to type two of them; for example example:
+    :/\"!!Commit messages starting with an exclamation mark are retarded\"
+
+Other methods
+  There are even more methods of referring to revisions.  Run \"man
+  git-rev-parse\", and look for the \"SPECIFYING REVISIONS\" section for
+  more details.
+";
+}
+
 sub help {
   my $self = shift;
   my $help_msg;
@@ -1505,7 +1687,7 @@ sub help {
 glossary      <Not yet written; this is just a stub>
 refspecs      <Not yet written; this is just a stub>
 remote-urls   Format for referring to remote (and not-so-remote) repositories
-revisions     <Not yet written; this is just a stub>
+revisions     Various methods for referring to revisions
 staging       <Not yet written; this is just a stub>
 storage       <Not yet written; this is just a stub>
 ";
