@@ -810,6 +810,7 @@ sub preprocess {
   my $package_name = ref($self);
 
   $self->{args} = "";
+  $self->{bare} = 0;
   my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
   my $record_args  = sub { $self->{args} .= " --@_";    };
   my $result = main::GetOptions(
@@ -820,7 +821,7 @@ sub preprocess {
     "no-hard-links"    => sub { &$record_arg(@_) },
     "quiet|q"          => sub { &$record_arg(@_) },
     "no-checkout|n"    => sub { &$record_arg(@_) },
-    "bare"             => sub { &$record_arg(@_) },
+    "bare"             => sub { $self->{bare} = 1; &$record_arg(@_) },
     "origin|o=s"       => sub { &$record_args(@_) },
     "upload-pack|u=s"  => sub { &$record_args(@_) },
     "reference=s"      => sub { &$record_args(@_) },
@@ -844,7 +845,9 @@ sub run {
   # Perform the clone
   #
   my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
+  return if $self->{bare};
   if ($debug == 2) {
+    return if $self->{bare};
     print "    >>Running: 'cd $self->{directory}'<<\n";
     print "    >>Running: 'git branch -r'<<\n";
     print "    --- Setting up extra branches by default ---\n";
