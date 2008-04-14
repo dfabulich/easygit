@@ -2282,7 +2282,12 @@ sub run {
   my $is_bare = ExecUtil::output("git config --get core.bare");
   ExecUtil::execute("git config core.bare true");
   print "Copy local repository to remote location...\n" if $debug < 2;
-  ExecUtil::execute("rsync -e ssh -az --delete ./ $self->{remote_dir}");
+  ExecUtil::execute(
+    "rsync -e ssh -az --delete --exclude=refs/remotes " .
+    "--exclude=COMMIT_EDITMSG --exclude=index --exclude=logs " .
+    "--exclude=info/ignored-unknown " .
+    "--exclude=ORIG_HEAD --exclude=FETCH_HEAD --exclude=MERGE_HEAD " .
+    "./ $self->{remote_dir}");
   ExecUtil::execute("git config core.bare $is_bare");
 
   print "  >>Setting up default push & pull locations for the local repo,<<\n".
