@@ -2274,6 +2274,25 @@ sub run {
   my $orig_dir = main::getcwd();
   chdir($self->{git_dir});
   print "    >>Running: 'cd $self->{git_dir}'<<\n" if $debug;
+
+  #
+  # Warn the user if they have files that may have too restrictive permissions
+  #
+  my @non_readable_files = `find . ! -perm -004`;
+  if (scalar @non_readable_files > 0) {
+    print STDERR <<EOF;
+WARNING: Some files under $self->{git_dir} are not world readable (see the
+chmod(1) manpage).  These permissions will be preserved in the published
+copy, so you will need to manually change the permissions of the published
+repository if you want them to be world readable (alternatively, you could
+modify the permissions of files under $self->{git_dir} and re-run eg publish.)
+
+EOF
+  }
+
+  #
+  # Setup the repository for rsyncing
+  #
   ExecUtil::execute("touch git-daemon-export-ok");
   print "Optimizing local repository and compressing it...\n" if $debug < 2;
   ExecUtil::execute("git gc");
@@ -2281,6 +2300,10 @@ sub run {
   ExecUtil::execute("chmod u+x hooks/post-update");
   my $is_bare = ExecUtil::output("git config --get core.bare");
   ExecUtil::execute("git config core.bare true");
+
+  #
+  # rsync .git to the publish location
+  #
   print "Copy local repository to remote location...\n" if $debug < 2;
   ExecUtil::execute(
     "rsync -e ssh -az --delete --exclude=refs/remotes " .
@@ -2288,14 +2311,25 @@ sub run {
     "--exclude=info/ignored-unknown " .
     "--exclude=ORIG_HEAD --exclude=FETCH_HEAD --exclude=MERGE_HEAD " .
     "./ $self->{remote_dir}");
-  ExecUtil::execute("git config core.bare $is_bare");
 
+  #
+  # Undo any temporary changes we did for publishing
+  #
+  ExecUtil::execute("git config core.bare $is_bare");
+  # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
+  # the files that 'man git-update-server-info' says it creates.
+
+  #
+  # Explain the next two steps if we're in debug mode...
+  #
   print "  >>Setting up default push & pull locations for the local repo,<<\n".
         "  >>so that it pushes/pulls from the published repository:      <<\n"
     if $debug;
 
+  #
   # Set up the configuration variables default.branch.BRANCH.(remote|merge)
   # for each BRANCH (used later as default pull locations)
+  #
   my @branches = `git branch`;
   print "    >>Running: 'git branch'<<\n" if $debug;
   foreach my $branch (@branches) {
@@ -2307,14 +2341,13 @@ sub run {
     RepoUtil::unset_config("default.remote.$branch.url");
   }
 
+  #
   # Set up the configuration variable default.push.remote (use later as
   # a default push location)
+  #
   RepoUtil::set_config("default.push.url",    $self->{remote_dir});
   RepoUtil::set_config("default.push.remote", "default.push.url");
   RepoUtil::unset_config("default.push.branches");
-
-  # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
-  # the files that 'man git-update-server-info' says it creates.
 
   chdir($orig_dir);
 }
