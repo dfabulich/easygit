@@ -1672,6 +1672,58 @@ Other methods
 ";
 }
 
+sub staging {
+  return "
+Marking changes from certain files as ready for commit allows you to split
+your changes into two distinct sets (those that are ready for commit, and
+those that aren't).  This includes support for limiting diffs to changes in
+one of these two sets, and for committing just the changes that are ready.
+It's a simple feature that comes in surprisingly handy:
+
+  * When doing conflict resolution from large merges, hunks of changes can
+    be categorized into known-to-be-good and still-needs-more-fixing
+    subsets.
+
+  * When reviewing a largish patch from someone else, hunks of changes can
+    be categorized into known-to-be-good and still-needs-review subsets.
+
+  * By staging your changes, you can go ahead and add temporary debugging
+    code and have less fear of forgetting to remove it before committing --
+    you will be warned about having both staged and unstaged changes at
+    commit time, and you will have an easy way to locate the temporary
+    code.
+
+  * It makes it easier to keep \"dirty\" changes in your working copy for a
+    long time without committing them.
+
+Staging changes and working with staged changes
+  Mark all changes in foo.py and baz.c as ready to be committed
+    eg stage foo.py baz.c
+
+  Selectively stage part of the changes
+    eg stage -p
+  (You will be asked whether to stage each change, listed in diff format;
+  the main options to know are \"y\" for yes, \"n\" for no, and \"s\" for
+  splitting the selected change into smaller changes; see 'man git-add' for
+  more details).
+
+  Get all unstaged changes to bar.C and foo.pl
+    eg diff --unstaged foo.pl bar.C
+
+  Get all staged changes
+    eg diff --staged
+
+  Get all changes
+    eg diff
+
+  Revert the staged changes to bar.C, foo.pl and foo.py
+    eg revert --staged bar.C foo.pl foo.py
+
+  Commit just the staged changes
+    eg commit --staged
+";
+}
+
 sub storage {
   return "
 Basics
@@ -1786,15 +1838,16 @@ sub help {
   my $orig_topic = $topic;
   $topic =~ s/-/_/g if $topic;
 
+  ### FIXME: Add the following topics, plus maybe some others
+  # glossary      <Not yet written; this is just a stub>
+  # refspecs      <Not yet written; this is just a stub>
+
   my $topics = "
-glossary      <Not yet written; this is just a stub>
-refspecs      <Not yet written; this is just a stub>
 remote-urls   Format for referring to remote (and not-so-remote) repositories
 revisions     Various methods for referring to revisions
-staging       <Not yet written; this is just a stub>
+staging       Marking a subset of the local changes ready for committing
 storage       High level overview of how commits, tags, and branches are stored
 ";
-
 
   if (defined $topic) {
     die "No topic help for '$topic' exists.  Try 'eg help topic'.\n"
@@ -3199,7 +3252,8 @@ Description:
   By default, changes made by this command are only performed in the
   working copy.  As an advanced option, one can instead have the reverting
   be applied to the staging area (the area tracking content explicitly
-  marked by you as ready to be committted).
+  marked by you as ready to be committted; see 'eg help topic staging' for
+  more details).
 
   This command has the ability to either revert changes *since* a given
   commit, or to revert the changes *in* a given commit.  When a commit is
@@ -3477,9 +3531,10 @@ Options:
 
   --staged
     Only remove the files from the staging area (the area with changes
-    marked as ready to be recorded in the next commit).  When using this
-    flag, the given files will not be removed from the working copy and
-    will instead become \"unknown\" files.
+    marked as ready to be recorded in the next commit; see 'eg help topic
+    staging' for more details).  When using this flag, the given files will
+    not be removed from the working copy and will instead become
+    \"unknown\" files.
 
   --
     This option can be used to separate command-line options from the list
@@ -3531,6 +3586,9 @@ Description:
   subdirectory are recursively added.
 
   You can use 'eg revert --staged PATH...' to unstage files.
+
+  See 'eg help topic staging' for more details, including situations where
+  you might find staging useful.
 
 Examples:
   Create a new file, and mark it for addition to the repository.
