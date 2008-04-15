@@ -59,6 +59,18 @@ __eg_commands ()
 __eg_commandlist=
 __eg_commandlist="$(__eg_commands 2>/dev/null)"
 
+__eg_topics ()
+{
+  if [ -n "$__eg_topiclist" ]; then
+    echo "$__eg_topiclist"
+    return
+  fi
+  local i IFS=" "$'\n'
+  eg help topic | egrep "^[A-Za-z]" | awk '{print $1}' | grep -v "^Topics"
+}
+__eg_topiclist=
+__eg_topiclist="$(__eg_topics 2>/dev/null)"
+
 _eg_commit ()
 {
   local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -96,14 +108,27 @@ _eg_diff ()
 
 _eg_help ()
 {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "$cur" in
-  --*)
-    __gitcomp "--all"
-    return
-    ;;
-  esac
-  __gitcomp "$(__eg_commands)"
+  local i c=1 command
+  while [ $c -lt $COMP_CWORD ]; do
+    i="${COMP_WORDS[c]}"
+    case "$i" in
+    topic) command="$i"; break ;;
+    esac
+    c=$((++c))
+  done
+
+  if [ $c -eq $COMP_CWORD -a -z "$command" ]; then
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    case "$cur" in
+    --*)
+      __gitcomp "--all"
+      return
+      ;;
+    esac
+    __gitcomp "$(__eg_commands) topic"
+  else
+    __gitcomp "$(__eg_topics)"
+  fi
 }
 
 _eg_reset ()
