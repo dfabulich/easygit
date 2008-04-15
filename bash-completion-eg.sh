@@ -140,6 +140,7 @@ _eg ()
     --git-dir=*) __git_dir="${i#--git-dir=}" ;;
     --bare)      __git_dir="." ;;
     --version|--help|-p|--paginate) ;;
+    --translate|--debug) ;;
     *) command="$i"; break ;;
     esac
     c=$((++c))
