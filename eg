@@ -268,12 +268,12 @@ Description:
   Applies a patch to a git repository.
 
 Examples:
-  Reverse changes since the last commit in the working copy
-      \$ git diff | git apply -R
+  Reverse changes in foo.patch
+      \$ eg apply -R foo.patch
 
   (Advanced) Reverse changes since the last commit to the version of foo.c
-  in the staging area:
-      \$ eg diff --staged | git apply -R --staged
+  in the staging area (equivalent to 'eg revert --staged foo.c'):
+      \$ eg diff --staged foo.c | eg apply -R --staged
 
 Options:
   --staged
