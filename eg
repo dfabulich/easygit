@@ -1884,8 +1884,53 @@ Usage:
   eg info [/PATH/TO/REPOSITORY]
 
 Description:
-  Shows information about the specified repository, or the current repository
-  none is specified.
+  Shows information about the specified repository, or the current
+  repository if none is specified.
+
+  Most of the output of eg info is self-explanatory, but some fields
+  benefit from extra explanation or pointers about where to find related
+  information.  These fields are:
+
+    Total commits
+      The total number of commits (or revisions) found in the repository.
+      eg log can be used to view revision authors, dates, and commit log
+      messages.
+
+    Local repository
+      eg has a number of files and directories it uses to track your data,
+      including (by default) a copy of the entire history of the project.
+      These files and directories are all stored below a single directory,
+      referred to as the local repository.  See 'eg help topic storage' for
+      more details.
+
+    Named remote repositories
+      To make it easier to track changes from multiple remote repositories,
+      eg provides the ability to provide nicknames for and work with
+      multiple branches from a remote repository and even working with
+      multiple remote repositories at once.  See 'eg help remote' for more
+      details, though you will want to make sure you understand 'eg help
+      pull' and 'eg help push' first.
+
+    Current branch
+      All development is done on a branch, though smaller projects may only
+      use one branch per repository (thus making the repository effectively
+      serve as a branch).  In contrast to cvs and svn which refer to
+      mainline development as \"HEAD\" and \"TRUNK\", respectively, eg
+      calls the mainline development a branch as well, with the default
+      name of \"master\").  See 'eg help branch' and 'eg help topic
+      storage' for more details.
+
+    Cryptographic checksum
+      Each revision has an associated cryptographic checksum of both its
+      contents and the revision(s) it was derived from, providing strong
+      data consistency checks and guarantees.  These checksums are shown in
+      the output of eg log, and serve as a way to refer to revisions.  See
+      also 'eg help topic storage' for more details.
+
+    Default pull/push/merge repositories and branches:
+      eg remembers previous arguments to eg push and eg pull, since these
+      arguments are often repeated.  See 'eg help pull' and 'eg help push'
+      for more details.
 ";
   $self->{'differences'} = '
   eg info is unique to eg; git does not have a similar command.  It
