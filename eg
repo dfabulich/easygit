@@ -99,14 +99,6 @@ INIT {
       section => 'modification',
       about => 'Move or rename files (or directories or symlinks)'
       },
-    rebase => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      extra => 1,
-      section => 'timesavers',
-      about => "Port local commits, making them be based on a different\n" .
-               "                repository version"
-      },
     remote => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -3038,6 +3030,256 @@ sub run {
   my $self = shift;
 
   return ExecUtil::execute("git push $self->{args}", ignore_ret => 1);
+}
+
+###########################################################################
+# rebase                                                                  #
+###########################################################################
+package rebase;
+@rebase::ISA = qw(subcommand);
+INIT {
+  $command{rebase} = {
+    extra => 1,
+    section => 'timesavers',
+    about => "Port local commits, making them be based on a different\n" .
+             "                repository version"
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "Error: No recorded commits to rewrite.",
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg rebase [-i | --interactive] [ --since SINCE ] [ --onto ONTO ]
+            [ --against AGAINST ] [BRANCH_TO_REBASE]
+  eg rebase [ --continue | --skip | --abort ]
+
+Description:
+  Rewrites commits on a branch, making them be based on a different
+  repository version.  Technically, the old commits are not overwritten or
+  deleted (only new ones are written), meaning that other branches sharing
+  the same commits will be unaffected and users can undo a rebase (until
+  the unused commits are cleaned up after a few weeks).
+
+  WARNING:
+    Rebasing commits in a branch is an advanced operation which changes
+    history in a way that will cause problems for anyone who already has a
+    copy of the branch in their repository when they try to pull updates
+    from you.  This may cause them to experience many conflicts in their
+    merges and require them to resolve those conflicts manually, or rewrite
+    their own history, or even toss out their changes and simply accept
+    your version.  (The last of those options is common enough that there
+    is a special method of pulling and pushing changes in such cases; see
+    'eg help topic refspecs' for more details.)
+
+  Non-interactive rebase (running without the --interactive or -i flags):
+    Specifying which commits to rewrite and what to rewrite them relative
+    to involves specifying up to three branches or revisions: SINCE, ONTO,
+    and BRANCH_TO_REBASE.  eg will take all commits in the BRANCH_TO_REBASE
+    branch that are not in the SINCE branch, and record them as commits on
+    top of the tip of the ONTO branch.  The ONTO and SINCE branches are not
+    changed by this operation.  The BRANCH_TO_REBASE branch is changed to
+    record the tip of the newly written branch.
+
+    See also the \"If a conflict occurs\" section below.
+
+  Interactive rebase (running with the --interactive or -i flag):
+    Interactive rebasing allows you a chance to edit the commits which are
+    rebased, including
+      * reordering commits
+      * removing commits
+      * combining multiple commits into one commit
+      * amending commits to include different changes or log messages
+      * splitting one commit into multiple commits
+    When running interactively, eg rebase will begin by making a list of
+    the commits which are about to be rebased and allow you to change the
+    the list before rebasing.  The list will include one commit per line,
+    allowing you to
+      * reorder commits by reordering lines
+      * removing commits by removing lines
+      * combining multiple commits into one, by changing 'pick' to 'squash'
+        at the beginning of each line of the commits you want combined
+        *except* the first
+      * amend a commit by changing the 'pick' at the beginning of the line
+        of the relevant commit to 'edit'.  This will make eg rebase stop
+        after applying that commit, allowing you to make changes and run
+        'eg commit --amend' followed by 'eg rebase --continue'.
+      * split one commit into multiple commits by changing 'pick' at the
+        beginning of the line of the relevant commit to 'edit'.  This will
+        make eg rebase stop *after* applying that commit, allowing you to
+        manually undo that commit while keeping the changes in the working
+        copy (with 'eg reset HEAD~1') and then make multiple commits (with
+        'eg commit') before running 'eg rebase --continue'.  Note that eg
+        stash may come in handy for testing the split commits.
+
+  If a conflict occurs:
+    Rebase will stop at the first problematic commit and leave conflict
+    markers (<<<<<<) in the tree.  You can use eg status and eg diff to
+    find the problematic files and locations.  Once you edit the files to
+    fix the conflicts, you can run
+      eg resolved FILE
+    to mark the conflicts in FILE as resolved.  Once you have resolved all
+    conflicts, you can run
+      eg rebase --continue
+    If you simply want to skip the problematic patch (and end up with one
+    less commit), you can instead run
+      eg rebase --skip
+    Alternatively, to abort the rebase and return to your previous state,
+    you can run
+      eg rebase --abort
+
+Examples:
+  Take a branch named topic that was split off of the master branch, and
+  update it to be based on the new tip of master.
+      \$ eg rebase --since master --onto master topic
+    Pictorally, this changes:
+                 A---B---C topic
+                /
+           D---E---F---G master
+    into
+                         A'--B'--C' topic
+                        /
+           D---E---F---G master
+
+  Same as the the above example, with less typing
+      \$ eg rebase --against master topic
+
+  Same as the last two examples, assuming topic is the current branch
+      \$ eg rebase --against master
+
+  Take a branch named topic that is based off of a branch named next, which
+  is in turn based off master, and rewrite topic so that it appears to be
+  based off the most recent version of master.
+      \$ eg rebase --since next --onto master topic
+    Pictorally, this changes
+           o---o---o---o---o  master
+                \
+                 o---o---o---o---o  next
+                                  \
+                                   o---o---o  topic
+    into
+           o---o---o---o---o  master
+               |            \
+               |             o'--o'--o'  topic
+                \
+                 o---o---o---o---o  next
+
+  Take just the last two commits of the current branch, and rewrite them
+  to be relative to the commit just before the most recent on the master
+  branch.
+      \$ eg rebase --since current~2 --onto master~1 current
+    Pictorally, this changes:
+                    A---B---C---D---E  current
+                   /
+           F---G---H---I---J---K master
+    into
+                            D'---E' current
+                           /
+           F---G---H---I---J---K master
+
+  Reorder the last two commits on the current branch
+      \$ eg rebase --interactive --since HEAD~2
+  (Then edit the file you are presented with and change the order of the
+  two lines beginning with 'pick')
+    Pictorally, this changes:
+           A---B---C---D---E---F master
+    into
+           A---B---C---D---F'---E' master
+
+Options:
+  --since SINCE
+    Upstream branch to compare against; only commits not found in this
+    branch will be rebased.  Note that if --onto is not specified, the
+    value of SINCE will be used for that as well.
+
+    The value of SINCE is not restricted to existing branch names; any
+    valid revision can be used (due to the fact that all revisions know
+    their parents and a revision plus its ancestors can define a branch).
+
+  --onto ONTO
+    Starting point at which to create the new commits.  If the --onto
+    option is not specified, the starting point is whatever is provided by
+    the --since option.  Any valid revision can be used for the value of
+    ONTO.
+
+  --against AGAINST
+    An alias for --since AGAINST, provided to make command lines clearer
+    when the --onto flag is not also used.  (Typically, --against is used
+    if --onto is not, and --since is used if --onto is, but --against and
+    --since can be used interchangably.)
+
+  --interactive, -i
+    Make a list of the revisions which are about to be rebased and let the
+    user edit that list before rebasing.  Can be used to split, combine,
+    remove, insert, reorder, or edit commits.
+
+  --continue
+    Restart the rebasing process after resovling a conflict
+
+  --skip
+    Restart the rebasing process by skipping the current patch (resulting
+    in a rewritten history with one less commit).
+
+  --abort
+    Abort the stopped rebase operation and restore the original branch
+";
+  $self->{'differences'} = "
+  The only differences between eg rebase and git rebase are cosmetic;
+  further, eg rebase accepts all options and flags that git rebase accepts.
+
+  eg adds the identically behaved flags --since and --against in
+  preference to using the position of the branch/revision name on the
+  command line.  Note that
+    git rebase master
+  is somewhat confusing in that it isn't rebasing master but the current
+  branch.  To make this clearer, eg allows (and encourages) the form
+    eg rebase --against master
+  where --against has the same meaning as --since, but is clearer in cases
+  where the --onto flag is not also used.
+";
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  $self->{args} = "";
+  my $record_arg  = sub { $self->{args} .= " --$_[0]"; };
+  my $record_args = sub { $self->{args} .= " --@_"; };
+  my $since;
+  my $result = main::GetOptions(
+    "--help"              => sub { $self->help() },
+    "interactive|i"       => sub { &$record_arg(@_) },
+    "verbose|v"           => sub { &$record_arg(@_) },
+    "merge|m"             => sub { &$record_arg(@_) },
+    "C=i"                 => sub { &$record_args(@_) },
+    "whitespace=s"        => sub { &$record_args(@_) },
+    "preserve-merges|p"   => sub { &$record_arg(@_) },
+    "onto=s"              => sub { &$record_args(@_) },
+    "against=s"           => sub { $since=$_[1] },
+    "since=s"             => sub { $since=$_[1] },
+    "continue"            => sub { &$record_arg(@_) },
+    "skip"                => sub { &$record_arg(@_) },
+    "abort"               => sub { &$record_arg(@_) },
+    );
+  die "Too many branches/revisions specified\n"
+    if @ARGV > 1 && defined $since;
+  $self->{args} .= " $since" if defined $since;
+  $self->{args} .= " @ARGV";
+}
+
+sub run {
+  my $self = shift;
+
+  return ExecUtil::execute("git rebase $self->{args}", ignore_ret => 1);
 }
 
 ###########################################################################
