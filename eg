@@ -99,13 +99,6 @@ INIT {
       section => 'modification',
       about => 'Move or rename files (or directories or symlinks)'
       },
-    remote => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      extra => 1,
-      section => 'collaboration',
-      about => 'Manage named remote repositories',
-      },
   );
 }
 
@@ -3325,6 +3318,113 @@ sub run {
   my $self = shift;
 
   return ExecUtil::execute("git rebase $self->{args}", ignore_ret => 1);
+}
+
+###########################################################################
+# remote                                                                  #
+###########################################################################
+package remote;
+@remote::ISA = qw(subcommand);
+INIT {
+  $command{remote} = {
+    unmodified_behavior => 1,
+    extra => 1,
+    section => 'collaboration',
+    about => 'Manage named remote repositories',
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg remote
+  eg remote add REMOTENAME URL
+  eg remote rm REMOTENAME
+  eg remote update GROUPNAME
+
+Description:
+  eg remote is a convenience utility to make it easy to track changes from
+  multiple remote repositories.  It is used to
+    1) Set up
+         REMOTENAME -> URL
+       aliases that can be used in the place of full urls to simplify
+       commands such as push or pull
+    2) Pulling updates from multiple branches of a remote repository at
+       once and storing them in remote tracking branches (which differ from
+       normal branches only in that they have a prefix of REMOTENAME/ in
+       their name).
+    3) Pulling updates from multiple branches of multiple remote
+       repositories at once, storing them all in remote tracking branches.
+
+Examples:
+  The examples section is split into three categories:
+    1) Managing which remotes exist:
+    2) Using one or more existing remotes
+    3) Using remote tracking branches created through usage of remotes
+
+  Category 1: Managing which remotes exist:
+
+    List which removes exist
+      \$ eg remote
+    or, list remotes and their urls (among other things)
+      \$ eg info
+
+    Add a new remote for the url ssh://some.machine.org//path/to/repo.git,
+    giving it the name jim
+      \$ eg remote add jim ssh://some.machine.org//path/to/repo.git
+
+    Add a new remote for the url git://composit.org//location/eyecandy.git,
+    giving it the name bling
+      \$ eg remote add bling git://composit.org//location/eyecandy.git
+
+    Delete the remote named bob, and remove all related remote tracking
+    branches (i.e. those branches whose names begin with \"bob/\"), as well
+    as any associated configuration settings
+      \$ eg remote rm bob
+    
+  Category 2: Using one or more existing remotes
+
+    Pull updates for all branches of the remote jill, storing each in a
+    remote tracking branch of the local repository named jill/BRANCH.
+      \$ eg fetch jill
+
+    Pull changes from the magic branch of the remote merlin and merge it
+    into the current branch (i.e. standard pull behavior) AND also update
+    all remote tracking branches associated with the remote (i.e. act as if
+    'eg fetch merlin' was also run)
+      \$ eg pull --branch magic merlin
+
+    Grab updates from all remotes, i.e. run 'eg fetch REMOTE' for each
+    remote.
+      \$ eg remote update
+    (Technically, some remotes could be manually configured to be excluded
+    from this update.)
+
+    Grab updates from all remotes in the group named friends (created by
+    use of 'eg config remotes.friends REMOTE1 REMOTE2...'), i.e. run
+    'eg fetch REMOTE' for each remote in the friends group
+      \$ eg remote update friends
+
+  Category 3: Using remote tracking branches created through usage of remotes
+
+    List all remote tracking branches
+      \$ eg branch -r
+
+    Merge the remote tracking branch jill/stable into the current branch
+      \$ eg merge jill/stable
+
+    Get a history of the changes on the bling/explode branch
+      \$ eg log bling/explode
+
+    Create a new branch named my-testing based off of the remote tracking
+    branch jenny/testing
+      \$ eg branch my-testing jenny/testing
+";
+  return $self;
 }
 
 ###########################################################################
