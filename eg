@@ -3099,6 +3099,10 @@ sub new {
     initial_commit_error_msg => "Error: No recorded commits to rewrite.",
     @_);
   bless($self, $class);
+  #
+  # Note: Parts of help were taken from the git-rebase manpage, which
+  # was also available under GPLv2.
+  #
   $self->{'help'} = "
 Usage:
   eg rebase [-i | --interactive] [ --since SINCE ] [ --onto ONTO ]
