@@ -1423,9 +1423,18 @@ sub run {
 
   # And let them know how to get more detailed help...
   print OUTPUT "Additional help:\n";
-  print OUTPUT "  eg help COMMAND    Get more help on COMMAND.\n";
-  print OUTPUT "  eg help --all      List more commands (not really all)\n";
-  print OUTPUT "  eg help topic      List specialized help topics.\n";
+  print OUTPUT "  eg help COMMAND      Get more help on COMMAND.\n";
+  print OUTPUT "  eg help --all        List more commands (not really all)\n";
+  print OUTPUT "  eg help topic        List specialized help topics.\n";
+
+  # And let them know how to compare to git
+  if ($self->{all}) {
+    print OUTPUT "\n";
+    print OUTPUT "Learning or comparing to git\n";
+    print OUTPUT "  eg --translate ARGS  Show commands that would be executed for 'eg ARGS'\n";
+    print OUTPUT "  eg --debug ARGS      Show & run commands that would be executed by 'eg ARGS'\n";
+  }
+
   close(OUTPUT);
   
   exit $self->{exit_status};
