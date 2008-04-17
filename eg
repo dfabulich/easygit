@@ -3405,7 +3405,7 @@ Examples:
     from this update.)
 
     Grab updates from all remotes in the group named friends (created by
-    use of 'eg config remotes.friends REMOTE1 REMOTE2...'), i.e. run
+    use of 'eg config remotes.friends \"REMOTE1 REMOTE2...\"'), i.e. run
     'eg fetch REMOTE' for each remote in the friends group
       \$ eg remote update friends
 
