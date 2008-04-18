@@ -1452,6 +1452,121 @@ sub new {
   return $self;
 }
 
+sub refspecs {
+  return "
+Before reading up on refspecs, be sure you understand all the following
+help pages:
+  eg help merge
+  eg help pull
+  eg help push
+  eg help rebase
+  eg help remote
+  eg help topic storage
+refspecs compress knowledge from pieces of all those things into a short
+amount of space.
+
+refspecs are command line parameters to eg push or eg pull, used at the end
+of the command line.  refspecs provide fine-grained control of pushing and
+pulling changes in the following two areas:
+  Since branches, tags, and remote tracking branches are all implemented by
+  creating simple files consisting solely of a sha1sum, it is possible to
+  push to or pull from different reference names and different reference
+  types.
+
+  Pushing and pulling of (possibly remote tracking) branches are typically
+  accompanied by sanity checks to make sure the sha1sums on each end are
+  related (to make sure that updates don't throw away previous commits, for
+  example).  In some cases it is desirable to ignore such checks, such as
+  when a branch has been rebased or commits have been amended.
+
+The canonical format of a refspec is
+  [+]SRC:DEST
+That is, an optional plus character followed by a source reference, then a
+colon character, then the destination reference.  There are a couple
+special abbreviations, noted in the abbreviations section below.  The
+meaning and syntax of the parts of a refspec are discussed next.
+
+General source and destination handling
+  Both the source and the destination reference are typically named by
+  their path specification under the .git directory.  Examples:
+    refs/heads/bob            # branch: bob
+    refs/tags/v2.0            # tag: v2.0
+    refs/remotes/jill/stable  # remote-tracking branch: jill/stable
+  Leading directory paths can be omitted if no ambiguity would result.
+
+  The refspec specifies that the push or pull operation should take the
+  sha1sum from SRC in the source repository, and use it to fast-foward DEST
+  in the destination repository.  The operation will fail if updating DEST
+  would not be a fast-foward, unless the optional plus in the refspec is
+  present.
+
+  Pull operations are somewhat unusual.  For a pull, DEST is usually not
+  the current branch.  In such cases, the current branch is also updated
+  after DEST is.  The method of updating depends on whether --rebase was
+  specified, and whether the latest revision of the current branch is an
+  ancestor of the revision stored by DEST:
+    If --rebase is specified:
+      Rebase the current branch against DEST
+    If --rebase is not specified, current branch is an ancestor of DEST:
+      Fast-forward the current branch to DEST
+    If --rebase is not specified, current branch is not an ancestor of DEST:
+      Merge DEST into the current branch
+
+Overriding push and pull sanity checks
+  For both push and pull operations, the operation will fail if updating
+  DEST to SRC is not a fast-forward.  This tends to happen in a few
+  different circumstances:
+    For pushes:
+      * If someone else has pushed updates to the specified location
+        already -- in such cases one should resolve the problem by doing a
+        pull before attempting a push rather than overriding the safety
+        check.
+      * If one has rewritten history (e.g. using rebase, commit --amend,
+        reset followed by subsequent commits)
+    For pulls:
+      * If one is pulling to a branch instead of a remote tracking branch
+        -- in such a case, one should instead either specify a remote
+        tracking branch for DEST or specify an empty DEST rather than
+        overriding the safety check.
+      * If one has somehow recorded commits directly to a remote tracking
+        branch (something prevented by eg)
+      * If history has been rewritten on the remote end (e.g. by using
+        rebase, commit --amend, reset followed by subsequent commits).
+  In all such cases, users can choose to throw away any existing unique
+  commits at the DEST end and make DEST record the same sha1sum as SRC, by
+  using a plus character at the beginning of the refspec.
+
+Abbreviations of refspecs
+  Globbing syntax
+    For either pushes or pulls, one can use a globbing syntax, such as
+      refs/heads/*:refs/remotes/jim/*
+    or
+      refs/heads/*:refs/heads/*
+    in order to specify pulling or pushing multiple locations at once.
+
+  The following special abbreviations are allowed for both pushes and pulls:
+    tag TAG
+      This is equivalent to specifying refs/tags/TAG:refs/tags/TAG.
+
+  The following special abbreviations are allowed for pushes:
+    :REFERENCE
+      This specifies delete the reference at the remote end (think of it as
+      \"using nothing to update the remote reference\")
+
+    REFERENCE
+      This is the same as REFERENCE:REFERENCE
+
+  The following special abbreviations are allowed for pulls:
+    REFERENCE:
+      This is used to merge REFERENCE into the current branch directly
+      without storing the remote branch in some remote tracking branch.
+
+    REFERENCE
+      This is the same as REFERENCE: which is explained above.
+";
+}
+
+
 sub remote_urls {
 #
 # NOTE: The help for remote_urls is basically lifted from the git manpages,
@@ -1834,9 +1949,9 @@ sub help {
 
   ### FIXME: Add the following topics, plus maybe some others
   # glossary      <Not yet written; this is just a stub>
-  # refspecs      <Not yet written; this is just a stub>
 
   my $topics = "
+refspecs      Advanced pushing and pulling: detailed control of storage
 remote-urls   Format for referring to remote (and not-so-remote) repositories
 revisions     Various methods for referring to revisions
 staging       Marking a subset of the local changes ready for committing
