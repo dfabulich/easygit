@@ -1108,6 +1108,54 @@ sub preprocess {
 }
 
 ###########################################################################
+# config                                                                  #
+###########################################################################
+package config;
+@config::ISA = qw(subcommand);
+INIT {
+  $command{config} = {
+    unmodified_behavior => 1,
+    extra => 1,
+    section => 'misc',
+    about => 'Get or set configuration options'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(@_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg config OPTION [ VALUE ]
+  eg config --unset OPTION
+  eg config [ --list ]
+
+Description:
+  Gets or sets configuration options.
+
+  See 'man git-config' for a fairly comprehensive list of special options
+  used by eg (and git).
+
+Examples:
+  Get the value of the configuration option user.email
+      \$ eg config user.email
+
+  Set the value of the configuration option user.email to whizbang\@flashy.org
+      \$ eg config user.email whizbang\@flashy.org
+
+  Unset the values of the configuration options branch.master.remote
+  and branch.master.merge
+      \$ eg config --unset branch.master.remote
+      \$ eg config --unset branch.master.merge
+
+  List all options that have been set
+      \$ eg config --list  
+";
+  return $self;
+}
+
+###########################################################################
 # diff                                                                    #
 ###########################################################################
 package diff;
