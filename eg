@@ -87,12 +87,6 @@ INIT {
       section => 'discovery',
       about => 'Print lines of known files matching a pattern'
       },
-    merge => {
-      unmodified_help => 1,
-      unmodified_behavior => 1,
-      section => 'projects',
-      about => 'Join two or more development histories (branches) together'
-      },
     mv => {
       unmodified_help => 1,
       unmodified_behavior => 1,
@@ -2409,6 +2403,74 @@ sub run {
   }
   close(INPUT);
   close(OUTPUT);
+}
+
+###########################################################################
+# merge                                                                   #
+###########################################################################
+package merge;
+@merge::ISA = qw(subcommand);
+INIT {
+  $command{merge} = {
+    unmodified_behavior => 1,
+    section => 'projects',
+    about => 'Join two or more development histories (branches) together'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "No branches can be merged until there is " .
+                                "at least one commit.",
+    @_
+    );
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg merge [-m MESSAGE] BRANCH...
+
+Description:
+  Merges another branch (or more than one branch) into the current branch.
+
+  You may want to skip to the examples; the remainder of this description
+  section just has boring details about how merges work.
+
+  There are three different ways to handle merges depending on whether the
+  current branch or the specified merge branches have commits not found in
+  the other.  These cases are:
+    1) The current branch contains all commits in the specified branch(es).
+         In this case, there is nothing to do.
+    2) Both the current branch and the specified merge branch(es) contain
+       commits not found in the other:
+         In this case, a new commit will be created which (a) includes
+         changes from both the current branch and the merge branch(es) and
+         (b) records the parents of the new commit as the last revision of
+         the current branch and the last revision(s) of the merge
+         branch(es).
+    3) The specified merge branch has all the commits found in the current
+       branch.
+         In this case, a new commit is not needed to merge the branches
+         together.  Instead, the current branch simply changes the record
+         of its last revision to that of the specified merge branch.  This
+         is known as a fast-forward update.
+  See 'eg help topic storage' for more information.
+
+Examples:
+  Merge all changes from the stable branch that are not already in the
+  current branch, into the current branch.
+      \$ eg merge stable
+
+  Merge all changes from the refactor branch into the current branch (i.e.
+  same as the previous example but merging in a different branch)
+      \$ eg merge refactor
+
+Options:
+  -m MESSAGE
+    Use MESSAGE as the commit message for the created merge commit, if
+    a merge commit is needed.
+";
+  return $self;
 }
 
 ###########################################################################
