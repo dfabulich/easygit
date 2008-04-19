@@ -1975,7 +1975,91 @@ Pictorial explanation
   Graph (DAG); referring to it as such provides us the opportunity to
   make the glossary of special terminology longer.
 
-FIXME: Add coverage of files and directories under .git
+Files and directories in a git repository (stuff under .git)
+  You may find the following files and directories in your git repository.
+  This document will discuss the highlights; see the repository-layout.html
+  page distributed with git for more details.
+
+  COMMIT_EDITMSG
+    A leftover file from previous commits; this is the file that commit
+    messages are recorded to when when you do not specify a -m or -F option
+    to commit (thus causing an editor to be invoked).
+
+  config
+    A simple text file recording configuration options; see 'eg help config'.
+
+  description
+    A file that is only used by gitweb, currently.  If you use gitweb, this
+    files provides a description of the project tracked in the repository.
+
+  HEAD
+  ORIG_HEAD
+  FETCH_HEAD
+  MERGE_HEAD
+    See the Special Names section of 'eg help topic revisions'; these files
+    record these special revisions.
+
+  git-daemon-export-ok
+    This file is only relevant if you are using git-daemon, a server to
+    provide access to your repositories via the git:// protocol.
+    git-daemon refuses to provide access to any repository that does not
+    have a git-daemon-export-ok file.
+
+  hooks
+    A directory containing customizations scripts used by various commands.
+    These scripts are only used if they are executable.
+
+  index
+    A binary file which records the staging area.  See 'eg help topic
+    staging' for more information.
+
+  info
+    A directory with additional info about the repository
+
+    info/exclude
+      An additional place to specify ignored files.  Users typically use
+      .gitignore files in the relevant directories to ignore files, but
+      ignored files can also be listed here.
+
+    info/ignored-unknown
+      A list of unknown files known to exist previously, used to determine
+      whether unknown files should cause commit (or push or publish) to
+      abort.  See 'eg help commit' for more information; this list is
+      updated whenever the -b flag is passed to commit.
+
+    info/refs
+      This is a file created by 'eg update-server-info' and is needed for
+      repositories accessed over http.
+
+  logs
+    History of changes to references (i.e. to branches, tags, or
+    remote-tracking branches).  The file logs/PATH/TO/FILE in the
+    repository records the changes to the reference PATH/TO/FILE in the
+    repository.  See also the 'Revisions from logged branch tip history'
+    section of 'eg help topic revisions'.
+
+  objects
+    Storage of actual user data (files, directory trees, commit objects).
+    Storage is done according to sha1sum of each object (splitting sha1sums
+    into a combination of directory name and file name).  There are also
+    packs, which compress many objects into one file for tighter storage
+    and reduced disk usage.
+
+  packed-refs
+    The combination of paths, filenames, and sha1sums from many different
+    refs -- one per line; see refs below.
+
+  refs
+    Storage of references (branches, heads, or remote tracking branches).
+    Each reference is a simple file consisting of a sha1sum (see 'eg help
+    topic storage' for more information).  The path provides the type of
+    the reference, the file name provides the name for the reference, and
+    the sha1sum is the revision the reference refers to.
+
+    Branches are stored under refs/heads/*, tags under refs/tags/*, and
+    remote tracking branches under refs/remotes/REMOTENAME/*.  Note that
+    some of these references may appear in packed-refs instead of having
+    a file somewhere under the refs directory.
 ";
 }
 
