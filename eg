@@ -847,7 +847,7 @@ sub run {
     chdir($self->{directory});
 
     # Set up a branch for each remote branch, not just master
-    my @local_branches = split('\n', `git branch | sed -e s/^..//`);
+    my @local_branches = split('\n', `git branch | sed -e "s/^..//"`);
     my @branches = `git branch -r`;
     foreach my $branch (@branches) {
       chomp($branch);
