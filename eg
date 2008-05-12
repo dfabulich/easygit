@@ -1090,7 +1090,7 @@ sub preprocess {
   #
   if ($bypass_unknown) {
     open(OUTPUT, "> .git/info/ignored-unknown");
-    my @unknown_files = `git ls-files --others --directory`;
+    my @unknown_files = `git ls-files --exclude-standard --others --directory --no-empty-directory`;
     foreach my $file (@unknown_files) {
       print OUTPUT $file;
     }
@@ -5368,7 +5368,7 @@ sub commit_push_checks {
     print "        git status\n";
     print "        git ls-files --unmerged\n";
     print "        git symbolic-ref HEAD\n" if $check_for->{no_branch};
-    print "        cd $top_dir && git ls-files --exclude-standard --others --directory\n";
+    print "        cd $top_dir && git ls-files --exclude-standard --others --directory --no-empty-directory\n";
   } else {
     Util::push_debug(new_value => 0);
   }
@@ -5388,7 +5388,7 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory)`;
+  my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
     my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
