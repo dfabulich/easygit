@@ -5027,6 +5027,10 @@ sub run {
 package version;
 @version::ISA = qw(subcommand);
 
+BEGIN {
+  undef *version::new unless $] < 5.010; # avoid name clashing
+}
+
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(git_repo_needed => 0, @_);
