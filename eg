@@ -2901,8 +2901,11 @@ sub _get_only_branch {
   die "Could not determine remote branches from repository '$repository'\n"
     if $ret != 0;
   my @remote_refs = split('\n', $output);
-  if (@remote_refs > 1) {
-    my @remote_branches = map { m#[0-9a-f]+.*/(.*)$# && $1 } @remote_refs;
+
+  die "'$repository' has no branches to pull!\n" if @remote_refs == 0;
+  my @remote_branches = map { m#[0-9a-f]+.*/(.*)$# && $1 } @remote_refs;
+
+  if (@remote_branches > 1) {
     print STDERR <<EOF;
 Aborting: It is not clear which remote branch to pull changes from.  Please
 retry, specifying which branch(es) you want to be merged into your current
@@ -2913,9 +2916,8 @@ are
 EOF
     exit 1;
   }
-  die "'$repository' has no branches to pull!\n" if @remote_refs == 0;
 
-  return $remote_refs[0];
+  return $remote_branches[0];
 }
 
 sub preprocess {
