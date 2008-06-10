@@ -4785,6 +4785,18 @@ Examples:
 sub preprocess {
   my $self = shift;
 
+  if (scalar(@ARGV) == 0) {
+    print STDERR<<EOF;
+No branch (or revision) to switch to specified!  See the help for eg switch
+and eg branch.  The following branches exist, with the current branch marked
+with an asterisk:
+
+EOF
+    my $branch_obj = "branch"->new();
+    $branch_obj->run();
+    exit 1;
+  }
+
   # Don't let them try to use eg switch to check out older revisions of files;
   # this is just supposed to be a subset of git checkout
   if (!grep {$_ =~ /^-/} @ARGV) {
