@@ -3950,21 +3950,22 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg revert [--commit | --no-commit] [-m PARENT_NUMBER] [--staged]
+  eg revert [--commit | --no-commit] [-m PARENT_NUMBER] [--staged | --unstaged]
             [--in | --since] [REVISION] [--] [PATH...]
 
 Description:
-  Undoes previous changes, optionally also immediately making a commit once
-  the old version of the files are obtained (by default, no commit is
-  performed).  This command has many options for exactly what to revert,
-  and it may be useful to skip to the examples section below and then come
-  back and read the description.
+  Undoes previous changes, optionally also immediately making a commit
+  after the reversion is performed (by default, no commit is performed).
+  This command has many options for exactly what to revert, and it may be
+  useful to skip to the examples section below and then come back and read
+  the description.
 
-  By default, changes made by this command are only performed in the
-  working copy.  As an advanced option, one can instead have the reverting
-  be applied to the staging area (the area tracking content explicitly
-  marked by you as ready to be committted; see 'eg help topic staging' for
-  more details).
+  By default, changes are reverted in both the working copy and in the
+  staging area (i.e. the area tracking content explicitly marked by you as
+  ready to be committted; see 'eg help topic staging' for more details).
+  One can limit the reversion of changes to just the working copy (using
+  the --unstaged flag), or to just the staging area (using the --staged
+  flag).
 
   This command has the ability to either revert changes *since* a given
   commit, or to revert the changes *in* a given commit.  When a commit is
@@ -3983,8 +3984,9 @@ Description:
   To avoid accidental loss of local changes, nothing will be done when no
   arguments are specified.
 
-  Note that eg revert is really only a shortcut for calling eg diff and
-  sending its output to eg apply (and optionally also calling eg commit).
+  Note that eg revert is mostly a convenience wrapper around combinations
+  of diff and apply; the diff and apply commands of eg can be used directly
+  to obtain finer-grained control over the exact changes reverted.
 
 Examples:
   Undo changes since the last commit on the current branch to bar.h and foo.c.
@@ -4011,14 +4013,14 @@ Examples:
   parent.  This can be accomplished as follows:
       \$ eg revert -m 2 --in HEAD~4
   
-  (Advanced) Undo a previous stage, marking foo.c as not being ready for
-  commit:
+  (Advanced) Undo a previous stage, marking changes in foo.c as not
+  being ready for commit:
       \$ eg revert --staged foo.c
 
   (Advanced) You decide that the changes to abracadabra.xml made in commit
   HEAD~8 are bad.  You want to revert those changes in the version of
-  abracadabra.xml currently in the staging area.  This is done by:
-      \$ eg revert --staged --in HEAD~8 -- abracadabra.xml
+  abracadabra.xml but only to your working copy.  This is done by:
+      \$ eg revert --unstaged --in HEAD~8 -- abracadabra.xml
 
 Options:
   --commit
@@ -4039,7 +4041,12 @@ Options:
     Can only be used with the --in option.
 
   --staged
-    Instead of changing files in the working copy, change staged files.
+    Make changes only to the staged (explicitly marked as ready to be
+    committed) version of files.
+
+  --unstaged
+    Make changes only to the unstaged version of files, i.e. only to the
+    working copy.
 
   --in
     Revert the changes made in the specified commit.  This takes the
@@ -4099,17 +4106,10 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  # Safety check
-  if (!@ARGV) {
-    die "Aborting: no arguments specified.  If you want to revert and lose\n" .
-        "all local changes in your workcopy copy, use\n" .
-        "  eg revert --since HEAD\n"
-  }
-
   my $initial_commit = RepoUtil::initial_commit();
 
   # Parsing opts
-  my ($commit, $staged, $in) = (0, 0, 0);
+  my ($commit, $staged, $unstaged, $in) = (0, 0, 0, -1);
   my $m;
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
@@ -4117,6 +4117,7 @@ sub preprocess {
     "--no-commit"    => sub { $commit = 0 },
     "-m=i"           => \$m,
     "--staged"       => \$staged,
+    "--unstaged"     => \$unstaged,
     "--in"           => \$in,
     "--since"        => sub { $in = 0 },
     );
@@ -4124,11 +4125,37 @@ sub preprocess {
   # Parsing revs and files
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
 
+  # Safety check
+  if (!@$revs && !@$files) {
+    if (!$initial_commit) {
+      print STDERR<<EOF;
+Aborting: no revisions or files specified.  If you want to revert and lose
+all changes since the last commit, try adding the arguments
+  --since HEAD
+to the end of your command.
+EOF
+    exit 1;
+    } else {
+      print STDERR<<EOF;
+Aborting: no files specified.
+EOF
+      exit 1;
+    }
+  }
+
   # Sanity checks
   die "Cannot specify -m without specifying --in.\n" if !$in && defined($m);
   die "Unrecognized options: @$opts\n" if @$opts;
   die "Can only specify one revision\n" if @$revs > 1;
-  die "Aborting: --staged is incompatible with --in\n" if $staged && $in;
+  die "No revision specified after --in\n"    if ($in == 1 && !@$revs);
+  die "No revision specified after --since\n" if ($in == 0 && !@$revs);
+  die "You must specify either --in or --since when specifying a revision\n"
+    if ($in == -1 && @$revs);
+  $in = 0 if $in == -1;
+  if (!$staged && !$unstaged) {
+    $staged = 1;
+    $unstaged = 1;
+  }
 
   if ($initial_commit) {
     die "Cannot revert a previous commit since there are no previous " .
@@ -4140,24 +4167,37 @@ sub preprocess {
 
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
-  $self->{staged} = '';
-  $self->{staged} = '--cached' if $staged;
+  $self->{staged} = $staged;
+  $self->{unstaged} = $unstaged;
+  $self->{in} = $in;
   $self->{revs} = "@$revs";
   $self->{revs} = "HEAD" if !@$revs;
   if ($in) {
-    # One more sanity check
+    # Get the revision whose changes we want to revert, and its parents
     Util::push_debug(new_value => 0);
     my $links = ExecUtil::output(
                   "git rev-list --parents --max-count=1 $self->{revs}");
     Util::pop_debug();
     my @list = split(' ', $links);  # commit id + parent ids
-    die "Cannot revert a merge commit without specifying a parent!\n"
-      if !defined($m) && @list > 2;
 
-    # Get the parent revision for diffing against it
+    # Get a symbolic name for the parent revision we will diff against
     my $first_rev = $self->{revs};
     my $parent = $m || 1;
     $first_rev .= "^$parent";
+
+    # Reverting changes in merge commits can only be done against one parent
+    die "Cannot revert a merge commit without specifying a parent!\n"
+      if !defined($m) && @list > 2;
+
+    # Reverting relative to a parent can only be done with existing parents
+    if ($parent + 1 > scalar(@list)) {
+      die "Cannot revert the changes made in a commit that has no prior " .
+        "commit\n" if !defined($m);
+      die "The specified commit does not have $m parents; try a lower " .
+        "value for -m\n" if defined($m);
+    }
+
+    # The combination of revs to diff between
     $self->{revs} = "$first_rev $self->{revs}";
   }
   $self->{files} = "";
@@ -4168,19 +4208,61 @@ sub preprocess {
 sub run {
   my $self = shift;
 
+  #
+  # Revert changes the user requested
+  #
   if ($self->{initial_commit}) {
-    die "Oops" if $self->{staged} ne "--cached";
-    ExecUtil::execute("git rm $self->{staged} -q $self->{files}");
+    # Initial commit: Must use rm command instead of piping diff to apply -R
+    ExecUtil::execute("git rm --cached -q $self->{files}");
+
   } else {
-    ExecUtil::execute(
-      "git diff $self->{staged} $self->{revs} $self->{files} | " .
-      "git apply $self->{staged} -R");
+    # Standard case: Pipe output of diff to apply -R...for both index &
+    # working copy
+    my @flags;
+    push(@flags, "--cached") if $self->{staged};
+    push(@flags, "")         if $self->{unstaged};
+
+    foreach my $flag (@flags) {
+
+      my $diff_flag = $self->{in} ? "" : $flag;
+
+      # Print out the (nearly) equivalent commands if the user asked for
+      # debugging information
+      if ($debug) {
+        print "git diff $diff_flag $self->{revs} $self->{files} | " .
+              "git apply $flag -R\n";
+      }
+
+      # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
+      # because apply complains very loudly if the diff is empty.  So,
+      # we have to run diff, slurp in its output, check if its nonempty,
+      # and then only pipe that output back out to git apply if we have
+      # and actual diff to revert.
+      if ($debug < 2) {
+        open(DIFF, "git diff $diff_flag $self->{revs} $self->{files} |");
+        my @output = <DIFF>;
+        my $diff = join("", @output);
+        close(DIFF);
+        $ret = $?;
+        exit $ret >> 8 if $ret;
+
+        if ($diff) {
+          open(APPLY, "| git apply $flag -R");
+          print APPLY $diff;
+          close(APPLY);
+        }
+      }
+    }
   }
+
+  #
+  # Make a commit if the user requested one
+  #
   if ($self->{commit}) {
     # We could just execute "eg commit $self->{staged}" if we 
     # $self->{staged} =~ s/cached/staged/, but that isn't as helpful for
     # debug output anyway, so split it into two commands...
-    if ($self->{staged}) {
+    if (!$self->{unstaged}) {
       ExecUtil::execute("git commit")
     } else {
       ExecUtil::execute("git commit -a")
