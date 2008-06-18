@@ -4213,8 +4213,7 @@ sub run {
   #
   if ($self->{initial_commit}) {
     # Initial commit: Must use rm command instead of piping diff to apply -R
-    ExecUtil::execute("git rm --cached -q $self->{files}");
-
+    ExecUtil::execute("git rm --cached -q $self->{files}", ignore_ret => 1);
   } else {
     # Standard case: Pipe output of diff to apply -R...for both index &
     # working copy
