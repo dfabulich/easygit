@@ -3196,19 +3196,21 @@ sub _check_if_bare {
   # Check ssh systems
   #
   my ($machine, $path);
-  if ($repository =~ m#^ssh://(?:.*?@)?([^/:]*)(?::[0-9]+)?(.*)$#) {
-    $machine = $1;
-    $path = $2;
+  if ($repository =~ m#^ssh://((?:.*?@)?)([^/:]*)(?::[0-9]+)?(.*)$#) {
+    $user = $1;
+    $machine = $2;
+    $path = $3;
     $path =~ s#^/~#~#;  # Change leading /~ into plain ~
-  } elsif ($repository =~ m#^(?:.*?@)?([^:]*):(.*)$#) {
-    $machine = $1;
-    $path = $2;
+  } elsif ($repository =~ m#^((?:.*?@)?)([^:]*):(.*)$#) {
+    $user = $1;
+    $machine = $2;
+    $path = $3;
   }
   return undef if !defined $machine || !defined $path;
 
   my ($ret, $output) = 
     ExecUtil::execute_captured(
-      "ssh $machine 'cd $path && git rev-parse --is-bare-repository'",
+      "ssh $user$machine 'cd $path && git rev-parse --is-bare-repository'",
       ignore_ret => 1);
   return undef if $ret != 0;
   chomp($output);
