@@ -1089,6 +1089,7 @@ sub preprocess {
   # needed next time.
   #
   if ($bypass_unknown) {
+    mkdir ".git/info" unless -d ".git/info";
     open(OUTPUT, "> .git/info/ignored-unknown");
     my @unknown_files = `git ls-files --exclude-standard --others --directory --no-empty-directory`;
     foreach my $file (@unknown_files) {
