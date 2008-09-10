@@ -3523,15 +3523,15 @@ Examples:
       \$ eg rebase --since next --onto master topic
     Pictorally, this changes
            o---o---o---o---o  master
-                \
+                \\
                  o---o---o---o---o  next
-                                  \
+                                  \\
                                    o---o---o  topic
     into
            o---o---o---o---o  master
-               |            \
+               |            \\
                |             o'--o'--o'  topic
-                \
+                \\
                  o---o---o---o---o  next
 
   Take just the last two commits of the current branch, and rewrite them
