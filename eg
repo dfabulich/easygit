@@ -508,7 +508,7 @@ sub run {
   # Print valid subcommands sorted by section
   my $indent = "  ";
   my $header_indent = "";
-  open(OUTPUT, "|less");
+  open(OUTPUT, "|less -FRSX");
 
   if ($self->{details}) {
     print OUTPUT "Summary of changes:\n";
@@ -2482,7 +2482,7 @@ sub run {
 
   open(INPUT, "git log @ARGV | " .
               "git name-rev --stdin --refs=refs/heads/$branch |");
-  open(OUTPUT, "| less");
+  open(OUTPUT, "| less -FRSX");
   while (<INPUT>) {
     print OUTPUT;
   }
