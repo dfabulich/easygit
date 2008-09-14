@@ -164,7 +164,7 @@ sub help {
     exit ExecUtil::execute("git $self->{command} --help")
   }
 
-  open(OUTPUT, ">&STDOUT");
+  open(OUTPUT, "| less -FRSX");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
   print OUTPUT $self->{'help'};
   print OUTPUT "\nDifferences from git $package_name:";
@@ -1436,7 +1436,7 @@ sub run {
   }
 
   # Print valid subcommands sorted by section
-  open(OUTPUT, ">&STDOUT");
+  open(OUTPUT, "| less -FRSX");
   foreach my $name (sort
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
@@ -2097,7 +2097,7 @@ storage       High level overview of how commits, tags, and branches are stored
     $help_msg = $topics;
   }
 
-  open(OUTPUT, ">&STDOUT");
+  open(OUTPUT, "| less -FRSX");
   print OUTPUT "$topic\n";
   print OUTPUT $help_msg;
   close(OUTPUT);
