@@ -4249,6 +4249,8 @@ sub run {
         open(DIFF, "git diff @diff_flags $self->{revs} $self->{files} |");
         my @output = <DIFF>;
         my $diff = join("", @output);
+        # Listing unmerged paths doesn't count as nonempty
+        $diff =~ s/\* Unmerged path.*\n//g;
         close(DIFF);
         $ret = $?;
         exit $ret >> 8 if $ret;
@@ -4260,6 +4262,26 @@ sub run {
         }
       }
     }
+
+    # Get the list of files whose conflicts we should resolve
+    if (!$self->{in} && $self->{staged}) {
+      my $command = "git ls-files -u $self->{files} | awk '{print \$4}' | uniq";
+      open(LSFILES, "$command |");
+      my @files = <LSFILES>;
+      chomp(@files);
+      close(LSFILES);
+      if (@files) {
+        my $files = join(" ",@files);
+        # We use git-ls-files -u (above) to see what needs unmerged state removed
+        # Then we pass this to git ls-tree REVISION, to get the mode & sha1sums.
+        # Then we get rid of the "blob" info in git ls-tree and add a "0" (for
+        #   the level 0 stage) and pass the info on to git update-index.
+        # Yeah, yeah, black magic.  I would just use 'git add FILES', but that
+        # would only work if the user didn't specify --staged.
+        ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
+      }
+    }
+
   }
 
   #
