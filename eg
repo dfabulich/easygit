@@ -4229,13 +4229,15 @@ sub run {
 
       my @diff_flags = ("--binary");
       push(@diff_flags, $self->{in} ? "" : $flag);
+      my @apply_flags = ("--whitespace=nowarn");
+      push(@apply_flags, $flag);
 
       # Print out the (nearly) equivalent commands if the user asked for
       # debugging information
       if ($debug) {
         print "    >>Running: " .
               "git diff @diff_flags $self->{revs} $self->{files} | " .
-              "git apply $flag -R\n";
+              "git apply @apply_flags -R\n";
       }
 
       # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
@@ -4252,7 +4254,7 @@ sub run {
         exit $ret >> 8 if $ret;
 
         if ($diff) {
-          open(APPLY, "| git apply $flag -R");
+          open(APPLY, "| git apply @apply_flags -R");
           print APPLY $diff;
           close(APPLY);
         }
