@@ -4227,12 +4227,14 @@ sub run {
 
     foreach my $flag (@flags) {
 
-      my $diff_flag = $self->{in} ? "" : $flag;
+      my @diff_flags = ("--binary");
+      push(@diff_flags, $self->{in} ? "" : $flag);
 
       # Print out the (nearly) equivalent commands if the user asked for
       # debugging information
       if ($debug) {
-        print "git diff $diff_flag $self->{revs} $self->{files} | " .
+        print "    >>Running: " .
+              "git diff @diff_flags $self->{revs} $self->{files} | " .
               "git apply $flag -R\n";
       }
 
@@ -4240,9 +4242,9 @@ sub run {
       # because apply complains very loudly if the diff is empty.  So,
       # we have to run diff, slurp in its output, check if its nonempty,
       # and then only pipe that output back out to git apply if we have
-      # and actual diff to revert.
+      # an actual diff to revert.
       if ($debug < 2) {
-        open(DIFF, "git diff $diff_flag $self->{revs} $self->{files} |");
+        open(DIFF, "git diff @diff_flags $self->{revs} $self->{files} |");
         my @output = <DIFF>;
         my $diff = join("", @output);
         close(DIFF);
