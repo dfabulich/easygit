@@ -5184,7 +5184,13 @@ EOF
     if ($ret == 0) {
       my @remote_refs = split('\n', $output);
       if (@remote_refs == 1) {
-        $merge_branch = $remote_refs[0];
+        # git ls-remote -h output changed at some point to include the sha1sum;
+        # we only want the refspec
+        if ($remote_refs[0] =~ /^[0-9a-f]+\s+(.*)/) {
+          $merge_branch = $1;
+        } else {
+          $merge_branch = $remote_refs[0];
+        }
       }
     }
   }
