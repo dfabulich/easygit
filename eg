@@ -4127,10 +4127,26 @@ sub preprocess {
     );
 
   # Parsing revs and files
+  my ($all_unmerged_files, $all_deleted_files, $files_modified) =
+    RepoUtil::get_revert_info();
+  # Remove items from @ARGV corresponding to deleted files.
+  # FIXME: Technically a name could refer to both a revision and a filename;
+  # I should do some kind of more robust checking here.
+  my @deleted_files;
+  for ($i=$#ARGV; $i>=0; $i--) {
+    if ($ARGV[$i] =~ /^--/) {
+      last;
+    }
+    if (Util::contains($all_deleted_files, $ARGV[$i])) {
+      push(@deleted_files, $ARGV[$i]);
+      splice(@ARGV, $i, 1);
+    }
+  }
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
+  my @unmerged_files = Util::intersect($all_unmerged_files, $files);
 
   # Safety check
-  if (!@$revs && !@$files) {
+  if (!@$revs && !@$files && !@deleted_files) {
     if (!$initial_commit) {
       print STDERR<<EOF;
 Aborting: no revisions or files specified.  If you want to revert and lose
@@ -4159,6 +4175,10 @@ EOF
   if (!$staged && !$unstaged) {
     $staged = 1;
     $unstaged = 1;
+  }
+  if (@unmerged_files && $in) {
+    die "Aborting: please clear conflicts from @unmerged_files before " .
+        "proceeding.\n";
   }
 
   if ($initial_commit) {
@@ -4207,6 +4227,11 @@ EOF
   $self->{files} = "";
   $self->{files} = "-- " if @$files;
   $self->{files} .= "@$files";
+
+  $self->{do_reverse_apply_diff} = 1;
+  $self->{do_reverse_apply_diff} = 0 if (@deleted_files && !@$files);
+  $self->{unmerged_files} = \@unmerged_files;
+  $self->{deleted_files} = \@deleted_files;
 }
 
 sub run {
@@ -4219,69 +4244,112 @@ sub run {
     # Initial commit: Must use rm command instead of piping diff to apply -R
     ExecUtil::execute("git rm --cached -q $self->{files}", ignore_ret => 1);
   } else {
-    # Standard case: Pipe output of diff to apply -R...for both index &
-    # working copy
-    my @flags;
-    push(@flags, "--cached") if $self->{staged};
-    push(@flags, "")         if $self->{unstaged};
+    #
+    # Run diff | apply -R
+    #
+    if ($self->{do_reverse_apply_diff}) {
+      # Standard case: Pipe output of diff to apply -R...for both index &
+      # working copy
+      my @flags;
+      push(@flags, "--cached") if $self->{staged};
+      push(@flags, "")         if $self->{unstaged};
 
-    foreach my $flag (@flags) {
+      foreach my $flag (@flags) {
 
-      my @diff_flags = ("--binary");
-      push(@diff_flags, $self->{in} ? "" : $flag);
-      my @apply_flags = ("--whitespace=nowarn");
-      push(@apply_flags, $flag);
+        my @diff_flags = ("--binary");
+        push(@diff_flags, $self->{in} ? "" : $flag);
+        my @apply_flags = ("--whitespace=nowarn");
+        push(@apply_flags, $flag);
 
-      # Print out the (nearly) equivalent commands if the user asked for
-      # debugging information
-      if ($debug) {
-        print "    >>Running: " .
-              "git diff @diff_flags $self->{revs} $self->{files} | " .
-              "git apply @apply_flags -R\n";
-      }
+        # Print out the (nearly) equivalent commands if the user asked for
+        # debugging information
+        if ($debug) {
+          print "    >>Running: " .
+                "git diff @diff_flags $self->{revs} $self->{files} | " .
+                "git apply @apply_flags -R\n";
+        }
 
-      # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
-      # because apply complains very loudly if the diff is empty.  So,
-      # we have to run diff, slurp in its output, check if its nonempty,
-      # and then only pipe that output back out to git apply if we have
-      # an actual diff to revert.
-      if ($debug < 2) {
-        open(DIFF, "git diff @diff_flags $self->{revs} $self->{files} |");
-        my @output = <DIFF>;
-        my $diff = join("", @output);
-        # Listing unmerged paths doesn't count as nonempty
-        $diff =~ s/\* Unmerged path.*\n//g;
-        close(DIFF);
-        $ret = $?;
-        exit $ret >> 8 if $ret;
+        # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
+        # because apply complains very loudly if the diff is empty.  So,
+        # we have to run diff, slurp in its output, check if its nonempty,
+        # and then only pipe that output back out to git apply if we have
+        # an actual diff to revert.
+        if ($debug < 2) {
+          open(DIFF, "git diff @diff_flags $self->{revs} $self->{files} |");
+          my @output = <DIFF>;
+          my $diff = join("", @output);
+          # Listing unmerged paths doesn't count as nonempty
+          $diff =~ s/\* Unmerged path.*\n//g;
+          close(DIFF);
+          $ret = $?;
+          exit $ret >> 8 if $ret;
 
-        if ($diff) {
-          open(APPLY, "| git apply @apply_flags -R");
-          print APPLY $diff;
-          close(APPLY);
+          if ($diff) {
+            open(APPLY, "| git apply @apply_flags -R");
+            print APPLY $diff;
+            close(APPLY);
+          }
         }
       }
     }
 
-    # Get the list of files whose conflicts we should resolve
-    if (!$self->{in} && $self->{staged}) {
-      my $command = "git ls-files -u $self->{files} | awk '{print \$4}' | uniq";
-      open(LSFILES, "$command |");
-      my @files = <LSFILES>;
-      chomp(@files);
-      close(LSFILES);
-      if (@files) {
-        my $files = join(" ",@files);
-        # We use git-ls-files -u (above) to see what needs unmerged state removed
-        # Then we pass this to git ls-tree REVISION, to get the mode & sha1sums.
-        # Then we get rid of the "blob" info in git ls-tree and add a "0" (for
-        #   the level 0 stage) and pass the info on to git update-index.
-        # Yeah, yeah, black magic.  I would just use 'git add FILES', but that
-        # would only work if the user didn't specify --staged.
-        ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
-      }
+    #
+    # Resolve any necessary conflicts
+    #
+    if ($self->{staged} && @{$self->{unmerged_files}}) {
+      my $files = join(" ",@{$self->{unmerged_files}});
+      # We pass the files to git ls-tree REVISION, to get the mode & sha1sums.
+      # Then we get rid of the "blob" info in git ls-tree and add a "0" (for
+      #   the level 0 stage) and pass the info on to git update-index.
+      # Yeah, yeah, black magic.  I would just use 'git add FILES', but that
+      # would only work if the user didn't specify --staged.
+      ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
     }
 
+    #
+    # Undelete any necessary files
+    #
+    if (@{$self->{deleted_files}}) {
+      my $files = join(" ",@{$self->{deleted_files}});
+      if ($self->{staged} && $self->{unstaged}) {
+        ExecUtil::execute("git checkout $self->{revs} -- $files");
+      }
+      elsif ($self->{staged}) {
+        ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
+      }
+      elsif ($self->{unstaged}) {
+        # Get the current staging info from the index
+        my $get_stage_info_cmd = 
+          "git ls-files -s -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/'";
+        my ($retval, $output) = ExecUtil::execute_captured($get_stage_info_cmd);
+
+        # Manually add remove-this-file info for files we didn't get output for
+        my %seen = ();
+        my @lines = split('\n', $output);
+        foreach my $line (@lines) {
+          my @list = split(/\s+/, $line);
+          my $filename = $list[-1];
+          $seen{$filename} = 1;
+        }
+        foreach my $file (@{$self->{deleted_files}}) {
+          if (!$seen{$file}) {
+            $output .= "0 0000000000000000000000000000000000000000\t$file\n";
+          }
+        }
+
+        # Revert both the index and the working copy
+        ExecUtil::execute("git checkout $self->{revs} -- $files");
+
+        # Restore the index to what it used to be
+        if ($debug) {
+          print "    >>Running: echo '$output' " .
+                "| git update-index --index-info\n";
+        }
+        open(RESTORE_INDEX, "| git update-index --index-info");
+        print RESTORE_INDEX $output;
+        close(RESTORE_INDEX);
+      }
+    }
   }
 
   #
@@ -5551,6 +5619,34 @@ sub commit_push_checks {
   return \%status;
 }
 
+sub get_revert_info {
+  my (@unmerged_files, @deleted_files, $files_modified);
+
+  # Determine some useful directories
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+
+  #
+  # Determine which types of changes are present
+  #
+  $files_modified = 0;
+  my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
+  foreach my $line (split /\n/, $output) {
+    if ($line =~ /^\tunmerged:\s+(.*)/) {
+      push(@unmerged_files, $1);
+      next;
+    }
+    if ($line =~ /^\tdeleted:\s+(.*)/) {
+      push(@deleted_files, $1);
+      next;
+    }
+    if (!$files_modified && $line =~ /^Change/) {
+      $files_modified = 1;
+      next;
+    }
+  }
+
+  return (\@unmerged_files, \@deleted_files, $files_modified);
+}
 
 ###########################################################################
 # Util                                                                    #
@@ -5566,6 +5662,32 @@ sub difference {
   foreach my $item (@$listb) { $count{$item}-- };
 
   my @ret = grep { $count{$_} == 1 } keys %count;
+}
+
+# Return items in both @$lista and in @$listb
+sub intersect {
+  my ($lista, $listb) = @_;
+  my %original;
+  my @both = ();
+
+  map { $original{$_} = 1 } @$lista;
+  @both = grep { $original{$_} } @$listb;
+
+  return @both;
+}
+
+# Returns whether @$list contains $item
+sub contains {
+  my ($list, $item) = @_;
+  my $found = 0;
+  foreach my $elem (@$list) {
+    if ($item eq $elem) {
+      $found = 1;
+      last;
+    }
+  }
+
+  return $found;
 }
 
 # Have git's rev-parse command parse @args and decide which part is files,
