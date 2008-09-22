@@ -63,6 +63,8 @@ my $section = {
       desc  => 'Miscellaneous'
     },
   };
+my ($curdir, $topdir, $gitdir);
+
 ## Commands to list in help even though we haven't overridden the git versions
 ## (yet, in most cases)
 INIT {
@@ -2355,6 +2357,8 @@ EOF
   #   Disk space used by respository (du -hs .git, or packfile size?)
   #   Disk space used by working copy (???)
   #   Number of unpacked objects?
+
+  chdir($orig_dir);
 }
 
 ###########################################################################
@@ -4224,18 +4228,32 @@ EOF
     # The combination of revs to diff between
     $self->{revs} = "$first_rev $self->{revs}";
   }
+
+  # Determine some useful directories; reroot files relative to top of repo
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+  my @rerooted_files = 
+    Util::reroot_paths__from_to_files($cur_dir, $top_dir, @$files);
+  my @rerooted_unmerged_files = 
+    Util::reroot_paths__from_to_files($cur_dir, $top_dir, @unmerged_files);
+  my @rerooted_deleted_files = 
+    Util::reroot_paths__from_to_files($cur_dir, $top_dir, @deleted_files);
+
   $self->{files} = "";
-  $self->{files} = "-- " if @$files;
-  $self->{files} .= "@$files";
+  $self->{files} = "-- " if @rerooted_files;
+  $self->{files} .= "@rerooted_files";
 
   $self->{do_reverse_apply_diff} = 1;
   $self->{do_reverse_apply_diff} = 0 if (@deleted_files && !@$files);
-  $self->{unmerged_files} = \@unmerged_files;
-  $self->{deleted_files} = \@deleted_files;
+  $self->{unmerged_files} = \@rerooted_unmerged_files;
+  $self->{deleted_files} = \@rerooted_deleted_files;
 }
 
 sub run {
   my $self = shift;
+
+  # Determine some useful directories; run from top of repo
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+  chdir($top_dir);
 
   #
   # Revert changes the user requested
@@ -4365,6 +4383,9 @@ sub run {
       ExecUtil::execute("git commit -a")
     }
   }
+
+  # Return to original directory
+  chdir($cur_dir);
 }
 
 ###########################################################################
@@ -5375,6 +5396,8 @@ sub current_branch {
 }
 
 sub git_dir {
+  return $gitdir if ($gitdir);
+
   Util::push_debug(new_value => 0);
   my ($ret, $output) = 
     ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
@@ -5386,22 +5409,28 @@ sub git_dir {
 }
 
 sub get_dirs {
+  if ($curdir) {
+    return ($curdir, $topdir, $gitdir);
+  }
+
   Util::push_debug(new_value => 0);
 
-  my $curdir = main::getcwd();
+  $curdir = main::getcwd();
 
   # Get the toplevel repository directory
-  my $topdir = $curdir;
+  $topdir = $curdir;
   my ($ret, $rel_dir) = 
     ExecUtil::execute_captured("git rev-parse --show-prefix", ignore_ret => 1);
+  chomp($rel_dir);
   if ($ret != 0) {
     $topdir = undef;
   } elsif ($rel_dir) {
     $rel_dir =~ s#/$##;  # Remove trailing slash
     $topdir =~ s#\Q$rel_dir\E$##;
+    $topdir =~ s#/$##;  # Remove trailing slash
   }
 
-  my $gitdir = git_dir();
+  $gitdir = git_dir();
 
   Util::pop_debug();
 
@@ -5628,9 +5657,6 @@ sub commit_push_checks {
 sub get_revert_info {
   my (@unmerged_files, @deleted_files, $files_modified);
 
-  # Determine some useful directories
-  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
-
   #
   # Determine which types of changes are present
   #
@@ -5718,6 +5744,53 @@ sub git_rev_parse {
   Util::pop_debug();
 
   return (\@opts, \@revs, \@files);
+}
+
+# reroot_paths__from_to_files
+#   Given
+#     $from   absolute path of directory files were originally relative to
+#     $to     absolute path of directory you want files relative to
+#     @files  list of files with paths relative to $from
+#   returns a list of files with paths relative to $to
+#   For example:
+#     reroot_paths__from_to_files("/home", "/home/newren", ('bar', '../foo'))
+#   would return
+#     ('../bar', '../../foo')
+#   Another example:
+#     reroot_paths__from_to_files("/tmp/junk", "/tmp", ('bar', '../foo'))
+#   would return
+#     ('junk/bar', 'foo')
+sub reroot_paths__from_to_files {
+  my ($from, $to, @files) = @_;
+  $from =~ s#/*$#/#;   # Make sure $from ends with exactly 1 slash
+  $to   =~ s#/*$#/#;   # Make sure $to   ends with exactly 1 slash
+
+  my @new_paths;
+  foreach my $file (@files) {
+    # Get the old path for the file, removing any "PATH/.." sequences
+    my $oldpath = "$from$file";
+    $oldpath =~ s#/+#/#;               # Remove duplicate slashes in path
+    $oldpath = "$1$2" while $oldpath =~ m#^(.*?)(?!\.\./)[^/]+/\.\./(.*)$#;
+
+    # Find what $oldpath and $to have in common
+    my $common_leading_path = "";
+    my $combined = "$oldpath\n$to";
+    if ($combined =~ /^(.*).*\n\1.*$/) {
+      $common_leading_path = $1;
+    }
+
+    # Now get the unique parts of $oldpath and $to
+    my $remainder_old_path = substr($oldpath, length($common_leading_path));
+    my $remainder_to       = substr($to,      length($common_leading_path));
+
+    # Do an s/DIRECTORY_NAME/../ on remainder_to, since we want to know
+    # the relative path for getting from $to to $from.
+    $remainder_to =~ s#[^/]+#..#g;
+
+    push(@new_paths, "$remainder_to$remainder_old_path");
+  }
+
+  return @new_paths;
 }
 
 {
