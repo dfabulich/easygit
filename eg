@@ -5515,7 +5515,7 @@ unstaged changes all present.  Run 'eg help $commit_type' for details.
 New unknown files:
 EOF
     foreach my $file (@$new_unknown) {
-      print STDERR "  $file";  # $file has a newline
+      print STDERR "  $file\n";
     }
     exit 1;
   }
@@ -5526,7 +5526,7 @@ they should be committed.  Run 'eg help $commit_type' for details.
 New unknown files:
 EOF
     foreach my $file (@$new_unknown) {
-      print STDERR "  $file";  # $file has a newline
+      print STDERR "  $file\n";
     }
     exit 1;
   }
@@ -5564,7 +5564,7 @@ trying to $clean_check_type your work elsewhere.
 New unknown files:
 EOF
     foreach my $file (@$new_unknown) {
-      print STDERR "  $file";  # $file has a newline
+      print STDERR "  $file\n";
     }
     exit 1;
   }
@@ -5576,7 +5576,7 @@ new files before trying to $clean_check_type your work elsewhere, or use the
 New unknown files:
 EOF
     foreach my $file (@$new_unknown) {
-      print STDERR "  $file";  # $file has a newline
+      print STDERR "  $file\n";
     }
     exit 1;
   }
@@ -5630,12 +5630,16 @@ sub commit_push_checks {
   # Determine which unknown files are "newly created"
   #
   my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
+  chomp(@new_unknown);
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
     my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
+    chomp(@old_unknown_files);
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_unknown_files} = (scalar(@new_unknown) > 0);
   }
+  @new_unknown =
+    Util::reroot_paths__from_to_files($top_dir, $cur_dir, @new_unknown);
 
   Util::pop_debug();
 
