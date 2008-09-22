@@ -700,9 +700,11 @@ sub preprocess {
   }
 
   # Avoid checking out a remote tracking branch
+  my $ret = ExecUtil::execute("git rev-parse --verify -q $ARGV[-1]",
+                              ignore_ret => 1);
   if ($self->{command} eq 'checkout' &&    # Checkout, not clone
       (@ARGV == 1 || $ARGV[1] =~ /^-/) &&  # First form of checkout
-      $ARGV[-1] =~ m#/#) {                 # They want a remote-tracking branch
+      ($ARGV[-1] =~ m#/# && $ret == 0)) {  # They want a remote-tracking branch
     print STDERR<<EOF;
 Aborting: Should not switch to a remote tracking branch.  Please instead
 create a branch based on the remote tracking branch (use the command
