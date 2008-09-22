@@ -1093,7 +1093,8 @@ sub preprocess {
       if (!$status->{has_staged_changes} && $staged);
 
   if (!$all_known && !$staged &&
-      $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
+      $status->{has_unstaged_changes} && !$status->{has_staged_changes} &&
+      !@$files) {
     $self->{'commit_flags'} .= " -a";
   }
 
