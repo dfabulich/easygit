@@ -408,8 +408,11 @@ Usage:
 Description:
   Output the specified file(s) as of the given revisions.
 
-  Note that this basically just a compatibility alias provided for users of
-  other SCMs.  You should consider using 'git show' instead.
+  Note that this basically is just a compatibility alias provided for users
+  of other SCMs.  You should consider using 'git show' instead, though with
+  core git whenever you specify a REVISION, you will need to specify the
+  path to FILE relative to the toplevel project directory, instead of a
+  path for FILE relative to the current directory.
 
 Examples
   Output the most recently committed version of foo.c
@@ -425,7 +428,7 @@ Examples
 ";
   $self->{'differences'} = '
   The output of "git show FILE" is probably confusing to users at first.
-  Thus, "eg cat FILE" calls "git show HEAD:FILE".
+  Thus, "eg cat FILE" calls "git show HEAD:PATH/TO/FILE".
 ';
   return $self;
 }
@@ -436,12 +439,18 @@ sub preprocess {
 
   my $result=main::GetOptions("--help" => sub { $self->help() });
 
+  # Get important directories
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+
   my @args;
   foreach my $arg (@ARGV) {
     if ($arg !~ /:/) {
-      push(@args, "HEAD:$arg");
+      my ($path) = Util::reroot_paths__from_to_files($cur_dir, $top_dir, $arg);
+      push(@args, "HEAD:$path");
     } else {
-      push(@args, $arg);
+      my ($REVISION, $FILE) = split(/:/, $arg, 1);
+      my ($path) = Util::reroot_paths__from_to_files($cur_dir, $top_dir, $FILE);
+      push(@args, "$REVISION:$path");
     }
   }
 
