@@ -5013,10 +5013,10 @@ EOF
   if (!grep {$_ =~ /^-/} @ARGV) {
     die "Invalid arguments to eg switch: @ARGV\n" if @ARGV > 1;
     Util::push_debug(new_value => 0);
-    my $ret = ExecUtil::execute("git show-ref $ARGV[0] > /dev/null 2>&1",
+    my $ret = ExecUtil::execute("git rev-parse --verify -q $ARGV[0]",
                                 ignore_ret => 1);
     Util::pop_debug();
-    die "Invalid branch: $ARGV[0]\n" if $ret != 0;
+    die "Invalid branch/revision reference: $ARGV[0]\n" if $ret != 0;
   }
 
   # Avoid switching to a remote tracking branch
