@@ -5298,6 +5298,13 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  # Set ORIG_HEAD, if possible (i.e. if not initial commit for a repo)
+  Util::push_debug(new_value => 0);
+  my ($retval, $orig_sha1sum) = 
+    ExecUtil::execute_captured("git rev-parse HEAD", ignore_ret => 1);
+  my $has_orig_head = ($retval == 0);
+  Util::pop_debug();
+
   # Should only do the reset if the fetch worked...?
   my ($ret, $output) = 
     ExecUtil::execute_captured("git fetch $self->{repository} " .
@@ -5311,6 +5318,11 @@ sub run {
         "try using 'eg pull' instead.\n";
   } else {
     ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
+    if ($has_orig_head && $debug < 2) {
+      open(ORIG_HEAD, "> $self->{git_dir}/ORIG_HEAD");
+      print ORIG_HEAD $output;
+      close(ORIG_HEAD);
+    }
     print "Updated the current branch.\n" if ($debug < 2);
   }
 }
