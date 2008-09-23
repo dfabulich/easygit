@@ -1292,12 +1292,8 @@ sub preprocess {
   # we are in an aborted merge state 
   if (!@$revs && !$unstaged && !$staged) {
     if (-f "$self->{git_dir}/MERGE_HEAD") {
-      my $active_branch = RepoUtil::current_branch() || 'HEAD';
-      my @merge_branches =
-        `cat $self->{git_dir}/MERGE_HEAD | git name-rev --stdin`;
-      @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
-      my @targets = ($active_branch, @merge_branches);
-      my $list = join(", ", @targets);
+      my @merge_branches = RepoUtil::merge_branches();
+      my $list = join(", ", @merge_branches);
       print STDERR <<EOF;
 Aborting: Cannot show the changes since the last commit, since you are in the
 middle of a merge and there are multiple last commits.  Try passing one of
@@ -4211,6 +4207,19 @@ EOF
     $self->{initial_commit} = 1;
   }
 
+  if (!@$revs && -f "$self->{git_dir}/MERGE_HEAD") {
+    my @merge_branches = RepoUtil::merge_branches();
+    my $list = join(", ", @merge_branches);
+    print STDERR <<EOF;
+Aborting: Cannot revert the changes since the last commit, since you are in
+the middle of a merge and there are multiple last commits.  Please add
+  --since BRANCH
+to your flags to eg revert, where BRANCH is one of
+  $list
+EOF
+    exit 1;
+  }
+
   # Set up flags to pass to diff/apply/commit
   $self->{commit} = $commit;
   $self->{staged} = $staged;
@@ -4385,6 +4394,15 @@ sub run {
         print RESTORE_INDEX $output;
         close(RESTORE_INDEX);
       }
+    }
+
+    #
+    # Remove any files recording an incomplete merge, if user is undoing
+    # the merge
+    #
+    if (!$self->{files} && !$self->{in}) {
+      unlink("$self->{git_dir}/MERGE_MSG")  if -f "$self->{git_dir}/MERGE_MSG";
+      unlink("$self->{git_dir}/MERGE_HEAD") if -f "$self->{git_dir}/MERGE_HEAD";
     }
   }
 
@@ -5466,6 +5484,16 @@ sub initial_commit {
 
   # We couldn't find a commit id for HEAD, so this must be the initial commit
   return 1;
+}
+
+sub merge_branches {
+  my $git_dir = RepoUtil::git_dir();
+  my $active_branch = RepoUtil::current_branch() || 'HEAD';
+  my @merge_branches =
+    `cat $git_dir/MERGE_HEAD | git name-rev --stdin`;
+  @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
+  my @all_merge_branches = ($active_branch, @merge_branches);
+  return @all_merge_branches;
 }
 
 sub get_config {
