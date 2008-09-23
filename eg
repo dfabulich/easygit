@@ -4165,14 +4165,52 @@ sub preprocess {
 
   # Safety check
   if (!@$revs && !@$files && !@deleted_files) {
-    if (!$initial_commit) {
+    if (-f "$self->{git_dir}/MERGE_HEAD") {
+      print STDERR<<EOF;
+Aborting: no revisions or files specified to revert.  If you want to abort
+your incomplete merge, try 'eg revert --since HEAD' (or, alternatively,
+'eg reset --working-copy HEAD').
+EOF
+      exit 1;
+    }
+    elsif (-d "$self->{git_dir}/rebase-merge" ||
+           -d "$self->{git_dir}/rebase-apply") {
+      print STDERR<<EOF;
+Aborting: no revisions or files specified to revert.  If you want to abort
+your incomplete rebase, try:
+  eg rebase --abort
+EOF
+      exit 1;
+    }
+    elsif (!$files_modified) {
+      my $active_branch = RepoUtil::current_branch() || 'HEAD';
+      print STDERR<<EOF;
+There are no local changes to revert and you specified no revisions to revert
+(or revert back to).  Please specify a revision with --in or --since.
+Alternatively, if you want to modify commits instead of just the working copy:
+
+If you want to undo a rebase or a merge (including a pull or update), try:
+  eg reset --working-copy ORIG_HEAD
+If you want to undo the last commit (but keep its changes in the working copy),
+try:
+  eg reset $active_branch~1
+If you just want to amend the last commit without undoing it, make the
+additional changes you want and run:
+  eg commit --amend
+If you want to undo previous reset commands, get the appropriate reflog
+reference from eg reflog (for example, using HEAD\@{1} for <REF>) and run:
+  eg reset --working-copy <REF>
+EOF
+      exit 1;
+    }
+    elsif (!$initial_commit) {
       print STDERR<<EOF;
 Aborting: no revisions or files specified.  If you want to revert and lose
 all changes since the last commit, try adding the arguments
   --since HEAD
 to the end of your command.
 EOF
-    exit 1;
+      exit 1;
     } else {
       print STDERR<<EOF;
 Aborting: no files specified.
