@@ -4159,7 +4159,13 @@ sub preprocess {
     }
   }
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
-  my @unmerged_files = Util::intersect($all_unmerged_files, $files);
+  my @unmerged_files;
+  if (@$files) {
+    @unmerged_files = Util::intersect($all_unmerged_files, $files);
+  } else {
+    @unmerged_files = @$all_unmerged_files;
+    @deleted_files = @$all_deleted_files;
+  }
 
   # Safety check
   if (!@$revs && !@$files && !@deleted_files) {
