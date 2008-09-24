@@ -5504,7 +5504,8 @@ package RepoUtil;
 # current_branch: Get the currently active branch
 sub current_branch {
   Util::push_debug(new_value => $debug ? 1 : 0);
-  my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD");
+  my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD",
+                                                  ignore_ret => 1);
   Util::pop_debug();
 
   return undef if $ret != 0;
