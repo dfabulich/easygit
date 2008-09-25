@@ -3,8 +3,23 @@
 #
 # Copyright (C) 2006,2007 Shawn O. Pearce <spearce@spearce.org>
 # Copyright (C) 2008 Elijah Newren <newren gmail com>
-# Heavily based on git-completion.sh
+# *Heavily* based on git-completion.sh
 # Distributed under the GNU General Public License, version 2.0.
+#
+# *** IMPORTANT USAGE NOTE ***
+# If you are using an old copy of git-completion.sh and you try to complete
+# eg commands that the old version of git-completion.sh did not support, you
+# may get errors like:
+#   bash: _git_fetch: command not found
+#
+# Reasons/rationale:
+#   This could be fixed by pulling all of git-completion.sh into this file,
+#   but this would be a heavy maintainence burden.  Also, I like common
+#   bugs being fixed in one place...  This only affects a few subcommands,
+#   so I don't think the trade-off is harsh.  Besides, you can always
+#   download a recent copy of git and just install the git-completion.sh
+#   file all by itself to fix any such issues.
+# *** END USAGE NOTE ***
 #
 # The contained completion routines provide support for completing:
 #
@@ -16,7 +31,8 @@
 #    *) common --long-options
 #
 # To use these routines (s/git-completion.sh/bash-completion-eg.sh/ in
-# instructions below):
+# instructions below, but make sure git-completion.sh from the 
+# contrib/completion/ directory of git sources is also in use):
 #
 #    1) Copy this file to somewhere (e.g. ~/.git-completion.sh).
 #    2) Added the following line to your .bashrc:
@@ -35,17 +51,17 @@
 #       are currently in a git repository.  The %s token will be
 #       the name of the current branch.
 #
-# To submit patches:
-#
-#    *) Read Documentation/SubmittingPatches
-#    *) Send all patches to the current maintainer:
-#
-#       "Shawn O. Pearce" <spearce@spearce.org>
-#
-#    *) Always CC the Git mailing list:
-#
-#       git@vger.kernel.org
-#
+# *** Maintainence Note ***
+# Since this is so heavily based on git-completion.sh, it can be useful
+# to run
+#   diff -u --ignore-space-change bash-completion-eg.sh git-completion.bash
+# against a new version of git-completion.bash (under contrib/completion/
+# in a copy of the git sources) in order to pick up any new completion
+# commands that should be added to this file.  The main thing to check in
+# such a diff are the differences between the _eg() and _git() functions,
+# particularly completion support that exists for subcommands in the latter
+# but has no corresponding support in the former.
+# *** End Note ***
 
 __eg_commands ()
 {
@@ -164,7 +180,8 @@ _eg ()
     case "$i" in
     --git-dir=*) __git_dir="${i#--git-dir=}" ;;
     --bare)      __git_dir="." ;;
-    --version|--help|-p|--paginate) ;;
+    --version|-p|--paginate) ;;
+    --help)      command="help"; break ;;
     --translate|--debug) ;;
     *) command="$i"; break ;;
     esac
@@ -196,12 +213,15 @@ _eg ()
   am)          _git_am ;;
   add)         _git_add ;;
   apply)       _git_apply ;;
+  archive)     _git_archive ;;
   bisect)      _git_bisect ;;
   bundle)      _git_bundle ;;
   branch)      _git_branch ;;
   checkout)    _git_checkout ;;
   cherry)      _git_cherry ;;
   cherry-pick) _git_cherry_pick ;;
+  clean)       _git_clean ;;
+  clone)       _git_clone ;;
   commit)      _eg_commit ;;
   config)      _git_config ;;
   describe)    _git_describe ;;
@@ -209,12 +229,17 @@ _eg ()
   fetch)       _git_fetch ;;
   format-patch) _git_format_patch ;;
   gc)          _git_gc ;;
+  grep)        _git_grep ;;
   help)        _eg_help ;;
+  init)        _git_init ;;
   log)         _git_log ;;
+  ls-files)    _git_ls_files ;;
   ls-remote)   _git_ls_remote ;;
   ls-tree)     _git_ls_tree ;;
   merge)       _git_merge;;
+  mergetool)   _git_mergetool;;
   merge-base)  _git_merge_base ;;
+  mv)          _git_mv ;;
   name-rev)    _git_name_rev ;;
   pull)        _git_pull ;;
   push)        _git_push ;;
@@ -222,11 +247,14 @@ _eg ()
   remote)      _git_remote ;;
   reset)       _eg_reset ;;
   revert)      _eg_revert ;;
+  rm)          _git_rm ;;
+  send-email)  _git_send_email ;;
   shortlog)    _git_shortlog ;;
   show)        _git_show ;;
   show-branch) _git_log ;;
   stash)       _git_stash ;;
   submodule)   _git_submodule ;;
+  svn)         _git_svn ;;
   switch)      _git_checkout ;;
   tag)         _git_tag ;;
   whatchanged) _git_log ;;
