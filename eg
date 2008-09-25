@@ -1411,13 +1411,17 @@ Examples:
   that eg help will call git help if asked for help on a subcommand it does
   not recognize.
 
-  "git help COMMAND" simply calls "man git-COMMAND".  The git man pages are
-  really nice for people who are experts with git; they are comprehensive
-  and detailed.  However, new users tend to get lost in a sea of details
-  and advanced topics (among other problems).  "eg help COMMAND" provides
-  much simpler pages of its own and refers to the manpages for more
-  details.  The eg help pages also list any differences between the eg
-  commands and the git ones, to allow users to easily learn git.
+  "git help COMMAND", by default, simply calls "man git-COMMAND".  The git
+  man pages are really nice for people who are experts with git; they are
+  comprehensive and detailed.  However, new users tend to get lost in a sea
+  of details and advanced topics (among other problems).  "eg help COMMAND"
+  provides much simpler pages of its own and refers to the manpages for
+  more details.  The eg help pages also list any differences between the eg
+  commands and the git ones, to assist interested users in learning git.
+
+  If you simply want a brief list of available options and descriptions,
+  you may also want to try running "git COMMAND -h" (which differs from
+  the two identical commands "git COMMAND --help" and "git help COMMAND").
 ';
 
   return $self;
@@ -1451,9 +1455,11 @@ sub run {
     $subcommand = "help::topic" if $subcommand eq 'topic';
 
     if (!$subcommand->can("new")) {
-      die "Sorry, $subcommand is not overridden or modified for eg, and no\n" .
-          "help has been written for it.  If you're feeling brave, you may\n" .
-          "want to try running 'git help $subcommand'.\n";
+      print "$subcommand is not modified by eg (eg $subcommand is equivalent" .
+            " to git $subcommand).\nWill try running 'git help $subcommand'" .
+            " in 2 seconds...\n";
+      sleep 2;
+      exit ExecUtil::execute("git help $subcommand");
     }
 
     my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '',
