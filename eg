@@ -4094,39 +4094,50 @@ Usage:
             [--in | --since] [REVISION] [--] [PATH...]
 
 Description:
-  Undoes previous changes, optionally also immediately making a commit
-  after the reversion is performed (by default, no commit is performed).
-  This command has many options for exactly what to revert, and it may be
-  useful to skip to the examples section below and then come back and read
-  the description.
+  (Note: If you want to check out an earlier revision, use the switch
+  command; revert does not change the parent of the working directory.  If
+  you want to undo commits, use the reset command to set the branch tip to
+  a previous revision; revert does not modify the branch tip -- other than
+  by potentially adding a new commit.)
 
-  By default, changes are reverted in both the working copy and in the
-  staging area (i.e. the area tracking content explicitly marked by you as
-  ready to be committted; see 'eg help topic staging' for more details).
-  One can limit the reversion of changes to just the working copy (using
-  the --unstaged flag), or to just the staging area (using the --staged
-  flag).
+  eg revert undoes previous changes, including: restoring deleted files to
+  a previously recorded version, removing recorded conflict states, undoing
+  prior adds or stages, and discarding local modifications.  eg revert can
+  optionally also immediately make a commit after the reversion is
+  performed (by default, no commit is performed).  This command has many
+  options for exactly what to revert, and it may be useful to skip to the
+  examples section below and then come back and read the description.
 
   This command has the ability to either revert changes *since* a given
   commit, or to revert the changes *in* a given commit.  When a commit is
   specified, either the --since or --in flags must also be specified to
   make it clear which behavior is desired.  If no commit is specified and
-  neither --since nor --in is provided, then the changes since the last
-  commit on the current branch will be reverted (i.e. it behaves like
-  \"--since HEAD\" was passed).
+  neither --since nor --in is provided, the default is to assume you want
+  to undo changes since the last commit.
 
-  When reverting the changes made *in* a merge commit, the revert command
-  needs to know which parent of the merge the revert should be relative to.
-  This can be specified using the -m option.
-
-  Finally, revert can operate on a subset of paths if specified.
+  Finally, revert can operate on a subset of paths if specified.  When a
+  directory path is specified, all changes under the given directory will
+  be reverted.
 
   To avoid accidental loss of local changes, nothing will be done when no
-  arguments are specified.
+  arguments are specified.  (However, you will be given a helpful message
+  suggesting commands that you might want to run; this message detects a
+  variety of situations and prompts you accordingly.)
 
-  Note that eg revert is mostly a convenience wrapper around combinations
-  of diff and apply; the diff and apply commands of eg can be used directly
-  to obtain finer-grained control over the exact changes reverted.
+  (Advanced usage notes)
+    By default, changes are reverted in both the working copy and in the
+    staging area (i.e. the area tracking content explicitly marked by you
+    as ready to be committed; see 'eg help topic staging' for more
+    details).  One can limit the reversion of changes to just the working
+    copy (using the --unstaged flag), or to just the staging area (using
+    the --staged flag).  Note that, in addition to reverting changes to the
+    working copy since a given revision (with the --since REVISION flag),
+    you can also revert changes to the working copy relative to the staging
+    area (by specifying --unstaged without passing the --since flag).
+
+    When reverting the changes made *in* a merge commit, the revert command
+    needs to know which parent of the merge the revert should be relative to.
+    This can be specified using the -m option.
 
 Examples:
   Undo changes since the last commit on the current branch to bar.h and foo.c.
@@ -4172,6 +4183,21 @@ Options:
     The opposite of --commit, this flag is the default and exists just for
     completeness.
 
+  --since
+    Revert the changes made since the specified commit, including any local
+    changes.  This takes the difference between the specified commit and
+    the current version of the files and reverses these changes.
+
+  --in
+    Revert the changes made in the specified commit.  This takes the
+    difference between the parent of the specified commit and the specified
+    commit and reverse applies it.
+
+  REVISION
+    A reference to a recorded version of the repository, defaulting to HEAD
+    (meaning the most recent commit on the current branch).  See 'eg help
+    topic revisions' for more details.
+
   -m PARENT_NUMBER
     When reverting the changes made in a merge commit, the revert command
     needs to know which parent of the merge the revert should be relative
@@ -4187,21 +4213,6 @@ Options:
   --unstaged
     Make changes only to the unstaged version of files, i.e. only to the
     working copy.
-
-  --in
-    Revert the changes made in the specified commit.  This takes the
-    difference between the parent of the specified commit and the specified
-    commit and reverse applies it.
-
-  --since
-    Revert the changes made since the specified commit, including any local
-    changes.  This takes the difference between the specified commit and
-    the current version of the files and reverses these changes.
-
-  REVISION
-    A reference to a recorded version of the repository, defaulting to HEAD
-    (meaning the most recent commit on the current branch).  See 'eg help
-    topic revisions' for more details.
 
   --
     This option can be used to separate command-line options and commits
@@ -4230,14 +4241,16 @@ Options:
   The biggest surprises for users of git revert are:
     1) They have to specify the --in flag
     2) No commit is made by default; --commit must be specified to get one
-  Neither of these will cause data loss; they will just require a bit more
-  work.
+  Neither of these will cause data loss (particularly since eg aborts with
+  an error when a revision is specified but neither --in or --since are);
+  they will just require a bit more work.
 
   It seems that perhaps eg revert should be extended further, to accept
   things like
       \$ eg revert --in HEAD~8..HEAD~5
   to allow reverting changes made in a range of commits.  The --in could
-  even be optional in such a case, since the range makes it clear.
+  even be optional in such a case, since the range makes it clear what is
+  wanted.
 ';
   return $self;
 }
@@ -4246,11 +4259,13 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
   my $initial_commit = RepoUtil::initial_commit();
 
   # Parsing opts
   my ($commit, $staged, $unstaged, $in) = (0, 0, 0, -1);
   my $m;
+  my $rev;
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
     "--commit"       => \$commit,
@@ -4258,37 +4273,30 @@ sub preprocess {
     "-m=i"           => \$m,
     "--staged"       => \$staged,
     "--unstaged"     => \$unstaged,
-    "--in"           => \$in,
-    "--since"        => sub { $in = 0 },
+    "--in=s"         => sub { $in = 1; $rev = $_[1]; },
+    "--since=s"      => sub { $in = 0; $rev = $_[1]; },
     );
 
   # Parsing revs and files
-  my ($all_unmerged_files, $all_deleted_files, $files_modified) =
-    RepoUtil::get_revert_info();
-  # Remove items from @ARGV corresponding to deleted files.
-  # FIXME: Technically a name could refer to both a revision and a filename;
-  # I should do some kind of more robust checking here.
-  my @deleted_files;
-  for ($i=$#ARGV; $i>=0; $i--) {
-    if ($ARGV[$i] =~ /^--/) {
-      last;
-    }
-    if (Util::contains($all_deleted_files, $ARGV[$i])) {
-      push(@deleted_files, $ARGV[$i]);
-      splice(@ARGV, $i, 1);
-    }
-  }
-  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
-  my @unmerged_files;
-  if (@$files) {
-    @unmerged_files = Util::intersect($all_unmerged_files, $files);
-  } else {
-    @unmerged_files = @$all_unmerged_files;
-    @deleted_files = @$all_deleted_files;
-  }
+  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+  unshift(@$revs, $rev) if defined($rev);
 
-  # Safety check
-  if (!@$revs && !@$files && !@deleted_files) {
+  # Determining whether there are modified or unmerged files
+  my $files_modified = RepoUtil::files_modified();
+  my @quoted_files;
+  if (@$files) {
+    @quoted_files = $self->quote_args(@$files);
+  } else {
+    push(@quoted_files, $top_dir);
+  }
+  my @unmerged_files = `git ls-files --full-name -u -- @quoted_files`;
+  @unmerged_files = map { m/.*[ ]+(.*)/ && $1 } @unmerged_files;
+  @unmerged_files = Util::uniquify_list(@unmerged_files);
+
+  #
+  # Big ol' safety checks and warnings
+  #
+  if (!@$revs && !@$files) {
     if (-f "$self->{git_dir}/MERGE_HEAD") {
       print STDERR<<EOF;
 Aborting: no revisions or files specified to revert.  If you want to abort
@@ -4306,12 +4314,13 @@ your incomplete rebase, try:
 EOF
       exit 1;
     }
-    elsif (!$files_modified) {
+    elsif (!$files_modified && !$initial_commit) {
       my $active_branch = RepoUtil::current_branch() || 'HEAD';
       print STDERR<<EOF;
 There are no local changes to revert and you specified no revisions to revert
 (or revert back to).  Please specify a revision with --in or --since.
-Alternatively, if you want to modify commits instead of just the working copy:
+Alternatively, if you want to modify commits instead of just the working copy
+then use reset instead of revert:
 
 If you want to undo a rebase or a merge (including a pull or update), try:
   eg reset --working-copy ORIG_HEAD
@@ -4343,6 +4352,21 @@ EOF
     }
   }
 
+  if (!@$revs && -f "$self->{git_dir}/MERGE_HEAD") {
+    my @merge_branches = RepoUtil::merge_branches();
+    my $list = join(", ", @merge_branches);
+    print STDERR <<EOF;
+Aborting: Cannot revert the changes since the last commit, since you are in
+the middle of a merge and there are multiple last commits.  Please add
+  --since BRANCH
+to your flags to eg revert, where BRANCH is one of
+  $list
+If you simply want to abort your merge and undo its conflicts, run
+  eg revert --since HEAD
+EOF
+    exit 1;
+  }
+
   # Sanity checks
   die "Cannot specify -m without specifying --in.\n" if !$in && defined($m);
   die "Unrecognized options: @$opts\n" if @$opts;
@@ -4356,39 +4380,28 @@ EOF
     $staged = 1;
     $unstaged = 1;
   }
-  if (@unmerged_files && $in) {
-    die "Aborting: please clear conflicts from @unmerged_files before " .
-        "proceeding.\n";
-  }
 
   if ($initial_commit) {
     die "Cannot revert a previous commit since there are no previous " .
       "commits.\n" if $in;
     die "Cannot revert to a previous commit since there are no previous " .
         "commits.\n" if !$in && (@$revs || !$staged);
-    $self->{initial_commit} = 1;
   }
 
-  if (!@$revs && -f "$self->{git_dir}/MERGE_HEAD") {
-    my @merge_branches = RepoUtil::merge_branches();
-    my $list = join(", ", @merge_branches);
-    print STDERR <<EOF;
-Aborting: Cannot revert the changes since the last commit, since you are in
-the middle of a merge and there are multiple last commits.  Please add
-  --since BRANCH
-to your flags to eg revert, where BRANCH is one of
-  $list
-EOF
-    exit 1;
+  if (@unmerged_files && $in) {
+    die "Aborting: please clear conflicts from @unmerged_files before " .
+        "proceeding.\n";
   }
 
-  # Set up flags to pass to diff/apply/commit
+  # Record needed information
   $self->{commit} = $commit;
   $self->{staged} = $staged;
   $self->{unstaged} = $unstaged;
+  $self->{just_recent_unstaged} = !$in && !$staged && !@$revs;
   $self->{in} = $in;
   $self->{revs} = "@$revs";
   $self->{revs} = "HEAD" if !@$revs;
+  $self->{initial_commit} = $initial_commit;
   if ($in) {
     # Get the revision whose changes we want to revert, and its parents
     Util::push_debug(new_value => 0);
@@ -4418,23 +4431,28 @@ EOF
     $self->{revs} = "$first_rev $self->{revs}";
   }
 
-  # Determine some useful directories; reroot files relative to top of repo
-  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+  # reroot files relative to top of repo
   my @rerooted_files = 
     Util::reroot_paths__from_to_files($cur_dir, $top_dir, @$files);
-  my @rerooted_unmerged_files = 
-    Util::reroot_paths__from_to_files($cur_dir, $top_dir, @unmerged_files);
-  my @rerooted_deleted_files = 
-    Util::reroot_paths__from_to_files($cur_dir, $top_dir, @deleted_files);
+  $self->{files} = \@rerooted_files;
 
-  $self->{files} = "";
-  $self->{files} = "-- " if @rerooted_files;
-  $self->{files} .= "@rerooted_files";
-
-  $self->{do_reverse_apply_diff} = 1;
-  $self->{do_reverse_apply_diff} = 0 if (@deleted_files && !@$files);
-  $self->{unmerged_files} = \@rerooted_unmerged_files;
-  $self->{deleted_files} = \@rerooted_deleted_files;
+  # Determine some other stuff needed 
+  my ($new_files, $newish_files, $revert_files);
+  my ($staged_info, $old_staged_info);
+  if (!$in && !$initial_commit) {
+    my $revision = (@$revs) ? $revs->[0] : "HEAD";
+    ($new_files, $newish_files, $revert_files, $staged_info, $old_staged_info) =
+       RepoUtil::get_revert_info($revision, @quoted_files);
+  } elsif ($initial_commit) {
+    $new_files = \@rerooted_files;
+    $newish_files = [];
+    $revert_files = [];
+  }
+  $self->{new_files} = $new_files;
+  $self->{newish_files} = $newish_files;
+  $self->{revert_files} = $revert_files;
+  $self->{staged_info} = $staged_info;
+  $self->{old_staged_info} = $old_staged_info;
 }
 
 sub run {
@@ -4442,132 +4460,136 @@ sub run {
 
   # Determine some useful directories; run from top of repo
   my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
-  chdir($top_dir);
+  chdir($top_dir) if $top_dir ne $cur_dir;
+  if ($debug && $top_dir ne $cur_dir) {
+    print "    >>Running: cd $top_dir\n";
+  }
 
-  #
-  # Revert changes the user requested
-  #
-  if ($self->{initial_commit}) {
-    # Initial commit: Must use rm command instead of piping diff to apply -R
-    @args = $self->quote_args(split ' ', $self->{files});
-    ExecUtil::execute("git rm --cached -q @args", ignore_ret => 1);
-  } else {
-    #
-    # Run diff | apply -R
-    #
-    if ($self->{do_reverse_apply_diff}) {
-      # Standard case: Pipe output of diff to apply -R...for both index &
-      # working copy
-      my @flags;
-      push(@flags, "--cached") if $self->{staged};
-      push(@flags, "")         if $self->{unstaged};
+  # Get the list of files we are working with (well, most of them...)
+  my @files = $self->quote_args( @{$self->{files}} );
+  my $file_list = "";
+  $file_list = "-- @files" if @files;
 
-      foreach my $flag (@flags) {
+  if (!$self->{in} && $self->{just_recent_unstaged}) {
+    # If we're reverting unstaged changes only, and the user didn't specify a
+    # revision to revert relative to, then we want to revert relative to the
+    # index, not relative to HEAD or some prior commit.
+    ExecUtil::execute("git checkout $file_list", ignore_ret => 1);
+  }
+  elsif (!$self->{in}) {
 
-        my @diff_flags = ("--binary");
-        push(@diff_flags, $self->{in} ? "" : $flag);
-        my @apply_flags = ("--whitespace=nowarn");
-        push(@apply_flags, $flag);
-
-        # Print out the (nearly) equivalent commands if the user asked for
-        # debugging information
-        if ($debug) {
-          print "    >>Running: " .
-                "git diff @diff_flags $self->{revs} $self->{files} | " .
-                "git apply @apply_flags -R\n";
-        }
-
-        # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
-        # because apply complains very loudly if the diff is empty.  So,
-        # we have to run diff, slurp in its output, check if its nonempty,
-        # and then only pipe that output back out to git apply if we have
-        # an actual diff to revert.
-        if ($debug < 2) {
-          @args = $self->quote_args(split ' ', "$self->{revs} $self->{files}");
-          open(DIFF, "git diff @diff_flags @args |");
-          my @output = <DIFF>;
-          my $diff = join("", @output);
-          # Listing unmerged paths doesn't count as nonempty
-          $diff =~ s/\* Unmerged path.*\n//g;
-          close(DIFF);
-          $ret = $?;
-          exit $ret >> 8 if $ret;
-
-          if ($diff) {
-            open(APPLY, "| git apply @apply_flags -R");
-            print APPLY $diff;
-            close(APPLY);
-          }
-        }
-      }
+    # Any newly added files should be unstaged, not deleted
+    if ($self->{staged} && @{$self->{new_files}}) {
+      my @new_files = $self->quote_args( @{$self->{new_files}} );
+      ExecUtil::execute("git rm --cached -q -- @new_files", ignore_ret => 1);
     }
 
-    #
-    # Resolve any necessary conflicts
-    #
-    if ($self->{staged} && @{$self->{unmerged_files}}) {
-      my $files = join(" ",@{$self->{unmerged_files}});
-      # We pass the files to git ls-tree REVISION, to get the mode & sha1sums.
-      # Then we get rid of the "blob" info in git ls-tree and add a "0" (for
-      #   the level 0 stage) and pass the info on to git update-index.
-      # Yeah, yeah, black magic.  I would just use 'git add FILES', but that
-      # would only work if the user didn't specify --staged.
-      @args = $self->quote_args(split ' ', $self->{files});
-      ExecUtil::execute("git ls-tree $self->{revs} -- @args | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
+    # Since "git checkout REVISION -- FILES..." doesn't remove files, we
+    # need to do that manually
+    if (@{$self->{newish_files}}) {
+      my $flags = "";
+      $flags = "--cached" if ($self->{staged} && !$self->{unstaged});
+      my @delete_files = $self->quote_args( @{$self->{newish_files}} );
+      ExecUtil::execute("git rm $flags -q -- @delete_files", ignore_ret => 1);
     }
 
-    #
-    # Undelete any necessary files
-    #
-    if (@{$self->{deleted_files}}) {
-      my @files = $self->quote_args( @{$self->{deleted_files}} );
-      if ($self->{staged} && $self->{unstaged}) {
-        ExecUtil::execute("git checkout $self->{revs} -- @files");
+    # Now undo mode changes, content changes, conflict markings, etc. by
+    # calling git checkout
+    if ($self->{unstaged} && @{$self->{revert_files}} || !@files) {
+      my $revert_list;
+      if (@files) {
+        my @revert_files = $self->quote_args( @{$self->{revert_files}} );
+        $revert_list = "-- @revert_files";
+      } else {
+        $revert_list = "-- $top_dir";
       }
-      elsif ($self->{staged}) {
-        ExecUtil::execute("git ls-tree $self->{revs} -- @files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
-      }
-      elsif ($self->{unstaged}) {
-        # Get the current staging info from the index
-        my $get_stage_info_cmd = 
-          "git ls-files -s -- @files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/'";
-        my ($retval, $output) = ExecUtil::execute_captured($get_stage_info_cmd);
-
-        # Manually add remove-this-file info for files we didn't get output for
-        my %seen = ();
-        my @lines = split('\n', $output);
-        foreach my $line (@lines) {
-          my @list = split(/\s+/, $line);
-          my $filename = $list[-1];
-          $seen{$filename} = 1;
-        }
-        foreach my $file (@{$self->{deleted_files}}) {
-          if (!$seen{$file}) {
-            $output .= "0 0000000000000000000000000000000000000000\t$file\n";
-          }
-        }
-
-        # Revert both the index and the working copy
-        ExecUtil::execute("git checkout $self->{revs} -- @files");
-
-        # Restore the index to what it used to be
-        if ($debug) {
-          print "    >>Running: echo '$output' " .
-                "| git update-index --index-info\n";
-        }
-        open(RESTORE_INDEX, "| git update-index --index-info");
-        print RESTORE_INDEX $output;
-        close(RESTORE_INDEX);
-      }
+      ExecUtil::execute("git checkout $self->{revs} $revert_list");
     }
+
+    my $was_debug = Util::push_debug(new_value => 0);
+    if ($self->{unstaged} && !$self->{staged} && $self->{staged_info}) {
+      # Restore the index files stomped on by the above git checkout command,
+      # and by the git rm command above that
+      if ($was_debug) {
+        print "    >>Running: echo -nE '$self->{staged_info}' " .
+              "| git update-index --index-info\n";
+      }
+      ExecUtil::execute("echo -nE '$self->{staged_info}' " .
+                        "| git update-index --index-info",
+                        ignore_ret => 1);
+    }
+
+    if (!$self->{unstaged} && $self->{staged} && $self->{old_staged_info}) {
+      # Write out new entries to the index file
+      if ($was_debug) {
+        print "    >>Running: echo -nE '$self->{old_staged_info}' " .
+              "| git update-index --index-info\n";
+      }
+      ExecUtil::execute("echo -nE '$self->{old_staged_info}' " .
+                        "| git update-index --index-info",
+                        ignore_ret => 1);
+    }
+    Util::pop_debug();
 
     #
     # Remove any files recording an incomplete merge, if user is undoing
     # the merge
     #
-    if (!$self->{files} && !$self->{in}) {
-      unlink("$self->{git_dir}/MERGE_MSG")  if -f "$self->{git_dir}/MERGE_MSG";
-      unlink("$self->{git_dir}/MERGE_HEAD") if -f "$self->{git_dir}/MERGE_HEAD";
+    if (!@files && $self->{staged} && $self->{revs} eq "HEAD") {
+      if (-f "$self->{git_dir}/MERGE_MSG") {
+        unlink("$self->{git_dir}/MERGE_MSG") if $debug < 2;
+        print "    >>Running: rm $self->{git_dir}/MERGE_MSG\n" if $debug;
+      }
+      if (-f "$self->{git_dir}/MERGE_HEAD") {
+        unlink("$self->{git_dir}/MERGE_HEAD") if $debug < 2;
+        print "    >>Running: rm $self->{git_dir}/MERGE_HEAD\n" if $debug;
+      }
+    }
+
+  }
+
+  if ($self->{in}) {
+    # Must do unstaged changes first, or extra unknown files can "appear"
+    my @flags;
+    push(@flags, "")         if $self->{unstaged};
+    push(@flags, "--cached") if $self->{staged};
+
+    foreach my $flag (@flags) {
+      my @diff_flags = ("--binary");
+      push(@diff_flags, $self->{in} ? "" : $flag);
+      my @apply_flags = ("--whitespace=nowarn");
+      push(@apply_flags, $flag);
+
+      # Print out the (nearly) equivalent commands if the user asked for
+      # debugging information
+      if ($debug) {
+        print "    >>Running: " .
+              "git diff @diff_flags $self->{revs} $file_list | " .
+              "git apply @apply_flags -R\n";
+      }
+
+      # Sadly, using "git diff... | git apply ... -R" doesn't quite work,
+      # because apply complains very loudly if the diff is empty.  So,
+      # we have to run diff, slurp in its output, check if its nonempty,
+      # and then only pipe that output back out to git apply if we have
+      # an actual diff to revert.
+      if ($debug < 2) {
+        @args = $self->quote_args(split ' ', "$self->{revs} $file_list");
+        open(DIFF, "git diff @diff_flags @args |");
+        my @output = <DIFF>;
+        my $diff = join("", @output);
+        # Listing unmerged paths doesn't count as nonempty
+        $diff =~ s/\* Unmerged path.*\n//g;
+        close(DIFF);
+        $ret = $?;
+        exit $ret >> 8 if $ret;
+
+        if ($diff) {
+          open(APPLY, "| git apply @apply_flags -R");
+          print APPLY $diff;
+          close(APPLY);
+        }
+      }
     }
   }
 
@@ -5687,16 +5709,21 @@ sub get_dirs {
 }
 
 sub initial_commit {
-  my @output = `git show-ref -h`;
-  foreach my $line (@output) {
-    next if $line !~ /^[0-9a-f]+ HEAD$/;
+  my @output = `git rev-parse --verify -q HEAD`;
+  return $?;
+}
 
-    # We found a commit id for HEAD, so this must not be the initial commit
-    return 0;  
-  }
+sub valid_ref {
+  my ($ref) = @_;
+  my ($ret, $sha1sum) =
+    ExecUtil::execute_captured("git rev-parse --verify -q $ref",
+                               ignore_ret => 1);
+  return $ret == 0;
+}
 
-  # We couldn't find a commit id for HEAD, so this must be the initial commit
-  return 1;
+sub files_modified() {
+  my @output = `git status -a`;
+  return $? == 0;
 }
 
 sub merge_branches {
@@ -5917,38 +5944,126 @@ sub commit_push_checks {
   return \%status;
 }
 
-sub get_revert_info {
-  my (@unmerged_files, @deleted_files, $files_modified);
+sub parse_args {
+  my (@args) = @_;
 
-  #
-  # Determine which types of changes are present
-  #
-  $files_modified = 0;
-  my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
-  foreach my $line (split /\n/, $output) {
-    if ($line =~ /^\tunmerged:\s+(.*)/) {
-      push(@unmerged_files, $1);
-      next;
+  Util::push_debug(new_value => 0);
+
+  my (@opts, @revs, @files);
+  my $stop_marker_found;
+
+  # Get the opts
+  while (@args) {
+    my $arg = shift @args;
+    if ($arg eq "--") {
+      $stop_marker_found = 1;
+      last;
     }
-    if ($line =~ /^\tdeleted:\s+(.*)/) {
-      push(@deleted_files, $1);
-      next;
-    }
-    if (!$files_modified && $line =~ /^Change/) {
-      $files_modified = 1;
-      next;
+
+    if ($arg =~ /^-/) {
+      push(@opts, $arg);
+    } else {
+      unshift(@args, $arg);
+      last;
     }
   }
 
-  return (\@unmerged_files, \@deleted_files, $files_modified);
+  # Get the revisions
+  if (!$stop_marker_found) {
+    while (@args) {
+      my $arg = shift @args;
+      if ($arg eq "--") {
+        $stop_marker_found = 1;
+        last;
+      }
+
+      if (RepoUtil::valid_ref($arg)) {
+        push(@revs, $arg);
+      } else {
+        unshift(@args, $arg);
+        last;
+      }
+    }
+  }
+
+  # Get the files
+  @files = @args;
+  if (!$stop_marker_found && @files && $files[0] eq "--") {
+    shift @files;
+  }
+
+  ## FIXME: I should add sanity checking: whether there are too many revs
+  ## specified (or too few), whether any of @revs are also valid filenames,
+  ## and maybe whether all @files refer to valid paths (maybe including
+  ## only allowing files instead of also directories)
+
+  Util::pop_debug();
+
+  return (\@opts, \@revs, \@files);
 }
 
-sub valid_ref {
-  my ($ref) = @_;
-  my ($ret, $sha1sum) =
-    ExecUtil::execute_captured("git rev-parse --verify -q $ref",
-                               ignore_ret => 1);
-  return $ret == 0;
+sub _convert_tree_info_to_stage_info {
+  my @lines = @_;
+  @lines = map {m/(\d+) [a-z]+ ([0-9a-f]{40})\s+(.*)/ && "$1 $2 0\t$3\n"} @lines;
+  return @lines;
+}
+
+sub _get_files_from_stage_info {
+  my @lines = @_;
+  chomp(@lines);
+  my @files = map { m/.*[ \t]+(.*)/ && $1 } @lines;
+  @files = Util::uniquify_list(@files);
+  return @files;
+}
+
+sub get_revert_info {
+  my ($revision, @quoted_files) = @_;
+
+  my @new_files;           # Files to remove from staging area
+  my @newish_files;        # Files to delete (can retrieve unmodified contents of
+                           # these files from previous revisions)
+  my @revert_files;        # Files whose contents should be reverted
+  my @removed_index_files; # Files that will be restored in the index when we
+                           # revert @revert_files; need to undo these restores if
+                           # we're only supposed to undo unstaged changes
+  my $staged_info;
+  my $old_staged_info;
+
+  @staging_info = `git ls-files --full-name -s -- @quoted_files`;
+  $staged_info = join('', @staging_info);
+  @staged_files = _get_files_from_stage_info(@staging_info);
+
+  my @head_info    = `git ls-tree -r --full-name HEAD -- @quoted_files`;
+  @head_info = _convert_tree_info_to_stage_info(@head_info);
+  @head_files = _get_files_from_stage_info(@head_info);
+
+  @new_files = Util::difference(\@staged_files, \@head_files);
+
+  if ($revision ne "HEAD") {
+    my @rev_info = `git ls-tree -r --full-name $revision -- @quoted_files`;
+    @rev_info = _convert_tree_info_to_stage_info(@rev_info);
+    $old_staged_info = join('', @rev_info);
+    @revert_files = _get_files_from_stage_info(@rev_info);
+    
+    @newish_files = Util::difference(\@head_files, \@revert_files);
+  } else {
+    @revert_files = @head_files;
+    $old_staged_info = join('', @head_info);
+  }
+
+  @revert_files = () if !@quoted_files;
+  @removed_index_files = Util::difference(\@revert_files, \@staged_files);
+  if (@removed_index_files) {
+    my $stage_info_to_remove_files;
+    foreach my $file (@removed_index_files) {
+      $stage_info_to_remove_files .=
+        "0 0000000000000000000000000000000000000000\t$file\n";
+    }
+    $staged_info .= $stage_info_to_remove_files;
+  }
+
+  return (\@new_files, \@newish_files, \@revert_files,
+          $staged_info, $old_staged_info);
 }
 
 ###########################################################################
@@ -5991,6 +6106,13 @@ sub contains {
   }
 
   return $found;
+}
+
+sub uniquify_list {
+  my @list = @_;
+  my %unique;
+  @unique{@list} = @list;
+  return keys %unique;
 }
 
 # Have git's rev-parse command parse @args and decide which part is files,
@@ -6071,8 +6193,10 @@ sub push_debug {
   my %options = ( @opts );
   die "Called without new_value!" if !defined($options{new_value});
 
+  my $old_value = $debug;
   push(@debug_values, $debug);
   $debug = $options{new_value};
+  return $old_value;
 }
 
 sub pop_debug {
