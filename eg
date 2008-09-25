@@ -2470,20 +2470,99 @@ Description:
   identifiers that will be easier for new users to understand and use.
   In detail:
     eg log
-  is the same as
+  is essentially the same as
     git log | git name-rev --stdin --refs=$(git symbolic-ref HEAD) | less
-
-  If I could figure out how to make git log show references relative to
-  "HEAD" when not working on any (named) branch (i.e. "when the HEAD is
-  detached", to put it in gitspeak), I would do that too.  Unfortunately, I
-  have not figured that out yet.
+  However, it implements the name-rev behavior internally to provide
+  incremental history processing (which avoids slow upfront full-history
+  analyses) in common cases.
 ';
   return $self;
 }
 
+sub _get_values {
+  my ($names, $sha1sum) = @_;
+  my ($name, $distance);
+  if (defined($names->{$sha1sum})) {
+    ($name, $distance) = @{$names->{$sha1sum}};
+  }
+  return ($name, $distance);
+}
+
+sub _get_revision_name {
+  my ($sha1sum, $filehandle, $names) = @_;
+  my ($name, $distance);
+
+  # If we've already determined teh name of this sha1sum before, just return it
+  ($name, $distance) = _get_values($names, $sha1sum);
+  return $name if defined $name;
+
+  # Loop over rev-list output, naming the parents of each commit as we walk
+  # backward in history (breaking whenever if we hit our sha1sum)
+  while (<$filehandle>) {
+    # Each line of the rev-list output is of form
+    #   sha1sum-of-commit sha1sum-of-parent1 sha1sum-of-parent2...
+    my ($child, $parent, @merge_parents) = split;
+
+    next if !$parent;
+
+    # Determine the name of the current commit, and its distance from the head
+    # of the current branch
+    my ($cur_name, $distance) = _get_values($names, $child);
+    die "Yikes!  Your history is b0rken!\n" if (!$cur_name);
+
+    # Determine any name we previously determined for $parent, the name we
+    # would give it relative to $child, and determine which should "win"
+    my ($orig_parent_name, $orig_parent_distance) = _get_values($names, $parent);
+    if ($cur_name =~ /^(.*)~(\d+)$/) {
+      my $count = $2 + 1;
+      $parent_name = "$1~$count";
+    } else {
+      $parent_name = "$cur_name~1";
+    }
+    $parent_distance = $distance + 1;
+    if (!$orig_parent_name || $orig_parent_distance > $parent_distance) {
+      $names->{$parent} = [$parent_name, $parent_distance];
+    }
+
+    # Do the same for other parents, though their naming scheme is slightly
+    # different
+    my $count=2;
+    foreach my $merge_parent (@merge_parents) {
+      ($orig_parent_name, $orig_parent_distance) =
+        _get_values($names, $merge_parent);
+      if (!$orig_parent_name || $orig_parent_distance > $parent_distance) {
+        $names->{$merge_parent} = ["$cur_name^$count", $parent_distance];
+      }
+      $count++;
+    }
+
+    # Check if we found the needed sha1sum, and exit early if so
+    push(@merge_parents, $parent);
+    last if (grep {$_ eq $sha1sum} @merge_parents);
+  }
+
+  # Check if we found the needed sha1sum; if so, return it
+  ($name, $distance) = _get_values($names, $sha1sum);
+  return $name if $name;
+
+  # We didn't find the wanted sha1sum; it has no name relative to the current
+  # branch using tildes and hats.
+  return "";
+}
+
 sub run {
   my $branch = RepoUtil::current_branch();
+  my ($ret, $revision) =
+    ExecUtil::execute_captured("git rev-parse refs/heads/$branch");
+  chomp($revision);
 
+  # We can just run plain git log if there's not current branch
+  if (!$branch) {
+    ExecUtil::execute("git log @ARGV");
+    return;
+  }
+
+  # Show the user the essential equivalent to what we manually do
   if ($debug) {
     print "    >>Running: git log @ARGV | \\\n" .
        "               git name-rev --stdin --refs=refs/heads/$branch | \\\n" .
@@ -2491,14 +2570,30 @@ sub run {
     return if $debug == 2;
   }
 
-  open(INPUT, "git log @ARGV | " .
-              "git name-rev --stdin --refs=refs/heads/$branch |");
+  # Setup name determination via output from git rev-list
+  my %names;
+  open(REV_LIST_INPUT, "git rev-list --parents $branch | ");
+  $names{$revision} = [$branch, 0];
+
+  # Loop over the output of git log, printing/modifying as we go
+  open(INPUT, "git log @ARGV | ");
   open(OUTPUT, "| less -FRSX");
+  #open(OUTPUT, ">&STDOUT");
   while (<INPUT>) {
-    print OUTPUT;
+    # If it's a commit line, determine the name of the commit and print it too
+    if (/^(commit ([0-9a-f]{40}))$/) {
+      my $name = _get_revision_name($2, REV_LIST_INPUT, \%names);
+      print OUTPUT "$1 ($name)\n" if $name;
+      print OUTPUT "$1\n"         if !$name;
+    } else {
+      print OUTPUT;
+    }
   }
   close(INPUT);
   close(OUTPUT);
+
+  # Make sure we close the pipe from rev-list too
+  close(REV_LIST_INPUT);
 }
 
 ###########################################################################
