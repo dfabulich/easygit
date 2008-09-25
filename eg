@@ -140,20 +140,6 @@ sub new {
     die "$self->{initial_commit_error_msg}\n";
   }
 
-  # Quote arguments with spaces, asterisks, or backslashes, so that when we
-  # do something like
-  #   system("$command hardcoded_arg1 @ARGV")
-  # later, the arguments get passed correctly to the shell command $command
-  my @newargs;
-  foreach my $arg (@ARGV) {
-    if ($arg =~ /[ "*\\]/) {
-      $arg =~ s#"#\\"#;      # Backslash escape quotes
-      $arg = '"'.$arg.'"';   # Quote the characters in this argument
-    }
-    push(@newargs, $arg);
-  }
-  @ARGV = @newargs;
-
   return $self;
 }
 
@@ -191,6 +177,32 @@ sub preprocess {
   my $result=main::GetOptions("--help" => sub { $self->help() });
 }
 
+sub quote_args {
+  my $self = shift;
+  my @args = @_;
+
+  # Quote arguments with special characters so that when we
+  # do something like
+  #   system("$command hardcoded_arg1 @args")
+  # that the @args will get passed correctly to the shell command $command
+  my @newargs;
+  foreach my $arg (@args) {
+    my $quotes_needed = 0;
+    if ($arg =~ /[;'"<>()|`* \\]/) {
+      $quotes_needed = 1;
+    }
+
+    $arg =~ s#\\#\\\\#g;    # Backslash escape backslashes
+    $arg =~ s#"#\\"#g;      # Backslash escape quotes
+    $arg =~ s#`#\\`#g;      # Backslash escape backticks
+
+    $arg = '"'.$arg.'"' if $quotes_needed;
+
+    push(@newargs, $arg);
+  }
+  return @newargs;
+}
+
 sub run {
   my $self = shift;
   my $package_name = ref($self);
@@ -198,6 +210,7 @@ sub run {
   my $subcommand = 
     $package_name eq "subcommand" ? $self->{'command'} : $package_name;
 
+  @ARGV = $self->quote_args(@ARGV);
   return ExecUtil::execute("git $subcommand @ARGV", ignore_ret => 1);
 }
 
@@ -373,6 +386,7 @@ sub run {
     shift @ARGV;
   }
 
+  @ARGV = $self->quote_args(@ARGV);
   ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
   ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
     if ($switch);
@@ -461,6 +475,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  @ARGV = $self->quote_args(@ARGV);
   return ExecUtil::execute("git show @ARGV", ignore_ret => 1);
 }
 
@@ -717,6 +732,7 @@ EOF
 sub run {
   my $self = shift;
 
+  @ARGV = $self->quote_args(@ARGV);
   if ($self->{command} ne 'clone') {
     # If this operation isn't a clone, then we should have checked for
     # whether we are in a git directory.  But we didn't do that, just in
@@ -835,7 +851,8 @@ sub run {
   #
   # Perform the clone
   #
-  my $ret = ExecUtil::execute("git clone $self->{args}", ignore_ret => 1);
+  @args = $self->quote_args(split ' ', $self->{args});
+  my $ret = ExecUtil::execute("git clone @args", ignore_ret => 1);
   return if $self->{bare};
   if ($debug == 2) {
     return if $self->{bare};
@@ -1309,7 +1326,7 @@ EOF
     push(@$revs, "HEAD")
   }
 
-  @ARGV = "$self->{opts} @$revs @$files"
+  @ARGV = split ' ', "$self->{opts} @$revs @$files"
 }
 
 ###########################################################################
@@ -2551,6 +2568,9 @@ sub _get_revision_name {
 }
 
 sub run {
+  my $self = shift;
+  @ARGV = $self->quote_args(@ARGV);
+
   my $branch = RepoUtil::current_branch();
   my ($ret, $revision) =
     ExecUtil::execute_captured("git rev-parse refs/heads/$branch");
@@ -2818,7 +2838,7 @@ EOF
     "--exclude=COMMIT_EDITMSG --exclude=index --exclude=logs " .
     "--exclude=info/ignored-unknown " .
     "--exclude=ORIG_HEAD --exclude=FETCH_HEAD --exclude=MERGE_HEAD " .
-    "./ $self->{remote_dir}");
+    "./ \"$self->{remote_dir}\"");
 
   #
   # Undo any temporary changes we did for publishing
@@ -3150,7 +3170,8 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  return ExecUtil::execute("git pull $self->{args}", ignore_ret => 1);
+  @args = $self->quote_args(split ' ', $self->{args});
+  return ExecUtil::execute("git pull @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -3497,7 +3518,8 @@ EOF
 sub run {
   my $self = shift;
 
-  return ExecUtil::execute("git push $self->{args}", ignore_ret => 1);
+  @args = $self->quote_args(split ' ', $self->{args});
+  return ExecUtil::execute("git push @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -3751,7 +3773,8 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  return ExecUtil::execute("git rebase $self->{args}", ignore_ret => 1);
+  @args = $self->quote_args(split ' ', $self->{args});
+  return ExecUtil::execute("git rebase @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -4038,6 +4061,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  @ARGV = $self->quote_args(@ARGV);
   return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
 }
 
@@ -4419,7 +4443,8 @@ sub run {
   #
   if ($self->{initial_commit}) {
     # Initial commit: Must use rm command instead of piping diff to apply -R
-    ExecUtil::execute("git rm --cached -q $self->{files}", ignore_ret => 1);
+    @args = $self->quote_args(split ' ', $self->{files});
+    ExecUtil::execute("git rm --cached -q @args", ignore_ret => 1);
   } else {
     #
     # Run diff | apply -R
@@ -4452,7 +4477,8 @@ sub run {
         # and then only pipe that output back out to git apply if we have
         # an actual diff to revert.
         if ($debug < 2) {
-          open(DIFF, "git diff @diff_flags $self->{revs} $self->{files} |");
+          @args = $self->quote_args(split ' ', "$self->{revs} $self->{files}");
+          open(DIFF, "git diff @diff_flags @args |");
           my @output = <DIFF>;
           my $diff = join("", @output);
           # Listing unmerged paths doesn't count as nonempty
@@ -4480,24 +4506,25 @@ sub run {
       #   the level 0 stage) and pass the info on to git update-index.
       # Yeah, yeah, black magic.  I would just use 'git add FILES', but that
       # would only work if the user didn't specify --staged.
-      ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
+      @args = $self->quote_args(split ' ', $self->{files});
+      ExecUtil::execute("git ls-tree $self->{revs} -- @args | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
     }
 
     #
     # Undelete any necessary files
     #
     if (@{$self->{deleted_files}}) {
-      my $files = join(" ",@{$self->{deleted_files}});
+      my @files = $self->quote_args( @{$self->{deleted_files}} );
       if ($self->{staged} && $self->{unstaged}) {
-        ExecUtil::execute("git checkout $self->{revs} -- $files");
+        ExecUtil::execute("git checkout $self->{revs} -- @files");
       }
       elsif ($self->{staged}) {
-        ExecUtil::execute("git ls-tree $self->{revs} -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
+        ExecUtil::execute("git ls-tree $self->{revs} -- @files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/' | git update-index --index-info", ignore_ret => 1);
       }
       elsif ($self->{unstaged}) {
         # Get the current staging info from the index
         my $get_stage_info_cmd = 
-          "git ls-files -s -- $files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/'";
+          "git ls-files -s -- @files | sed -e 's/blob \\([a-z0-9]*\\)/\\1 0/'";
         my ($retval, $output) = ExecUtil::execute_captured($get_stage_info_cmd);
 
         # Manually add remove-this-file info for files we didn't get output for
@@ -4515,7 +4542,7 @@ sub run {
         }
 
         # Revert both the index and the working copy
-        ExecUtil::execute("git checkout $self->{revs} -- $files");
+        ExecUtil::execute("git checkout $self->{revs} -- @files");
 
         # Restore the index to what it used to be
         if ($debug) {
@@ -4704,6 +4731,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  @ARGV = $self->quote_args(@ARGV);
   return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
 }
 
@@ -5226,6 +5254,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  @ARGV = $self->quote_args(@ARGV);
   return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
 }
 
