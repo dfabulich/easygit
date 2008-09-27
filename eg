@@ -1901,7 +1901,7 @@ Staging changes and working with staged changes
     eg diff
 
   Revert the staged changes to bar.C, foo.pl and foo.py
-    eg revert --staged bar.C foo.pl foo.py
+    eg unstage bar.C foo.pl foo.py
 
   Commit just the staged changes
     eg commit --staged
@@ -4719,7 +4719,7 @@ Description:
   staging.)  When a directory is passed, all files in that directory or any
   subdirectory are recursively added.
 
-  You can use 'eg revert --staged PATH...' to unstage files.
+  You can use 'eg unstage PATH...' to unstage files.
 
   See 'eg help topic staging' for more details, including situations where
   you might find staging useful.
@@ -5346,6 +5346,61 @@ Options:
 ";
   return $self;
 }
+
+###########################################################################
+# unstage                                                                 #
+###########################################################################
+package unstage;
+@unstage::ISA = qw(revert);
+INIT {
+  $command{unstage} = {
+    new_command => 1,
+    extra => 1,
+    section => 'modification',
+    about => 'Mark changes in files as no longer ready for commit'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  bless($self, $class);
+
+  unshift(@ARGV, "--") if $ARGV[0] ne "--";
+  unshift(@ARGV, "--staged");
+
+  $self->{'help'} = "
+Usage:
+  eg unstage [--] PATH...
+
+Description:
+  Marks the changes in the specified files as not being ready to commit.
+  When a directory is passed, all files in that directory or any
+  subdirectory are recursively unstaged.
+
+  Note that this command is equivalent to 'eg revert --staged PATH...'
+
+  See 'eg help topic staging' for more details, including situations where
+  you might find staging useful.
+
+Examples:
+  Create a new file, and mark it for addition to the repository, then change
+  your mind
+      \$ echo hi > there
+      \$ eg stage there
+      \$ eg unstage there
+
+  Modify an existing file, mark the modified version as being ready for commit,
+  then change your mind
+      \$ echo some extra info at end of file >> foo
+      \$ eg stage foo
+      \$ eg unstage foo
+";
+  return $self;
+}
+
+# unstage inherits from revert, and simply modifies @ARGV in new(), so that
+# revert will get run with the right arguments
 
 ###########################################################################
 # update                                                                  #

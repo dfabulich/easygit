@@ -252,11 +252,13 @@ _eg ()
   shortlog)    _git_shortlog ;;
   show)        _git_show ;;
   show-branch) _git_log ;;
+  stage)       _git_add ;;
   stash)       _git_stash ;;
   submodule)   _git_submodule ;;
   svn)         _git_svn ;;
   switch)      _git_checkout ;;
   tag)         _git_tag ;;
+  # unstage)     COMPREPLY=() ;;  ## Already handled by default case
   whatchanged) _git_log ;;
   *)           COMPREPLY=() ;;
   esac
