@@ -3905,9 +3905,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(
-    initial_commit_error_msg => "Error: No recorded commits to forget.",
-    @_);
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
