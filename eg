@@ -3009,7 +3009,7 @@ sub preprocess {
   my $record_arg  = 
     sub { my $prefix = "";
           $prefix = "no-" if defined $_[1] && $_[1] == 0;
-          push(@{$self->{args}}, " --$prefix$_[0]");
+          push(@{$self->{args}}, "--$prefix$_[0]");
         };
   my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($no_tags, $all_tags) = (0, 0);
@@ -5671,7 +5671,7 @@ EOF
 
 sub migrate_old_easy_git_pull_push_options()
 {
-  my @options = `git config --get-regexp ^default.*`;
+  my @options = `git config --get-regexp "^default.*"`;
   return if $? != 0;
   my @remotes = `git remote`;
   chomp(@remotes);
@@ -5688,9 +5688,9 @@ sub migrate_old_easy_git_pull_push_options()
                                  ignore_ret => 1);
 
     next if $option =~ /^default\.push/;
-    next if $option =~ /^default\.branch\.[^\.]+\.url\b/;
+    next if $option =~ /^default\.branch\.[^ ]+\.url\b/;
 
-    if ($option =~ /^default\.(branch\.([^\.]+)\.remote) (.*)$/) {
+    if ($option =~ /^default\.(branch\.([^ ]+)\.remote) (.*)$/) {
       my $newkey = $1;
       my $branch = $2;
       my $remote = $3;
@@ -5702,7 +5702,7 @@ sub migrate_old_easy_git_pull_push_options()
             ExecUtil::execute_captured("git config $newkey $value");
         }
       }
-    } elsif ($option =~ /^default\.(branch\.([^\.]+)\.merge) (.*)$/) {
+    } elsif ($option =~ /^default\.(branch\.([^ ]+)\.merge) (.*)$/) {
       my $newkey = $1;
       my $branch = $2;
       ($ret, $output) = ExecUtil::execute_captured("git config --get $newkey",
