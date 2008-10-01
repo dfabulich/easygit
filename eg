@@ -4958,9 +4958,10 @@ sub postprocess {
   my $branch;
   my $initial_commit = 0;
   my %files = ( unknown => undef, unstaged => undef, staged => undef );
+  my @basic_info;
 
   my @lines = split('\n', $output);
-  my $cur_state = 0;
+  my $cur_state = -1;
   while (@lines) {
     my $line = shift @lines;
     my $section = undef;
@@ -4981,6 +4982,9 @@ sub postprocess {
       $cur_state = 2;
       $section = 'unstaged';
       $title = 'Changed but not updated ("unstaged"):';
+    } elsif ($cur_state < 0) {
+      next if $line !~ m/^# (.+)/;
+      push(@basic_info, $1);
     }
 
     # If we're inside a section type, parse it
@@ -5025,6 +5029,9 @@ sub postprocess {
     print ")\n";
   } else {
     print "(No active branch)\n";
+  }
+  foreach my $line (@basic_info) {
+    print "($line)\n";
   }
 
   # Print out all the various changes
