@@ -776,10 +776,10 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  $self->{args} = "";
+  $self->{args} = [];
   $self->{bare} = 0;
-  my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
-  my $record_args  = sub { $self->{args} .= " --@_";    };
+  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
+  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my $result = main::GetOptions(
     "help"             => sub { $self->help() },
     "template=s"       => sub { &$record_args(@_) },
@@ -802,7 +802,7 @@ sub preprocess {
   $basename =~ s#\.git$##;  # Remote .git suffix, if present
   $self->{directory} = shift @ARGV || $basename;
 
-  $self->{args} .= " $self->{repository} $self->{directory}";
+  push(@{$self->{args}}, ($self->{repository}, $self->{directory}));
 }
 
 sub run {
@@ -811,7 +811,7 @@ sub run {
   #
   # Perform the clone
   #
-  @args = $self->quote_args(split ' ', $self->{args});
+  @args = $self->quote_args(@{$self->{args}});
   my $ret = ExecUtil::execute("git clone @args", ignore_ret => 1);
   return if $self->{bare};
   if ($debug == 2) {
@@ -992,9 +992,9 @@ sub preprocess {
   #
   # Parse options
   #
-  $self->{args} = "";
-  my $record_arg   = sub { $self->{args} .= " --$_[0]"; };
-  my $record_args  = sub { $self->{args} .= " --@_";    };
+  $self->{args} = [];
+  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
+  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($all_known, $bypass_unknown, $bypass_no_branch, $staged) = (0, 0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
@@ -1022,14 +1022,14 @@ sub preprocess {
   # Set up flags based on options, do sanity checking of options
   #
   my ($check_unknown, $check_mixed, $check_no_branch);
-  $self->{'commit_flags'} = "";
+  $self->{'commit_flags'} = [];
   die "Cannot specify both --all-known (-a) and --staged (-d)!\n" if
     $all_known && $staged;
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
   $check_unknown   = !$bypass_unknown && !$staged && !@$files;
   $check_mixed     = !$all_known      && !$staged && !@$files;
   $check_no_branch = !$bypass_no_branch;
-  $self->{'commit_flags'} .= " -a" if $all_known;
+  push(@{$self->{'commit_flags'}}, "-a") if $all_known;
 
   #
   # Lots of sanity checks
@@ -1047,7 +1047,7 @@ sub preprocess {
   if (!$all_known && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes} &&
       !@$files) {
-    $self->{'commit_flags'} .= " -a";
+    push(@{$self->{'commit_flags'}}, "-a");
   }
 
   #
@@ -1064,8 +1064,8 @@ sub preprocess {
     close(OUTPUT);
   }
 
-  $self->{args} .= " $self->{commit_flags}";
-  unshift(@ARGV, split(' ', $self->{args}));
+  push(@{$self->{args}}, @{$self->{commit_flags}});
+  unshift(@ARGV, @{$self->{args}});
 }
 
 ###########################################################################
@@ -3005,13 +3005,13 @@ sub preprocess {
   #
   # Parse options
   #
-  $self->{args} = "";
+  $self->{args} = [];
   my $record_arg  = 
     sub { my $prefix = "";
           $prefix = "no-" if defined $_[1] && $_[1] == 0;
-          $self->{args} .= " --$prefix$_[0]";
+          push(@{$self->{args}}, " --$prefix$_[0]");
         };
-  my $record_args = sub { $self->{args} .= " --@_"; };
+  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($no_tags, $all_tags) = (0, 0);
   my @branches;
   my @tags;
@@ -3048,17 +3048,17 @@ sub preprocess {
   my @git_refspecs = @ARGV;
 
   # Record the tags or no-tags arguments
-  $self->{args} .= " --tags"    if $all_tags;
-  $self->{args} .= " --no-tags" if $no_tags;
+  push(@{$self->{args}}, "--tags") if $all_tags;
+  push(@{$self->{args}}, "--no-tags") if $no_tags;
 
   #
   # Get the repository to pull from
   #
   if ($repository) {
-    $self->{args} .= " " . $self->quote_args($repository);
+    push(@{$self->{args}}, $repository);
   } elsif (!$repository && @branches) {
     my $repository = RepoUtil::get_default_push_pull_repository();
-    $self->{args} .= " " . $self->quote_args($repository);
+    push(@{$self->{args}}, $repository);
   } else {
     # Just drop through to the git pull defaults.
   }
@@ -3069,19 +3069,17 @@ sub preprocess {
   push(@branches, @git_refspecs);
 
   foreach my $branch (@branches) {
-    $self->{args} .= " $branch";
+    push(@{$self->{args}}, $branch);
   }
   foreach my $tag (@tags) {
-    $self->{args} .= " tag $tag";
+    push(@{$self->{args}}, ("tag", $tag));
   }
-
-  $self->{args} =~ s/^\s+//;
 }
 
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(split ' ', $self->{args});
+  @args = $self->quote_args(@{$self->{args}});
   return ExecUtil::execute("git pull @args", ignore_ret => 1);
 }
 
@@ -3271,9 +3269,9 @@ sub preprocess {
   #
   # Parse options
   #
-  $self->{args} = "";
-  my $record_arg  = sub { $self->{args} .= " --$_[0]"; };
-  my $record_args = sub { $self->{args} .= " --@_"; };
+  $self->{args} = [];
+  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
+  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($all_branches, $matching_branches, $all_tags, $mirror) = (0, 0, 0, 0);
   my ($thin, $repo) = (0, 0);
   my @branches;
@@ -3308,18 +3306,18 @@ sub preprocess {
                                               {unknown => 1, changes => 1});
   }
 
-  $self->{args} .= " --all"    if $all_branches;
-  $self->{args} .= " --tags"   if $all_tags;
-  $self->{args} .= " --mirror" if $mirror;
+  push(@{$self->{args}}, "--all")    if $all_branches;
+  push(@{$self->{args}}, "--tags")   if $all_tags;
+  push(@{$self->{args}}, "--mirror") if $mirror;
 
   #
   # Get the repository to pull from
   #
   if ($repository) {
-    $self->{args} .= " " . $self->quote_args($repository);
+    push(@{$self->{args}}, $repository);
   } elsif (!$repository && (@branches || @tags)) {
     my $repository = RepoUtil::get_default_push_pull_repository();
-    $self->{args} .= " " . $self->quote_args($repository);
+    push(@{$self->{args}}, $repository);
   } else {
     # Just drop through to the git pull defaults.
   }
@@ -3369,18 +3367,16 @@ EOF
   # Get the branch(es) to push
   #
   push(@branches, @git_refspecs);
-  $self->{args} .= " @branches";
+  push(@{$self->{args}}, @branches);
   foreach my $tag (@tags) {
-    $self->{args} .= " tag $tag";
+    push(@{$self->{args}}, ("tag", $tag));
   }
-
-  $self->{args} =~ s/^\s+//;
 }
 
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(split ' ', $self->{args});
+  @args = $self->quote_args(@{$self->{args}});
   return ExecUtil::execute("git push @args", ignore_ret => 1);
 }
 
@@ -3607,9 +3603,9 @@ sub preprocess {
   #
   # Parse options
   #
-  $self->{args} = "";
-  my $record_arg  = sub { $self->{args} .= " --$_[0]"; };
-  my $record_args = sub { $self->{args} .= " --@_"; };
+  $self->{args} = [];
+  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
+  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my $since;
   my $result = main::GetOptions(
     "--help"              => sub { $self->help() },
@@ -3628,14 +3624,14 @@ sub preprocess {
     );
   die "Too many branches/revisions specified\n"
     if @ARGV > 1 && defined $since;
-  $self->{args} .= " $since" if defined $since;
-  $self->{args} .= " @ARGV";
+  push(@{$self->{args}}, $since) if defined $since;
+  push(@{$self->{args}}, @ARGV);
 }
 
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(split ' ', $self->{args});
+  @args = $self->quote_args(@{$self->{args}});
   return ExecUtil::execute("git rebase @args", ignore_ret => 1);
 }
 
@@ -4428,8 +4424,7 @@ sub run {
       # and then only pipe that output back out to git apply if we have
       # an actual diff to revert.
       if ($debug < 2) {
-        @args = $self->quote_args(split ' ', "$self->{revs} $file_list");
-        open(DIFF, "git diff @diff_flags @args |");
+        open(DIFF, "git diff @diff_flags $self->{revs} $file_list |");
         my @output = <DIFF>;
         my $diff = join("", @output);
         # Listing unmerged paths doesn't count as nonempty
