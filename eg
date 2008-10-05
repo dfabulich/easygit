@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 ## Easy GIT (eg), a usable version of git
 ## Version .93
@@ -1001,7 +1001,7 @@ sub preprocess {
     "all-known|a"                 => \$all_known,
     "bypass-unknown-check|b"      => \$bypass_unknown,
     "bypass-no-branch-check"      => \$bypass_no_branch,
-    "staged|staged|d"             => \$staged,
+    "staged|dirty|d"              => \$staged,
     "s"                           => sub { &$record_arg(@_) },
     "v"                           => sub { &$record_arg(@_) },
     "u"                           => sub { &$record_arg(@_) },
@@ -2262,7 +2262,7 @@ EOF
   chomp($options);
   my @lines;
   if ($ret == 0) {
-    my @lines = split('\n', $options);
+    @lines = split('\n', $options);
     my $line_count = scalar(@lines);
     $print_config_options = ($line_count > 0);
 
