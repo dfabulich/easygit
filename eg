@@ -864,8 +864,8 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg commit [-a|--all-known] [-b|--bypass-unknown-check]
-            [--bypass-no-branch-check] [--staged|-d|--dirty]
-            [-F FILE | -m MSG | --amend] [--] [FILE...]
+            [--staged|-d|--dirty] [-F FILE | -m MSG | --amend] [--]
+            [FILE...]
 
 Description:
   Records changes locally along with a log message describing the
@@ -921,13 +921,6 @@ Options:
     present the last time the -b flag was used, then the commit will be
     aborted with a warning message.
 
-  --bypass-no-branch-check
-    Commit local changes, even if it would not be recorded to a branch.
-    Most users do not know how to recover changes that were recorded when
-    there was no active branch.  You should probably create a branch before
-    committing (using eg branch), but this flag exists for special cases
-    (such as special splitting of commits during a rebase operation.)
-
   --staged, --dirty, -d
     Commit only staged changes and bypass sanity checks.  (\"dirty\" is kept
     as a synonym in order to provide a short (-d) form.  The term \"dirty\"
@@ -955,10 +948,10 @@ Options:
   like the --staged flag was passed UNLESS either the -a option is passed
   or files are explicitly listed on the command line.
 
-  The "--bypass-unknown-check" and "--bypass-no-branch-check" are unique
-  to eg commit; git commit behavior differs by always turning on this
-  functionality -- there is no way to have git commit do an unknown
-  files sanity check or a no active branch check for you.
+  The "--bypass-unknown-check" is unique to eg commit; git commit
+  behavior differs by always turning on this functionality -- there is
+  no way to have git commit do an unknown files sanity check or a no
+  active branch check for you.
 
   "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
   has the same behavior in both, but the "smart" behavior of eg commit
