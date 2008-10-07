@@ -393,6 +393,154 @@ sub run {
 }
 
 ###########################################################################
+# bundle                                                                  #
+###########################################################################
+package bundle;
+@bundle::ISA = qw(subcommand);
+INIT {
+  $command{bundle} = {
+    extra => 1,
+    section => 'collaboration',
+    about => 'Pack repository updates (or whole repository) into a file'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    initial_commit_error_msg => "No bundles can be created until a commit " .
+                                "has been made.",
+    @_
+    );
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg bundle create FILENAME [REFERENCES]
+  eg bundle create-update NEWFILENAME OLDFILENAME [REFERENCES]
+  eg bundle verify FILENAME
+
+Description:
+  Bundle creates a file which contains a repository, or a subset thereof.
+  This is useful when two machines cannot be directly connected (thus
+  preventing use of the standard interactive git protocols -- git, ssh,
+  rsync or http), but changes still need to be communicated between the
+  machines.
+
+  The remote side can use the resulting file (or the path to it) as the URL
+  for the repository they want to clone or pull updates from.
+
+Examples
+  Create a bundle in the file repo.bundle which contains the whole repository
+      \$ eg bundle create repo.bundle
+
+  After getting the bundle named repo.bundle from a collaborator (which
+  must contain \"HEAD\" as one of the references if you explicitly list which
+  ones to be included at creation time), clone the repository into the
+  directory named project-name
+      \$ eg clone /path/to/repo.bundle project-name
+
+  Create a bundle in the file called new-repo containing only updates since
+  the bundle old-repo was created.
+      \$ eg bundle create-update new-repo old-repo
+
+  Pulls updates from a new bundle we have been sent.
+      \$ eg pull /path/to/repo.bundle
+
+  Pull updates from a new bundle we have been sent, if we first overwrite
+  the bundle we originally original cloned from with the new bundle
+      \$ eg pull
+
+  (Advanced) Create a bundle containing the two branches debug and
+  installer, and the tag named v2.3, in the file called my-changes
+      \$ eg bundle create my-changes debug installer v2.3
+
+  (Advanced) Create a bundle in the file called new-repo that contains
+  updates since the bundle old-bundle was created, but don't include the
+  new branch secret-stuff or crazy-idea
+      \$ eg bundle create-update new-repo old-bundle ^secret-stuff ^crazy-idea
+      
+Options:
+  eg bundle create FILENAME [REFERENCES]
+  eg bundle create-update NEWFILENAME OLDFILENAME [REFERENCES]
+  eg bundle verify FILENAME
+
+  create FILENAME [REFERENCES]
+    Create a new bundle in the file FILENAME.  If no REFERENCES are passed,
+    all branches and tags (plus \"HEAD\") will be included.  See below for
+    a basic explanation of REFERENCES.
+
+  create-update NEWFILENAME OLDFILENAME [REFERENCES]
+
+    Create a new bundle in the file NEWFILENAME, but don't include any
+    commits already included in OLDFILENAME.  See below for a basic
+    explanation of REFERNCES.  By default, any new branch or tags will be
+    included as well; exclude specific branches or tags by passing ^BRANCH
+    or ^TAG as a reference; see below for more details.
+
+  verify FILENAME
+    Check whether the given bundle in FILENAME will cleanly apply to the
+    current repository.
+
+  REFERENCES
+    Which commits to include or exclude from the bundle.  Probably best
+    explained by example:
+
+      Example            Meaning
+      -----------------  --------------------------------------------------
+      master             Include the master branch
+      master~10..master  Include the last 10 commits on the master branch
+      ^baz foo bar       Include commits on the foo or bar branch, except for
+                           those that are in the baz branch
+";
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  #
+  # Parse options
+  #
+  my @args;
+  my $result=main::GetOptions("--help" => sub { $self->help() });
+
+  # Get the (sub)subcommand
+  $self->{subcommand} = shift @ARGV;
+  push(@args, $self->{subcommand});
+
+  if ($self->{subcommand} eq 'create') {
+    my $filename = shift @ARGV ||
+      die "Error: need a filename to write bundle to.\n";
+    push(@args, $filename);  # Handle the filename
+    if (!@ARGV) {
+      push(@args, ("--all", "HEAD"));
+    }
+  }
+  elsif ($self->{subcommand} eq 'create-update') {
+    pop(@args);  # 'create-update' isn't a real git bundle subcommand
+
+    my $newname = shift @ARGV || 
+      die "You must specify a new and an old filename.\n";
+    my $oldname = shift @ARGV || 
+      die "You must also specify an old filename\n";
+
+    die "$oldname does not exist.\n" if ! -f $oldname;
+
+    my ($retval, $output) =
+      ExecUtil::execute_captured("git bundle list-heads $oldname");
+    my @lines = split '\n', $output;
+
+    my @refs = map { m#^([0-9a-f]+)# && "^$1" } @lines;
+    push(@args, ('create', $newname, "--all", "HEAD", @refs));
+  }
+  push(@args, @ARGV);
+
+  # Reset @ARGV with the built up list of arguments
+  @ARGV = @args;
+}
+
+###########################################################################
 # cat                                                                     #
 ###########################################################################
 package cat;
