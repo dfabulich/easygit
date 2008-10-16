@@ -6446,14 +6446,6 @@ sub main {
     if ($ARGV[0] !~ m#^[a-z]#);
 
   #
-  # Set up an interrupt signal handler
-  #
-  $SIG{INT}=sub {
-    print STDERR "eg: interrupted\n";
-    exit 2;
-  };
-
-  #
   # Now execute the action
   #
   my $action = shift @ARGV;
