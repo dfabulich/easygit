@@ -4529,14 +4529,9 @@ sub run {
       ExecUtil::execute("git checkout $self->{revs} $revert_list");
     }
 
-    my $was_debug = Util::push_debug(new_value => 0);
     if ($self->{unstaged} && !$self->{staged} && $self->{staged_info}) {
       # Restore the index files stomped on by the above git checkout command,
       # and by the git rm command above that
-      if ($was_debug) {
-        print "    >>Running: echo -nE '$self->{staged_info}' " .
-              "| git update-index --index-info\n";
-      }
       ExecUtil::execute("echo -nE '$self->{staged_info}' " .
                         "| git update-index --index-info",
                         ignore_ret => 1);
@@ -4544,15 +4539,10 @@ sub run {
 
     if (!$self->{unstaged} && $self->{staged} && $self->{old_staged_info}) {
       # Write out new entries to the index file
-      if ($was_debug) {
-        print "    >>Running: echo -nE '$self->{old_staged_info}' " .
-              "| git update-index --index-info\n";
-      }
       ExecUtil::execute("echo -nE '$self->{old_staged_info}' " .
                         "| git update-index --index-info",
                         ignore_ret => 1);
     }
-    Util::pop_debug();
 
     #
     # Remove any files recording an incomplete merge, if user is undoing
