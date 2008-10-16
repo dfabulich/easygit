@@ -4518,7 +4518,7 @@ sub run {
 
     # Now undo mode changes, content changes, conflict markings, etc. by
     # calling git checkout
-    if ($self->{unstaged} && @{$self->{revert_files}} || !@files) {
+    if ($self->{unstaged} && (@{$self->{revert_files}} || !@files)) {
       my $revert_list;
       if (@files) {
         my @revert_files = $self->quote_args( @{$self->{revert_files}} );
