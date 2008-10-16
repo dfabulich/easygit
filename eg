@@ -3185,7 +3185,6 @@ sub preprocess {
   die "Cannot specify request tags along with --all-tags or --no-tags!\n"
     if @tags && ($all_tags || $no_tags);
   my $repository = shift @ARGV;
-  my $url;  # Used if $repository is blank or not defined
   my @git_refspecs = @ARGV;
 
   # Record the tags or no-tags arguments
@@ -3208,6 +3207,19 @@ sub preprocess {
   # Get the branch(es) to pull from
   #
   push(@branches, @git_refspecs);
+
+  if (!@branches && !@tags) {
+    my $branch = RepoUtil::current_branch();
+    if ($branch) {
+      my ($merge_branch, $url);
+      $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+      $url = RepoUtil::get_config("branch.$branch.remote") if !$repository;
+      if (!$merge_branch && ($repository || $url)) {
+        my $only_branch = _get_only_branch($repository || $url);
+        push(@branches, $only_branch);
+      }
+    }
+  }
 
   foreach my $branch (@branches) {
     push(@{$self->{args}}, $branch);
