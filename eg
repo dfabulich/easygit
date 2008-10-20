@@ -1196,13 +1196,7 @@ sub preprocess {
   # needed next time.
   #
   if ($bypass_unknown) {
-    mkdir "$self->{git_dir}/info" unless -d "$self->{git_dir}/info";
-    open(OUTPUT, "> $self->{git_dir}/info/ignored-unknown");
-    my @unknown_files = `git ls-files --exclude-standard --others --directory --no-empty-directory`;
-    foreach my $file (@unknown_files) {
-      print OUTPUT $file;
-    }
-    close(OUTPUT);
+    RepoUtil::record_ignored_unknowns();
   }
 
   push(@{$self->{args}}, @{$self->{commit_flags}});
@@ -2880,6 +2874,10 @@ sub preprocess {
   if (!$bypass_modification_check) {
     my $status = RepoUtil::commit_push_checks($package_name,
                                               {unknown => 1, changes => 1});
+  } else {
+    # Record the set of unknown files we ignored with -b, so the -b flag
+    # isn't needed next time.
+    RepoUtil::record_ignored_unknowns();
   }
 }
 
@@ -3461,6 +3459,10 @@ sub preprocess {
   if (!$bypass_modification_check) {
     my $status = RepoUtil::commit_push_checks($package_name,
                                               {unknown => 1, changes => 1});
+  } else {
+    # Record the set of unknown files we ignored with -b, so the -b flag
+    # isn't needed next time.
+    RepoUtil::record_ignored_unknowns();
   }
 
   push(@{$self->{args}}, "--all")    if $all_branches;
@@ -6093,6 +6095,18 @@ sub commit_push_checks {
   }
 
   return \%status;
+}
+
+sub record_ignored_unknowns {
+  my $git_dir = RepoUtil::git_dir();
+
+  mkdir "$git_dir/info" unless -d "$git_dir/info";
+  open(OUTPUT, "> $git_dir/info/ignored-unknown");
+  my @unknown_files = `git ls-files --exclude-standard --others --directory --no-empty-directory`;
+  foreach my $file (@unknown_files) {
+    print OUTPUT $file;
+  }
+  close(OUTPUT);
 }
 
 sub parse_args {
