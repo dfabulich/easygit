@@ -2848,6 +2848,7 @@ Options
       git gc
       cd .git
       git --bare update-server-info
+      mv .git/hooks/post-update.sample .git/hooks/post-update
       chmod u+x hooks/post-update
       cd ..
       rsync -e ssh -az --delete .git REMOTE_DIRECTORY
@@ -2911,6 +2912,9 @@ EOF
   print "Optimizing local repository and compressing it...\n" if $debug < 2;
   ExecUtil::execute("git gc");
   ExecUtil::execute("git --bare update-server-info");
+  if (-f "hooks/post-update.sample") {
+    ExecUtil::execute("mv hooks/post-update.sample hooks/post-update");
+  }
   ExecUtil::execute("chmod u+x hooks/post-update");
   my $is_bare = ExecUtil::output("git config --get core.bare");
   ExecUtil::execute("git config core.bare true");
