@@ -6057,7 +6057,7 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my @new_unknown = `(cd $top_dir && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
+  my @new_unknown = `(cd "$top_dir" && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
   chomp(@new_unknown);
   if ($check_for->{unknown} && $status{has_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
