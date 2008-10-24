@@ -2428,11 +2428,8 @@ EOF
 
   # No. dirs
   my $num_dirs = ExecUtil::output(
-                    "git ls-tree -r --full-name --name-only HEAD " .
-                    " | grep '/'" .
-                    " | sed -e \"s#\(.*\)/.*#\1#\" " .
-                    " | sort " .
-                    " | uniq " .
+                    "git ls-tree -r -t HEAD " .
+                    " | grep -E '[0-9]+ tree'" .
                     " | wc -l");
   print "  Number of directories: $num_dirs\n" if $debug < 2;
 
