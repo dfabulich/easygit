@@ -1675,7 +1675,7 @@ Overriding push and pull sanity checks
         tracking branch for DEST or specify an empty DEST rather than
         overriding the safety check.
       * If one has somehow recorded commits directly to a remote tracking
-        branch (something prevented by eg)
+        branch
       * If history has been rewritten on the remote end (e.g. by using
         rebase, commit --amend, reset followed by subsequent commits).
   In all such cases, users can choose to throw away any existing unique
