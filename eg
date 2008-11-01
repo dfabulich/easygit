@@ -3356,6 +3356,16 @@ Options
   return $self;
 }
 
+sub _get_push_repository {
+  my ($repository) = @_;
+
+  if (defined $repository) {
+    return RepoUtil::get_config("remote.$repository.url") || $repository;
+  } else {
+    return RepoUtil::get_config("remote.origin.url")
+  }
+}
+
 # _check_if_bare: Return whether the given repository is bare.  Returns
 # undef the repository doesn't specify a valid repository or the repository
 # is not of a type where we can determine bare-ness.  Otherwise returns
@@ -3469,11 +3479,13 @@ sub preprocess {
   #
   # Get the repository to pull from
   #
+  my $remote;
   if ($repository) {
     push(@{$self->{args}}, $repository);
   } elsif (!$repository && (@branches || @tags)) {
-    my $repository = RepoUtil::get_default_push_pull_repository();
+    $repository = RepoUtil::get_default_push_pull_repository();
     push(@{$self->{args}}, $repository);
+    $remote = $repository;
   } else {
     # Just drop through to the git pull defaults.
   }
@@ -3483,6 +3495,7 @@ sub preprocess {
   # ssh; I don't know how to detect other cases)...unless user explicitly
   # specifies both source and destination references explicitly
   #
+  $repository = _get_push_repository($repository);
   my $push_to_non_bare_repo;
   if ($repository) {
 
@@ -3511,10 +3524,15 @@ sub preprocess {
 Aborting: You are trying to push to a repository with an associated working
 copy, which will leave its working copy out of sync with its repository.
 Rather than pushing changes to that repository, you should go to where that
-repository is located and pull changes into it (using eg pull).  See
+repository is located and pull changes into it (using eg pull).  If you
+know what you are doing and know how to deal with the consequences, you can
+override this check by explicitly specifying source and destination
+references, e.g.
+  eg push REMOTE BRANCH:REMOTE_BRANCH
+Please refer to
   eg help topic refspecs
-for advanced methods of pushing (and pulling), including ways to override
-this check and deal with the consequences.
+to learn what this syntax means and what the consequences of overriding this
+check are.
 EOF
     exit 1;
   }
