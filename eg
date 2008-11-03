@@ -5771,7 +5771,9 @@ sub git_dir {
 }
 
 sub get_dirs {
-  if ($curdir) {
+  my $options = {force => 0, @_};  # Hashref initialized as we're told
+
+  if ($curdir && !$options->{force}) {
     return ($curdir, $topdir, $gitdir);
   }
 
