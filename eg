@@ -3196,7 +3196,7 @@ sub preprocess {
   if ($repository) {
     push(@{$self->{args}}, $repository);
   } elsif (!$repository && @branches) {
-    my $repository = RepoUtil::get_default_push_pull_repository();
+    $repository = RepoUtil::get_default_push_pull_repository();
     push(@{$self->{args}}, $repository);
   } else {
     # Just drop through to the git pull defaults.
@@ -3211,8 +3211,12 @@ sub preprocess {
     my $branch = RepoUtil::current_branch();
     if ($branch) {
       my ($merge_branch, $url);
-      $merge_branch = RepoUtil::get_config("branch.$branch.merge");
-      $url = RepoUtil::get_config("branch.$branch.remote") if !$repository;
+      if ($repository) {
+        $merge_branch = RepoUtil::get_config("remote.$repository.merge");
+      } else {
+        $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+        $url = RepoUtil::get_config("branch.$branch.remote");
+      }
       if (!$merge_branch && ($repository || $url)) {
         my $only_branch = _get_only_branch($repository || $url);
         push(@branches, $only_branch);
