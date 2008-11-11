@@ -6119,11 +6119,12 @@ sub commit_push_checks {
 }
 
 sub record_ignored_unknowns {
-  my $git_dir = RepoUtil::git_dir();
+  # Determine some useful directories
+  my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
 
   mkdir "$git_dir/info" unless -d "$git_dir/info";
   open(OUTPUT, "> $git_dir/info/ignored-unknown");
-  my @unknown_files = `git ls-files --exclude-standard --others --directory --no-empty-directory`;
+  my @unknown_files = `cd "$top_dir" && git ls-files --exclude-standard --others --directory --no-empty-directory`;
   foreach my $file (@unknown_files) {
     print OUTPUT $file;
   }
