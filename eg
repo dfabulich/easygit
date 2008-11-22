@@ -5521,8 +5521,7 @@ EOF
   # Check if there are local changes
   my $status = RepoUtil::commit_push_checks();
   my $has_changes = $status->{has_staged_changes} ||
-    $status->{has_unstaged_changes} || $status->{has_unknown_files} ||
-    $status->{has_unmerged_changes};
+    $status->{has_unstaged_changes} || $status->{has_unmerged_changes};
   if ($has_changes) {
     print STDERR <<EOF;
 Aborting: You have local changes, and pulling updates could put your
