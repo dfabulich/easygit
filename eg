@@ -5513,7 +5513,8 @@ sub preprocess {
   if (@ARGV) {
     print STDERR <<EOF;
 Aborting: No arguments to update are allowed.  If you are trying to switch
-to a different revision, use eg switch.
+to a different revision, use eg switch.  If you are trying to undo the changes
+to a particular file, use eg revert.
 EOF
     exit 1;
   }
@@ -5529,6 +5530,16 @@ working copy in a nonworking state.  Consider committing your changes
 before updating, or using eg stash to stash the changes away and reapply
 them after the update.
 EOF
+
+    if ($status->{output} =~ /^\s+deleted:/m) {
+      print STDERR "\n";
+      print STDERR <<EOF;
+NOTE: If you are trying to undo the changes in a file, just run
+  eg revert FILE
+This works whether or not the file has been deleted.
+EOF
+    }
+    
     exit 1;
   }
 
@@ -6078,6 +6089,7 @@ sub commit_push_checks {
   $status{has_no_changes}       =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
   $status{has_unmerged_changes} = (scalar @unmerged_files > 0);
+  $status{output} = $output;
 
   #
   # Determine which unknown files are "newly created"
