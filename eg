@@ -5758,7 +5758,10 @@ sub current_branch {
 }
 
 sub git_dir {
-  return $gitdir if ($gitdir);
+  my $options = {force => 0, @_};  # Hashref initialized as we're told
+  if (!$options->{force}) {
+    return $gitdir if ($gitdir);
+  }
 
   Util::push_debug(new_value => 0);
   my ($ret, $output) = 
@@ -5794,7 +5797,7 @@ sub get_dirs {
     $topdir =~ s#/$##;  # Remove trailing slash
   }
 
-  $gitdir = git_dir();
+  $gitdir = git_dir(force => $options->{force});
 
   Util::pop_debug();
 
