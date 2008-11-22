@@ -5970,7 +5970,7 @@ EOF
     exit 1;
   }
   elsif ($check_for->{unknown} && $check_for->{partially_staged} &&
-         $status->{has_unknown_files} && 
+         $status->{has_new_unknown_files} && 
          $status->{has_unstaged_changes} && $status->{has_staged_changes}) {
     print STDERR <<EOF;
 Aborting: It is not clear which changes should be committed; you have new
@@ -5983,7 +5983,7 @@ EOF
     }
     exit 1;
   }
-  elsif ($check_for->{unknown} && $status->{has_unknown_files}) {
+  elsif ($check_for->{unknown} && $status->{has_new_unknown_files}) {
     print STDERR <<EOF;
 Aborting: You have new unknown files present and it is not clear whether
 they should be committed.  Run 'eg help $commit_type' for details.
@@ -6019,7 +6019,7 @@ EOF
   }
 
   if ($check_for->{unknown} && $check_for->{changes} &&
-      $status->{has_unknown_files} && 
+      $status->{has_new_unknown_files} && 
       ($status->{has_unstaged_changes} || $status->{has_staged_changes})) {
     print STDERR <<EOF;
 Aborting: You have new unknown files and changed files present.  You should
@@ -6032,7 +6032,7 @@ EOF
     }
     exit 1;
   }
-  elsif ($check_for->{unknown} && $status->{has_unknown_files}) {
+  elsif ($check_for->{unknown} && $status->{has_new_unknown_files}) {
     print STDERR <<EOF;
 Aborting: You have new unknown files present.  You should either commit these
 new files before trying to $clean_check_type your work elsewhere, or use the
@@ -6083,12 +6083,12 @@ sub commit_push_checks {
   #
   my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
   my @unmerged_files = `git ls-files --unmerged`;
-  $status{has_unknown_files}    = ($output =~ /^Unknown files:$/m);
-  $status{has_unstaged_changes} = ($output =~ /^Changed but not updated/m);
-  $status{has_staged_changes}   = ($output =~ /^Changes ready to be commit/m);
-  $status{has_no_changes}       =
+  $status{has_new_unknown_files} = ($output =~ /^Unknown files:$/m);
+  $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
+  $status{has_staged_changes}    = ($output =~ /^Changes ready to be commit/m);
+  $status{has_no_changes}        =
     ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
-  $status{has_unmerged_changes} = (scalar @unmerged_files > 0);
+  $status{has_unmerged_changes}  = (scalar @unmerged_files > 0);
   $status{output} = $output;
 
   #
@@ -6096,12 +6096,12 @@ sub commit_push_checks {
   #
   my @new_unknown = `(cd "$top_dir" && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
   chomp(@new_unknown);
-  if ($check_for->{unknown} && $status{has_unknown_files} &&
+  if ($check_for->{unknown} && $status{has_new_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
     my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
     chomp(@old_unknown_files);
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
-    $status{has_unknown_files} = (scalar(@new_unknown) > 0);
+    $status{has_new_unknown_files} = (scalar(@new_unknown) > 0);
   }
   @new_unknown =
     Util::reroot_paths__from_to_files($top_dir, $cur_dir, @new_unknown);
