@@ -610,7 +610,7 @@ sub preprocess {
       my ($path) = Util::reroot_paths__from_to_files($cur_dir, $top_dir, $arg);
       push(@args, "HEAD:$path");
     } else {
-      my ($REVISION, $FILE) = split(/:/, $arg, 1);
+      my ($REVISION, $FILE) = split(/:/, $arg, 2);
       my ($path) = Util::reroot_paths__from_to_files($cur_dir, $top_dir, $FILE);
       push(@args, "$REVISION:$path");
     }
