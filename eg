@@ -5155,6 +5155,10 @@ sub postprocess {
   my %files = ( unknown => undef, unstaged => undef, staged => undef );
   my @basic_info;
 
+  if ($output =~ m/^fatal:/) {
+    print STDERR $output;
+    exit 128;
+  }
   my @lines = split('\n', $output);
   my $cur_state = -1;
   while (@lines) {
