@@ -4237,54 +4237,41 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg revert [--commit | --no-commit] [-m PARENT_NUMBER] [--staged | --unstaged]
+  eg revert [-m PARENT_NUMBER] [--staged | --unstaged]
             [--in | --since] [REVISION] [--] [PATH...]
 
 Description:
   (Note: If you want to check out an earlier revision, use the switch
   command; revert does not change the parent of the working directory.  If
-  you want to undo commits, use the reset command to set the branch tip to
-  a previous revision; revert does not modify the branch tip -- other than
-  by potentially adding a new commit.)
+  you want to undo commits, use either (1) the reset command to set the
+  branch tip to a previous revision (i.e. to discard commits from history),
+  or (2) the cherry-pick command with the -R option to reverse apply a
+  previous commit on top of the current state and record the new result;
+  revert does not modify the branch tip.)
 
-  eg revert undoes previous changes, potentially including: restoring
-  deleted files to a previously recorded version, removing recorded
-  conflict states, undoing prior adds or stages, and discarding local
-  modifications, or reversing the changes made in a prior commit.  eg
-  revert can optionally also immediately make a commit after the reversion
-  is performed.  This command has many options for exactly what to revert,
+  eg revert undoes previous changes in your working directory, including:
+  restoring deleted files to a previously recorded version, removing
+  recorded conflict states, undoing prior adds or stages, and discarding
+  local modifications.  eg revert can optionally also immediately make a
+  commit after the reversion is performed (by default, no commit is
+  performed).  This command has many options for exactly what to revert,
   and it may be useful to skip to the examples section below and then come
   back and read the description.
 
-  Revert can operate on a subset of paths if specified.  When a directory
-  path is specified, all changes under the given directory will be
-  reverted.
-
   This command has the ability to either revert changes *since* a given
-  commit, or to revert the changes *in* a given commit.  When a revision is
+  commit, or to revert the changes *in* a given commit.  When a commit is
   specified, either the --since or --in flags must also be specified to
   make it clear which behavior is desired.  If no commit is specified and
   neither --since nor --in is provided, the default is to assume you want
-  to undo changes since the last commit.  Note that these two flags tend to
-  be used under very different circumstances:
+  to undo changes since the last commit.
 
-     revert-since                        revert-in
-     * is usually used in a dirty tree   * is typically used in a clean tree
-     * specific paths are usually        * specific paths are not often
-       specified                           specified
-     * it is rare to want to commit      * making a commit after reverting
-       immediately after reverting         is what you usually want
-     * it is uncommon to need to
-       specify a revision           
-
-  Because of the above differences, making a commit immediately after the
-  revert is done by default when you specify --in with no specific paths;
-  otherwise, no commit is performed by default.  Use the --commit or
-  --no-commit flags to override this behavior.
+  Finally, revert can operate on a subset of paths if specified.  When a
+  directory path is specified, all changes under the given directory will
+  be reverted.
 
   To avoid accidental loss of local changes, nothing will be done when no
   arguments are specified.  (However, you will be given a helpful message
@@ -4307,8 +4294,8 @@ Description:
     This can be specified using the -m option.
 
 Examples:
-  Undo changes since the last commit on the current branch to bar.h and foo.c.
-  This can be done with either of the following methods:
+  Undo changes since the last commit on the current branch to bar.h and
+  foo.c.  This can be done with either of the following methods:
       \$ eg revert bar.h foo.c                      # Method #1
       \$ eg revert --since HEAD bar.h foo.c         # Method #2, more explicit
 
@@ -4317,8 +4304,8 @@ Examples:
       \$ eg revert --since bling~3
 
   While on the stable branch, you determine that the seventh commit prior
-  to the most recent was faulty and you simply want to undo it and make a
-  new commit once it is undone.  This can be accomplished by:
+  to the most recent was faulty and you simply want to undo it.  This can
+  be accomplished by:
       \$ eg revert --in stable~7
 
   You decide that all changes to foobar.cpp in your working copy and in the
@@ -4326,10 +4313,10 @@ Examples:
   of:
       \$ eg revert --since HEAD~2 -- foobar.c
 
-  You decide that some of the changes in the merge commit HEAD~4 are
-  bad.  You would like to revert the changes in HEAD~4 to bar.h
-  relative to its second parent.  This can be accomplished as follows:
-      \$ eg revert -m 2 --in HEAD~4 -- bar.h
+  You decide that some of the changes in the merge commit HEAD~4 are bad.
+  You would like to revert the changes to baz.py in HEAD~4 relative to its
+  second parent.  This can be accomplished as follows:
+      \$ eg revert -m 2 --in HEAD~4 baz.py
   
   (Advanced) Undo a previous stage, marking changes in foo.c as not
   being ready for commit:
@@ -4341,15 +4328,6 @@ Examples:
       \$ eg revert --unstaged --in HEAD~8 -- abracadabra.xml
 
 Options:
-  --commit
-    Commit your files immediately after reverting.  There must be no local
-    changes prior to running revert if this option is used.  --commit is not
-    the default.
-
-  --no-commit
-    The opposite of --commit, this flag is the default and exists just for
-    completeness.
-
   --since
     Revert the changes made since the specified commit, including any local
     changes.  This takes the difference between the specified commit and
@@ -4391,24 +4369,51 @@ Options:
     to the listed files or files below the listed directories.
 ";
   $self->{'differences'} = '
-  git revert is a strict subset of the capabilities of eg revert; eg revert
-  also contains part of the abilities of the git checkout and git reset
-  commands (namely, the second form of each), as well as a couple new
-  things to round it all out.
+  eg revert is similar to the revert command of svn, hg, bzr, or darcs.  It
+  is not provided by any one git command; it overlaps with about five
+  different git commands in specific cases.  git users wanting the
+  functionality in eg revert will typically be guided by expert git users
+  towards whichever git command seems like the most natural fit for the
+  particular case the user asks about.  Quite often, such users will
+  continue using the command they are given for subsequent situations...and
+  will often stumble across multiple cases where the git command no longer
+  matches the wanted revert behavior.
+
+  git does provide a command called revert, which is a subset of the
+  behavior of eg cherry-pick:
+    git revert COMMIT
+  is the same as
+    eg cherry-pick -R COMMIT
+  which is, modulo the automatic commit message provided by git revert, the
+  same as
+    eg revert --in COMMIT && eg commit
+  Note that while eg revert --in may look similar to git revert, the former
+  is about undoing changes in just the working copy, is typically
+  restricted to a specific subset of files, and is usually just one change
+  of many towards testing or creating something new to be committed.  The
+  latter is always concerned with reverse applying an entire commit, and is
+  almost always used to immediately record that change.
+
+  Note that git revert commands are invalid syntax in eg (since eg revert
+  always requires the --since or --in flags to be specified whenever a
+  commit is).  This means that eg can catch such cases and notify git
+  users to adopt the eg cherry-pick -R command.
 
   Due to these changes, eg revert should be much more welcoming to users of
-  svn, hg, bzr, or darcs (all of which assume the --since behavior for
-  revert), while also still having the capabilities of git revert (which
-  assumes the --in behavior of revert).  This also makes the reset and
-  checkout/switch subcommands of eg easier to understand by limiting their
-  scope instead of each having two very different capabilities.
-  (Technically, eg reset and eg checkout still have those capabilities for
-  backwards compatibility, I just omit them in the documentation.)
+  svn, hg, bzr, or darcs.  It also provides a simple discovery mechanism
+  for existing git users to allow them to easily work with eg.
+  Additionally, these changes also make the reset and checkout/switch
+  subcommands of eg easier to understand by limiting their scope instead of
+  each having two very different capabilities.  (Technically, eg reset and
+  eg checkout still have those capabilities for backwards compatibility, I
+  just omit them in the documentation.)
 
-  The biggest surprise for users of git revert are:
-    1) They have to specify the --in flag
-  Without specifying this flag, eg revert simply aborts and reports that it
-  needs either the --since or --in flags when a revision is specified.
+  It seems that perhaps eg revert could be extended further, to accept
+  things like
+      \$ eg revert --in HEAD~8..HEAD~5
+  to allow reverting changes made in a range of commits.  The --in could
+  even be optional in such a case, since the range makes it clear what is
+  wanted.
 ';
   return $self;
 }
@@ -4421,17 +4426,11 @@ sub preprocess {
   my $initial_commit = RepoUtil::initial_commit();
 
   # Parsing opts
-  $self->{original_args} = [];
-  push(@{$self->{original_args}}, @ARGV);
-  my ($commit, $edit, $staged, $unstaged, $in) = (-1, -1, 0, 0, -1);
+  my ($staged, $unstaged, $in) = (0, 0, -1);
   my $m;
   my $rev;
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
-    "--commit"       => \$commit,
-    "--no-commit"    => sub { $commit = 0 },
-    "--edit"         => \$edit,
-    "--no-edit"      => sub { $edit = 0 },
     "-m=i"           => \$m,
     "--staged"       => \$staged,
     "--unstaged"     => \$unstaged,
@@ -4454,20 +4453,6 @@ sub preprocess {
   my @unmerged_files = `git ls-files --full-name -u -- @quoted_files`;
   @unmerged_files = map { m/.*[ ]+(.*)/ && $1 } @unmerged_files;
   @unmerged_files = Util::uniquify_list(@unmerged_files);
-
-  # Figure out whether to just call git revert, and otherwise whether to
-  # commit after reverting
-  if ($in && !@$files && ($unstaged == $staged)) {
-    my @list_minus_in_flag = grep {!/^--in$/} @{$self->{original_args}};
-    $self->{original_args} = \@list_minus_in_flag;
-  } else {
-    # Git revert can't handle this case; throw away original arguments
-    # and handle it ourselves
-    $self->{original_args} = [];
-  }
-  if ($commit == -1) {
-    $commit = 0;
-  }
 
   #
   # Big ol' safety checks and warnings
@@ -4545,12 +4530,15 @@ EOF
 
   # Sanity checks
   die "Cannot specify -m without specifying --in.\n" if !$in && defined($m);
-  die "Unrecognized options: @$opts\n" if @$opts;
   die "Can only specify one revision\n" if @$revs > 1;
   die "No revision specified after --in\n"    if ($in == 1 && !@$revs);
   die "No revision specified after --since\n" if ($in == 0 && !@$revs);
-  die "You must specify either --in or --since when specifying a revision\n"
-    if ($in == -1 && @$revs);
+  if ($in == -1 && @$revs) {
+    die "You must specify either --in or --since when specifying a revision.\n".
+        "(git users:) If you are used to git revert; try running\n".
+        "  eg cherry-pick -R @ARGV\n";
+  }
+  die "Unrecognized options: @$opts\n" if @$opts;
   $in = 0 if $in == -1;
   if (!$staged && !$unstaged) {
     $staged = 1;
@@ -4570,7 +4558,6 @@ EOF
   }
 
   # Record needed information
-  $self->{commit} = $commit;
   $self->{staged} = $staged;
   $self->{unstaged} = $unstaged;
   $self->{just_recent_unstaged} = !$in && !$staged && !@$revs;
@@ -4633,13 +4620,6 @@ EOF
 
 sub run {
   my $self = shift;
-
-  # Just call git revert when it can handle the job (i.e. in those cases we
-  # didn't erase the arguments)
-  if (@{$self->{original_args}}) {
-    @args = $self->quote_args(@{$self->{original_args}});
-    return ExecUtil::execute("git revert @args", ignore_ret => 1);
-  }
 
   # Determine some useful directories; run from top of repo
   my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
@@ -4762,20 +4742,6 @@ sub run {
           close(APPLY);
         }
       }
-    }
-  }
-
-  #
-  # Make a commit if the user requested one
-  #
-  if ($self->{commit}) {
-    # We could just execute "eg commit $self->{staged}" if we 
-    # $self->{staged} =~ s/cached/staged/, but that isn't as helpful for
-    # debug output anyway, so split it into two commands...
-    if (!$self->{unstaged}) {
-      ExecUtil::execute("git commit")
-    } else {
-      ExecUtil::execute("git commit -a")
     }
   }
 
