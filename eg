@@ -5189,10 +5189,17 @@ sub postprocess {
     # If we're inside a section type, parse it
     if ($cur_state > 0) {
       my @section_files;
-      my $hint = shift @lines;
-      shift @lines; # Get rid of blank line
+      my $hints;
 
+      # Parse the hints first
       $line = shift @lines;
+      while ($line =~ m/^#\s+\(use ".*/) {
+        $hints .= $line;
+        $line = shift @lines;
+      }
+      die("Bug parsing git status output") if $line ne '#';
+      $line = shift @lines; # Get rid of blank line
+
       while (defined $line && $line =~ m/^#.+$/) {
         if ($cur_state == 1) {
           if ($line =~ m/^#(\s+)(.*)/) { 
@@ -5212,7 +5219,7 @@ sub postprocess {
         push(@{$files{$section}{'file_list'}}, @section_files);
       } else {
         $files{$section} = { title     => $title,
-                             hint      => $hint,
+                             hint      => $hints,
                              file_list => \@section_files };
       }
 
