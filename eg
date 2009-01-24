@@ -146,7 +146,10 @@ sub new {
 sub help {
   my $self = shift;
   my $package_name = ref($self);
+  $package_name =~ s/_/-/;  # Packages use underscores, commands use dashes
+
   my $git_equiv = $self->{git_equivalent};
+  $git_equiv =~ s/_/-/;  # Packages use underscores, commands use dashes
 
   if ($package_name eq "subcommand") {
     exit ExecUtil::execute("git $self->{command} --help")
@@ -866,6 +869,125 @@ sub run {
 }
 
 ###########################################################################
+# cherry_pick                                                             #
+###########################################################################
+package cherry_pick;
+@cherry_pick::ISA = qw(subcommand);
+INIT {
+  $command{"cherry-pick"} = {
+    extra => 1,
+    section => 'modification',
+    about => 'Apply (or reverse) a commit, usually from another branch'
+  };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(@_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg cherry-pick [--reverse] [--edit] [-n] [-m parent-number] [-s] [-x] REVISION
+
+Description:
+  Given an existing revision, apply the change between its parent and it
+  (or reverse apply if the --reverse option is present), and record a new
+  revision with this change.  Your working tree must be clean (no local
+  unsaved modifications) in order to run eg cherry-pick.
+
+Examples:
+  Apply the fix 3 commits behind the tip of the experimental branch
+  (i.e. the fix made in experimental~3) to the current branch
+      \$ eg cherry-pick experimental~3
+
+  Make a new commit that reverses the changes made in the most recent
+  commit of the current branch
+      \$ eg cherry-pick -R HEAD
+
+Options:
+  --reverse, --revert, -R
+    Reverse apply the changes from the specified commit (i.e. revert the
+    specified revision with a new commit).
+
+  --edit, -e
+    With this option, eg cherry-pick will let you edit the commit message
+    prior to committing.
+
+  -x
+    When recording the commit, append to the original commit message a note
+    that indicates which commit this change was cherry-picked from.  Append
+    the note only for cherry picks without conflicts. Do not use this
+    option if you are cherry-picking from your private branch because the
+    information is useless to the recipient. If on the other hand you are
+    cherry-picking between two publicly visible branches (e.g. backporting
+    a fix to a maintenance branch for an older release from a development
+    branch), adding this information can be useful.
+
+    This option is turned on automatically when -R is specified.
+
+  --mainline parent-number, -m parent-number
+    cherry-pick always applies the changes between a revision and its
+    parent; thus if a revision represents a merge commit, it is not clear
+    which parent cherry-pick should get the changes relative to.  This
+    option specifies the parent number (starting from 1) of the mainline
+    and allows cherry-pick to replay the change relative to the specified
+    parent.
+
+  --no-commit, -n
+    Usually cherry-pick automatically creates a commit. This flag applies
+    the change necessary to cherry-pick the named revision to your working
+    tree and staging area, but does not make the commit. In addition, when
+    this option is used, the staging area can contain unsaved changes and
+    the cherry-pick will be done against the beginning state of your
+    staging area.
+
+    This is useful when cherry-picking more than one commit into a single
+    combined change.
+
+  --signoff, -s
+    Add Signed-off-by line at the end of the commit message.
+
+  REVISION
+    A reference to a recorded version of the repository.  See 'eg help
+    topic revisions' for more details.
+";
+  $self->{'differences'} = '
+  eg cherry-pick contains both the functionality of git cherry-pick and git
+  revert.  If the -R option is specified, eg cherry-pick calls git revert
+  (after removing the -R option); otherwise it calls git cherry-pick.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my ($reverse, $dash_x, $mainline) = (0, 0, -1);
+  my $result = main::GetOptions(
+    "--help"       => sub { $self->help() },
+    "mainline|m=i" => \$mainline,
+    "reverse|R"    => \$reverse,
+    "revert"       => \$reverse,
+    "x"            => \$dash_x,
+    );
+  $self->{reverse} = $reverse;
+  unshift(@ARGV, "-x") if ($reverse && $dash_x);
+  unshift(@ARGV, ("-m", $mainline)) if $mainline != -1;
+}
+
+sub run {
+  my $self = shift;
+
+  @ARGV = $self->quote_args(@ARGV);
+  if ($self->{reverse}) {
+    return ExecUtil::execute("git revert @ARGV", ignore_ret => 1);
+  } else {
+    return ExecUtil::execute("git cherry-pick @ARGV", ignore_ret => 1);
+  }
+}
+
+###########################################################################
 # clone                                                                   #
 ###########################################################################
 package clone;
@@ -1519,6 +1641,7 @@ sub run {
   # Check if we were asked to get help on a subtopic rather than toplevel help
   if (@ARGV > 0) {
     my $subcommand = shift @ARGV;
+    $subcommand =~ s/-/_/;  # Packages use underscores, commands use dashes
     if (@ARGV != 0 && ($subcommand ne 'topic' || @ARGV != 1)) {
       die "Too many arguments to help.\n";
     }
@@ -1549,7 +1672,7 @@ sub run {
       next if !defined $command{$c}{section};
       next if $command{$c}{section} ne $name;
       next if $command{$c}{extra} && !$self->{all};
-      printf OUTPUT "  eg %-10s %s\n", $c, $command{$c}{about};
+      printf OUTPUT "  eg %-11s %s\n", $c, $command{$c}{about};
     }
     print OUTPUT "\n";
   }
@@ -6429,6 +6552,7 @@ package main;
 
 sub launch {
   my $job=shift;
+  $job =~ s/-/_/;  # Packages must have underscores, commands often have dashes
 
   # Create the action to execute
   my $action;
