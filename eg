@@ -1237,7 +1237,6 @@ Options:
      else if there are unmerged files         -> warn user: unmerged files
      else if there are new untracked files    -> warn user: new unknown files
      else if both staged and unstaged changes -> warn user: mix
-     else if there is no active branch        -> warn user: no active branch
      else                                     -> run "git commit -a"
   Actually, I do not pass -a if there are only staged changes present, but
   the result is the same.  Note that this essentially boils down to making
@@ -1259,12 +1258,11 @@ sub preprocess {
   $self->{args} = [];
   my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
   my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
-  my ($all_known, $bypass_unknown, $bypass_no_branch, $staged) = (0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged) = (0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
     "bypass-unknown-check|b"      => \$bypass_unknown,
-    "bypass-no-branch-check"      => \$bypass_no_branch,
     "staged|dirty|d"              => \$staged,
     "s"                           => sub { &$record_arg(@_) },
     "v"                           => sub { &$record_arg(@_) },
@@ -1292,7 +1290,6 @@ sub preprocess {
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
   $check_unknown   = !$bypass_unknown && !$staged && !@$files;
   $check_mixed     = !$all_known      && !$staged && !@$files;
-  $check_no_branch = !$bypass_no_branch;
   push(@{$self->{'commit_flags'}}, "-a") if $all_known;
 
   #
@@ -1302,7 +1299,6 @@ sub preprocess {
     RepoUtil::commit_push_checks($package_name,
                                  {no_changes       => 1,
                                   unknown          => $check_unknown,
-                                  no_branch        => $check_no_branch,
                                   partially_staged => $check_mixed});
 
   die "No staged changes, but --staged given.\n"
