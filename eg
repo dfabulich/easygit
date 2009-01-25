@@ -6030,7 +6030,7 @@ sub migrate_old_easy_git_pull_push_options()
       $option =~ s/\s+/ = /;
       print STDERR<<EOF;
 Abort: Tried to migrate obsolete (and broken) EasyGit-specific configuration
-values, but ran across one I didn't recognize:
+values, but ran across one I did not recognize:
   $option
 Please file a bug report, and or manually unset this configuration value
 EOF
