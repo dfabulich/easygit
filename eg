@@ -1258,7 +1258,7 @@ sub preprocess {
   $self->{args} = [];
   my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
   my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
-  my ($all_known, $bypass_unknown, $staged) = (0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged, $amend) = (0, 0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
@@ -1271,7 +1271,7 @@ sub preprocess {
     "C=s"                         => sub { &$record_args(@_) },
     "F=s"                         => sub { &$record_args(@_) },
     "m=s"                         => sub { &$record_args(@_) },
-    "amend"                       => sub { &$record_arg(@_) },
+    "amend"                       => sub { $amend = 1; &$record_arg(@_) },
     "allow-empty"                 => sub { &$record_arg(@_) },
     "no-verify"                   => sub { &$record_arg(@_) },
     "e"                           => sub { &$record_arg(@_) },
@@ -1301,8 +1301,19 @@ sub preprocess {
                                   unknown          => $check_unknown,
                                   partially_staged => $check_mixed});
 
+  if ($status->{has_unstaged_changes} &&
+      !$status->{has_staged_changes} && $amend) {
+    print STDERR <<EOF;
+Aborting: It is not clear whether you want to simply amend the commit message
+or whether you want to include your local changes in the amended commit.  Please
+pass --staged to just amend the previous commit message, or pass -a to include
+your current local changes with the previous amended commit.
+EOF
+    exit 1;
+  }
+
   die "No staged changes, but --staged given.\n"
-      if (!$status->{has_staged_changes} && $staged);
+      if (!$status->{has_staged_changes} && $staged && !$amend);
 
   if (!$all_known && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes} &&
