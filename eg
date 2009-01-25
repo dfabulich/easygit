@@ -3916,7 +3916,7 @@ sub preprocess {
     "verbose|v"           => sub { &$record_arg(@_) },
     "merge|m"             => sub { &$record_arg(@_) },
     "C=i"                 => sub { &$record_args(@_) },
-    "whitespace=s"        => sub { &$record_args(@_) },
+    "whitespace=s"        => sub { push(@{$self->{args}},"--whitespace=$_[1]") },
     "preserve-merges|p"   => sub { &$record_arg(@_) },
     "onto=s"              => sub { &$record_args(@_) },
     "against=s"           => sub { $since=$_[1] },
