@@ -973,7 +973,7 @@ sub preprocess {
     "x"            => \$dash_x,
     );
   $self->{reverse} = $reverse;
-  unshift(@ARGV, "-x") if ($reverse && $dash_x);
+  unshift(@ARGV, "-x") if (!$reverse && $dash_x);
   unshift(@ARGV, ("-m", $mainline)) if $mainline != -1;
 }
 
