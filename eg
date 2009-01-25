@@ -6427,15 +6427,20 @@ sub git_rev_parse {
   Util::push_debug(new_value => 0);
 
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git rev-parse @ARGV", ignore_ret => 1);
+    ExecUtil::execute_captured("git rev-parse @args", ignore_ret => 1);
   if ($ret != 0) {
     $output =~ /^(fatal:.*)$/m   && print STDERR "$1\n";
     $output =~ /^(Use '--'.*)$/m && print STDERR "$1\n";
     exit 1;
   }
-  my @opts  = split('\n', `git rev-parse --no-revs --flags    @ARGV`);
-  my @revs  = split('\n', `git rev-parse --revs-only          @ARGV`);
-  my @files = split('\n', `git rev-parse --no-revs --no-flags @ARGV`);
+  my @opts  = split('\n', `git rev-parse --no-revs --flags    @args`);
+  my @revs  = split('\n', `git rev-parse --revs-only          @args`);
+  my @files = split('\n', `git rev-parse --no-revs --no-flags @args`);
+
+  # FIXME: Should I even bother with this sanity check?
+  die "Deep bug in git_rev_parse!\n"
+    if scalar(@args) != scalar(@opts) + scalar(@revs) + scalar(@files);
+  @revs = @args[scalar(@opts)..scalar(@opts)+scalar(@revs)-1];
 
   Util::pop_debug();
 
