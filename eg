@@ -964,6 +964,7 @@ sub preprocess {
   my $package_name = ref($self);
 
   my ($reverse, $dash_x, $mainline) = (0, 0, -1);
+  Getopt::Long::Configure("permute");  # Allow unrecognized options through
   my $result = main::GetOptions(
     "--help"       => sub { $self->help() },
     "mainline|m=i" => \$mainline,
@@ -1480,6 +1481,7 @@ sub preprocess {
   $self->{'opts'} = "";
   @ARGV = @$opts;
   my ($staged, $unstaged) = (0, 0);
+  Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
     "staged|cached"  => \$staged,
