@@ -6287,11 +6287,19 @@ sub parse_args {
         last;
       }
 
-      if (RepoUtil::valid_ref($arg)) {
-        push(@revs, $arg);
-      } else {
+      my @revs_to_check = split('\.\.\.?', $arg);
+      my $found_invalid_ref = 0;
+      foreach my $ref (@revs_to_check) {
+        if (!RepoUtil::valid_ref($ref)) {
+          $found_invalid_ref = 1;
+          last;
+        }
+      }
+      if ($found_invalid_ref) {
         unshift(@args, $arg);
         last;
+      } else {
+        push(@revs, $arg);
       }
     }
   }
