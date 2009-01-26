@@ -6549,12 +6549,13 @@ package main;
 
 sub launch {
   my $job=shift;
+  my $orig_job = $job;
   $job =~ s/-/_/;  # Packages must have underscores, commands often have dashes
 
   # Create the action to execute
   my $action;
-  $action = $job->new()                      if  $job->can("new");
-  $action = subcommand->new(command => $job) if !$job->can("new");
+  $action = $job->new()                           if  $job->can("new");
+  $action = subcommand->new(command => $orig_job) if !$job->can("new");
 
   # preprocess
   if ($action->can("preprocess")) {
