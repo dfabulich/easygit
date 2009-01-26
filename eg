@@ -6452,10 +6452,11 @@ sub git_rev_parse {
   my @revs  = split('\n', `git rev-parse --revs-only          @args`);
   my @files = split('\n', `git rev-parse --no-revs --no-flags @args`);
 
-  # FIXME: Should I even bother with this sanity check?
-  die "Deep bug in git_rev_parse!\n"
-    if scalar(@args) != scalar(@opts) + scalar(@revs) + scalar(@files);
-  @revs = @args[scalar(@opts)..scalar(@opts)+scalar(@revs)-1];
+  # Translate sha1sums back to human specified version of revisions.  Note that
+  # something like "REV1...REV2" is translated into "SHA1 SHA2 ^SHA3", so one
+  # argument may have become 3 revisions.  options and files should translate
+  # one to one, though, so we can back out the original revision names.
+  @revs = @args[scalar(@opts)..scalar(@args)-scalar(@files)-1];
 
   Util::pop_debug();
 
