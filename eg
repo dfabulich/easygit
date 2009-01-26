@@ -1481,6 +1481,14 @@ sub preprocess {
   my $package_name = ref($self);
 
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
+  ## Could also use (do I want to switch over?):
+  # my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+
+  # Replace '..' with '...' in revision specifiers.  Use backslash escaping to
+  # get actual dots and not just any character.  Use negative lookbehind and
+  # lookahead assertions to avoid replacing '...' with '....'.
+  my @new_revs = map(m#(.+)(?<!\.)\.\.(?!\.)(.+)# ? "$1...$2" : $_, @$revs);
+  $revs = \@new_revs;
 
   #
   # Parse options
