@@ -5541,7 +5541,7 @@ sub new {
   my $self = $class->SUPER::new(git_equivalent => '', @_);
   bless($self, $class);
 
-  unshift(@ARGV, "--") if $ARGV[0] ne "--";
+  unshift(@ARGV, "--") if scalar(@ARGV) > 0 && $ARGV[0] ne "--";
   unshift(@ARGV, "--staged");
 
   $self->{'help'} = "
