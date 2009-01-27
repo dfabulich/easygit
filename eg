@@ -376,6 +376,10 @@ Options:
   -s
     After creating the new branch, switch to it
 ";
+  $self->{'differences'} = '
+  eg branch is identical to git branch other than adding a new -s option for
+  switching to a branch immediately after creating it.
+';
   return $self;
 }
 
@@ -495,6 +499,11 @@ Options:
       ^baz foo bar       Include commits on the foo or bar branch, except for
                            those that are in the baz branch
 ";
+  $self->{'differences'} = '
+  eg bundle differs from git bundle in two ways:
+    (1) eg bundle defaults to "-all HEAD" if no revisions are passed to create
+    (2) eg bundle provides a create-update subcommand
+';
   return $self;
 }
 
@@ -1038,7 +1047,7 @@ Options:
   $self->{'differences'} = "
   eg clone and git clone are very similar, but eg clone by default sets up
   a branch for each remote branch automatically (instead of only creating
-  master).
+  one branch, typically master).
 ";
   return $self;
 }
@@ -1233,17 +1242,24 @@ Options:
   for eg commit.
 
   To be precise about the behavior of a plain "eg commit":
-     If the working copy is clean             -> warn user: nothing to commit
-     else if there are unmerged files         -> warn user: unmerged files
-     else if there are new untracked files    -> warn user: new unknown files
-     else if both staged and unstaged changes -> warn user: mix
-     else                                     -> run "git commit -a"
+     If the working copy is clean                -> warn user: nothing to commit
+     else if there are unmerged files            -> warn user: unmerged files
+     else if there are new untracked files       -> warn user: new unknown files
+     else if both "staged" & unstaged changes[1] -> warn user: mix
+     else                                        -> run "git commit -a"
   Actually, I do not pass -a if there are only staged changes present, but
   the result is the same.  Note that this essentially boils down to making
   the user do less work (no need to remember -a in the common case) and
   extending the sanity checks git commit does (which currently only covers
   the clean working copy case) to also prevent a number of other very
   common user pitfalls.
+
+  [1] The reason for putting "staged" in quotes comes from the case of
+  running "eg commit --amend" when you have local unstaged changes.  Does
+  the user want to merely amend the prior commit message or add their
+  changes to the previous commit?  (Even if the index matches HEAD at this
+  time, we are committing relative to HEAD^1.)  It is not clear what the
+  user wants, so we warn and ask them to use -a or --staged.
 ';
   return $self;
 }
@@ -1451,6 +1467,12 @@ Options:
     directory.  Cannot be used when a revision is specified.
 ";
   $self->{'differences'} = '
+  Changes to eg diff relative to git diff are:
+    (1) Different defaults for what to diff relative to
+    (2) Providing a more consistent double-dot operator
+
+  Section 1: Different defaults for what to diff relative to
+
   The following illustrate the two changed defaults of eg diff:
     eg diff            <=> git diff HEAD
     eg diff --unstaged <=> git diff
@@ -1472,6 +1494,38 @@ Options:
   calling merge) and then tries "eg diff", it will abort with a message
   telling the user that there is no "last" commit and will provide
   alternative suggestions.
+
+  Section 2: Providing a more consistent double-dot operator
+
+    The .. operator of git diff (e.g. git diff master..devel) means what
+    the ... operator of git log means, and vice-versa.  This causes lots of
+    confusion.  We fix this by aliasing making the .. operator of eg diff
+    do exactly what the ... operator of git diff does.  To see why:
+    
+    Meanings of git commands, as a reminder (A and B are revisions):
+      git diff A..B  <=> git diff A B                      # Endpoint difference
+      git diff A...B <=> git diff $(git merge-base A B) B
+    
+    Why this is confusing (compare to above):
+      git log A..B  <=> git log $(git merge-base A B) B
+      git log A...B <=> git log ^$(git merge-base A B) A B # Endpoint difference
+    
+    So, my translation:
+      eg diff A B   <=>  git diff A B    <=> git diff A..B
+      eg diff A..B  <=>  git diff A...B
+      eg diff A...B <=>  git diff A...B
+
+    Reasons for this change:
+      * New users automatically get sane behavior, and use either eg diff A B
+        or eg diff A..B, each doing what one would expect.  They do not ever
+        realize that A...B is a bit weird because they have no need to try to
+        use it; eg diff A B covers their needs.
+      * Users worried about switching between eg and git without having to
+        modify their command lines can always use either diff A B or
+        diff A...B, but never any other form; using this subset ensures that
+        both eg and git behave identically.
+      * Users only access git diff A..B behavior through eg diff A B, which
+        is less typing and makes more sense.
 ';
   return $self;
 }
@@ -4909,6 +4963,11 @@ Options:
     of files, (useful when filenames might be mistaken for command-line
     options).
 ";
+  $self->{'differences'} = '
+  eg stage is a command new to eg that is not part of git (update: it is
+  part of newer versions of git, with identical meaning to eg).  eg stage
+  merely calls git add.
+';
   return $self;
 }
 
@@ -5571,6 +5630,11 @@ Examples:
       \$ eg stage foo
       \$ eg unstage foo
 ";
+  $self->{'differences'} = '
+  eg unstage is a command new to eg that is not part of git; it is implemented
+  on top of eg revert --staged, though it could as easily simply call through
+  to git reset.
+';
   return $self;
 }
 
@@ -5605,6 +5669,8 @@ Description:
   Gets updates from the default remote repository if updating is safe, and
   provides suggestions on proceeding otherwise.
 
+  eg update does not accept any options...other than --help.
+
 Examples:
   Get any updates from the remote repository
       \$ eg update
@@ -5616,8 +5682,17 @@ Examples:
   changes; if anything more than this is needed, eg advises users to run
   other commands.
 
-  eg update does not accept any options.  Period.  Well, okay, other than
-  --help.
+  Here are the special cases eg update detects and provides tailored
+  messages for:
+    * User has local commits           => ask user to use eg pull instead
+    * User provides argument to update => tell user to use eg switch for
+                                          checking out an older revision or
+                                          eg revert to undo changes to a file
+    * User has locally deleted files   => tell user to use eg revert to
+                                          undo local changes (this catches
+                                          a nasty cvs-induced habit)
+    * User has local modifications     => Tell user to stash or commit their
+                                          changes before pulling updates
 ';
   return $self;
 }
