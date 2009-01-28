@@ -5689,10 +5689,16 @@ Examples:
                                           checking out an older revision or
                                           eg revert to undo changes to a file
     * User has locally deleted files   => tell user to use eg revert to
-                                          undo local changes (this catches
-                                          a nasty cvs-induced habit)
+                                          undo local changes (and that they do
+                                          not need to delete the file first as
+                                          they did with cvs)
     * User has local modifications     => Tell user to stash or commit their
                                           changes before pulling updates
+    * No default repository to contact => Tell user to run "eg remote add
+                                          origin REPOSITORY_URL"
+    * branch.BRANCH.merge not set and  => Warn user that we do not know which
+      more than one remote branch         branch to pull from and suggest eg
+      present                             pull or setting branch.BRANCH.merge
 ';
   return $self;
 }
@@ -5768,8 +5774,14 @@ EOF
       }
     }
   }
-  die "No remote branch to update from (perhaps try eg pull instead?\n"
-    if !$merge_branch;
+  if (!$merge_branch) {
+    print STDERR <<EOF;
+Error: It is not clear which remote branch to update from.
+You can either use eg pull instead, or run 
+  eg config branch.$branch.merge BRANCHANME
+EOF
+    exit 1;
+  }
   $self->{merge_branch} = $merge_branch;
 }
 
