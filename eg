@@ -1526,6 +1526,10 @@ Options:
         both eg and git behave identically.
       * Users only access git diff A..B behavior through eg diff A B, which
         is less typing and makes more sense.
+      * Since git diff A..B and git diff A B are the same, the latter is far
+        more common, and the former is confusing, odds are that if any git
+        user suggests someone use git diff A..B they probably really meant
+        git diff A...B
 ';
   return $self;
 }
