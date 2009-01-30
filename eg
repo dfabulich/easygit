@@ -2851,15 +2851,16 @@ sub run {
   @ARGV = $self->quote_args(@ARGV);
 
   my $branch = RepoUtil::current_branch();
-  my ($ret, $revision) =
-    ExecUtil::execute_captured("git rev-parse refs/heads/$branch");
-  chomp($revision);
 
   # We can just run plain git log if there's not current branch
   if (!$branch) {
     ExecUtil::execute("git log @ARGV");
     return;
   }
+
+  my ($ret, $revision) =
+    ExecUtil::execute_captured("git rev-parse refs/heads/$branch");
+  chomp($revision);
 
   # Show the user the essential equivalent to what we manually do
   if ($debug) {
