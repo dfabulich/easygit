@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w
 
-## Easy GIT (eg), a usable version of git
-## Version .95
-## Copyright 2008 by Elijah Newren, and others
+## Easy GIT (eg), a frontend for git designed for former cvs and svn users
+## Version .97
+## Copyright 2008, 2009 by Elijah Newren, and others
 ## Licensed under GNU GPL, version 2.
 
 ## To use eg, simply stick this file in your path.  Then fire off an
@@ -23,7 +23,7 @@ my $debug=0;
 
 # globals :-(
 my $outfh;
-my $version = ".95";
+my $version = ".97";
 my $eg_exec = abs_path($0);
 my %command;    # command=>{section, short_description} mapping
 my $section = {
