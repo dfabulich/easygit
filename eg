@@ -2876,7 +2876,8 @@ sub run {
   $names{$revision} = [$branch, 0];
 
   # Loop over the output of git log, printing/modifying as we go
-  open(INPUT, "GIT_PAGER_IN_USE=1 git log @ARGV | ");
+  my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
+  open(INPUT, "$use_colors git log @ARGV | ");
   open(OUTPUT, "| less -FRSX");
   #open(OUTPUT, ">&STDOUT");
   while (<INPUT>) {
@@ -5319,7 +5320,8 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = $self->quote_args(@ARGV);
-  return ExecUtil::execute("GIT_PAGER_IN_USE=1 git status @ARGV",
+  my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
+  return ExecUtil::execute("$use_colors git status @ARGV",
 			   ignore_ret => 1);
 }
 
