@@ -2878,7 +2878,14 @@ sub run {
   # Loop over the output of git log, printing/modifying as we go
   my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
   open(INPUT, "$use_colors git log @ARGV | ");
-  open(OUTPUT, "| less -FRSX");
+  my $pid = open(OUTPUT, "| less -FRSX");
+
+  # Make sure that we don't leave the terminal in a weird state if the user
+  # hits Ctrl-C during eg log
+  local $SIG{INT} = 
+    sub { kill SIGKILL, $pid; close(INPUT); close(OUTPUT); close(REV_LIST_INPUT);
+          exit(0); };
+ 
   #open(OUTPUT, ">&STDOUT");
   while (<INPUT>) {
     # If it's a commit line, determine the name of the commit and print it too
@@ -5320,9 +5327,8 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = $self->quote_args(@ARGV);
-  my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
-  return ExecUtil::execute("$use_colors git status @ARGV",
-			   ignore_ret => 1);
+  -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
+  return ExecUtil::execute("git status @ARGV", ignore_ret => 1);
 }
 
 sub postprocess {
