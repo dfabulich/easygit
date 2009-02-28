@@ -155,7 +155,10 @@ sub help {
     exit ExecUtil::execute("git $self->{command} --help")
   }
 
-  open(OUTPUT, "| less -FRSX");
+  $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
+  my $less = `git config core.pager` || "less";
+  chomp($less);
+  open(OUTPUT, "| $less");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
   print OUTPUT $self->{'help'};
   print OUTPUT "\nDifferences from git $package_name:";
@@ -694,7 +697,10 @@ sub run {
   # Print valid subcommands sorted by section
   my $indent = "  ";
   my $header_indent = "";
-  open(OUTPUT, "|less -FRSX");
+  $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
+  my $less = `git config core.pager` || "less";
+  chomp($less);
+  open(OUTPUT, "| $less");
 
   if ($self->{details}) {
     print OUTPUT "Summary of changes:\n";
@@ -1740,7 +1746,10 @@ sub run {
   }
 
   # Print valid subcommands sorted by section
-  open(OUTPUT, "| less -FRSX");
+  $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
+  my $less = `git config core.pager` || "less";
+  chomp($less);
+  open(OUTPUT, "| $less");
   foreach my $name (sort
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
@@ -2401,7 +2410,10 @@ storage       High level overview of how commits, tags, and branches are stored
     $help_msg = $topics;
   }
 
-  open(OUTPUT, "| less -FRSX");
+  $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
+  my $less = `git config core.pager` || "less";
+  chomp($less);
+  open(OUTPUT, "| $less");
   print OUTPUT "$topic\n";
   print OUTPUT $help_msg;
   close(OUTPUT);
@@ -2879,7 +2891,10 @@ sub run {
   # Loop over the output of git log, printing/modifying as we go
   my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
   open(INPUT, "$use_colors git log @ARGV | ");
-  my $pid = open(OUTPUT, "| less -FRSX");
+  $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
+  my $less = `git config core.pager` || "less";
+  chomp($less);
+  my $pid = open(OUTPUT, "| $less");
 
   # Make sure that we don't leave the terminal in a weird state if the user
   # hits Ctrl-C during eg log
