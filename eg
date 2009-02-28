@@ -1485,9 +1485,10 @@ Options:
   revisions are given, eg diff will pass along the revision "HEAD" to git
   diff.
 
-  The "--staged" option is an alias for "--cached" unique to eg diff (the
+  The "--staged" option is an alias for "--cached" unique to eg diff; the
   purpose of the alias is to reduce the number of different names in git
-  used to refer to the same concept.)
+  used to refer to the same concept.  (Update: the --staged flag is now
+  part of git with the same meaning as in eg.)
 
   Merges: The above is slightly modified if the user has an incomplete
   merge; if the user has conflicts during a merge (or uses --no-commit when
