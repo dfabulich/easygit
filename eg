@@ -1106,7 +1106,7 @@ sub run {
     print "    >>Running: 'git branch -r'<<\n";
     print "    --- Setting up extra branches by default ---\n";
     print "    >>Running, for each remote branch besides master (referred to as BRANCH):\n";
-    print "        git branch --no-track BRANCH origin/BRANCH\n";
+    print "        git branch BRANCH origin/BRANCH\n";
   } elsif ($ret == 0) {
     # Switch to the appropriate directory, remembering the repository we
     # checked out
@@ -1129,7 +1129,7 @@ sub run {
       ($remote, $branch) = ($b =~ m#^(.*)/(.*?)$#);
       next if $branch eq "HEAD";
       next if grep {$branch eq $_} @local_branches;
-      ExecUtil::execute("git branch --no-track $branch $remote/$branch > /dev/null");
+      ExecUtil::execute("git branch $branch $remote/$branch > /dev/null");
     }
   }
 }
