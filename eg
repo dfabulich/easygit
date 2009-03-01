@@ -2615,7 +2615,6 @@ EOF
   print "  Cryptographic checksum (sha1sum): $current_commit\n" if $debug < 2;
 
   # Default pull/push options
-  RepoUtil::migrate_old_easy_git_pull_push_options();
   my $default = "-None-";
   my $print_config_options = 0;
   my ($ret, $options) =
@@ -3380,8 +3379,6 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  RepoUtil::migrate_old_easy_git_pull_push_options();
-
   #
   # Parse options
   #
@@ -3669,8 +3666,6 @@ sub _check_if_bare {
 sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
-
-  RepoUtil::migrate_old_easy_git_pull_push_options();
 
   #
   # Parse options
@@ -6141,65 +6136,6 @@ repository.  Please specify a repository or setup "origin" by running
   eg remote add origin URL
 EOF
   }
-}
-
-sub migrate_old_easy_git_pull_push_options()
-{
-  my @options = `git config --get-regexp "^default.*"`;
-  return if $? != 0;
-  my @remotes = `git remote`;
-  chomp(@remotes);
-
-  Util::push_debug(new_value => 0);
-
-  my ($ret, $output);
-  chomp(@options);
-  foreach my $option (@options) {
-    my ($key, $value) = split(' ', $option);
-    my $section = ($key =~ /^(.*)\./ && $1);
-    ($ret, $output) =
-      ExecUtil::execute_captured("git config --remove-section $section",
-                                 ignore_ret => 1);
-
-    next if $option =~ /^default\.push/;
-    next if $option =~ /^default\.branch\.[^ ]+\.url\b/;
-
-    if ($option =~ /^default\.(branch\.([^ ]+)\.remote) (.*)$/) {
-      my $newkey = $1;
-      my $branch = $2;
-      my $remote = $3;
-      if (grep {$remote eq $_} @remotes) {
-        ($ret, $output) = ExecUtil::execute_captured("git config --get $newkey",
-                                                     ignore_ret => 1);
-        if ($ret != 0) {
-          ($ret, $output) =
-            ExecUtil::execute_captured("git config $newkey $value");
-        }
-      }
-    } elsif ($option =~ /^default\.(branch\.([^ ]+)\.merge) (.*)$/) {
-      my $newkey = $1;
-      my $branch = $2;
-      ($ret, $output) = ExecUtil::execute_captured("git config --get $newkey",
-                                                   ignore_ret => 1);
-      if ($ret != 0) {
-        if (RepoUtil::valid_ref($branch)) {
-          ($ret, $output) =
-            ExecUtil::execute_captured("git config $newkey refs/heads/$value");
-        }
-      }
-    } else {
-      $option =~ s/\s+/ = /;
-      print STDERR<<EOF;
-Abort: Tried to migrate obsolete (and broken) EasyGit-specific configuration
-values, but ran across one I did not recognize:
-  $option
-Please file a bug report, and or manually unset this configuration value
-EOF
-      exit 1;
-    }
-  }
-
-  Util::pop_debug();
 }
 
 # Error messages spewed by commit with non-clean working copies
