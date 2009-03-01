@@ -1124,6 +1124,15 @@ sub run {
       split('\n', `git for-each-ref --format '%(refname)' refs/heads/`);
     @local_branches = map { m#^refs/heads/(.*)$# && $1 } @local_branches;
 
+    # Set branch.@local_branches.rebase to true if branch.autosetuprebse is true
+    my $autosetuprebase = `git config --global branch.autosetuprebase`;
+    chomp($autosetuprebase);
+    if ($autosetuprebase eq 'always' || $autosetuprebase eq 'remote') {
+      foreach my $branch (@local_branches) {
+        ExecUtil::execute("git config branch.$branch.rebase true");
+      }
+    }
+
     # Set up a branch for each remote branch, not just master
     foreach my $b (@remote_branches) {
       ($remote, $branch) = ($b =~ m#^(.*)/(.*?)$#);
