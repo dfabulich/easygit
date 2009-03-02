@@ -183,32 +183,6 @@ sub preprocess {
   my $result=main::GetOptions("--help" => sub { $self->help() });
 }
 
-sub quote_args {
-  my $self = shift;
-  my @args = @_;
-
-  # Quote arguments with special characters so that when we
-  # do something like
-  #   system("$command hardcoded_arg1 @args")
-  # that the @args will get passed correctly to the shell command $command
-  my @newargs;
-  foreach my $arg (@args) {
-    my $quotes_needed = 0;
-    if ($arg =~ /[;'"<>()|`* \\]/) {
-      $quotes_needed = 1;
-    }
-
-    $arg =~ s#\\#\\\\#g;    # Backslash escape backslashes
-    $arg =~ s#"#\\"#g;      # Backslash escape quotes
-    $arg =~ s#`#\\`#g;      # Backslash escape backticks
-
-    $arg = '"'.$arg.'"' if $quotes_needed;
-
-    push(@newargs, $arg);
-  }
-  return @newargs;
-}
-
 sub run {
   my $self = shift;
   my $package_name = ref($self);
@@ -216,7 +190,7 @@ sub run {
   my $subcommand = 
     $package_name eq "subcommand" ? $self->{'command'} : $package_name;
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   return ExecUtil::execute("git $subcommand @ARGV", ignore_ret => 1);
 }
 
@@ -396,7 +370,7 @@ sub run {
     shift @ARGV;
   }
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
   ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
     if ($switch);
@@ -638,7 +612,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   return ExecUtil::execute("git show @ARGV", ignore_ret => 1);
 }
 
@@ -869,7 +843,7 @@ EOF
 sub run {
   my $self = shift;
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   if ($self->{command} ne 'clone') {
     # If this operation isn't a clone, then we should have checked for
     # whether we are in a git directory.  But we didn't do that, just in
@@ -995,7 +969,7 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   if ($self->{reverse}) {
     return ExecUtil::execute("git revert @ARGV", ignore_ret => 1);
   } else {
@@ -1097,7 +1071,7 @@ sub run {
   #
   # Perform the clone
   #
-  @args = $self->quote_args(@{$self->{args}});
+  @args = Util::quote_args(@{$self->{args}});
   my $ret = ExecUtil::execute("git clone @args", ignore_ret => 1);
   return if $self->{bare};
   if ($debug == 2) {
@@ -1582,9 +1556,10 @@ sub preprocess {
     "no-index"       => \$no_index,
     );
   die "Cannot specify both --staged and --unstaged!\n" if $staged && $unstaged;
-  $self->{'opts'} .= " --cached" if $staged;
-  $self->{'opts'} .= " --no-index" if $no_index;
-  $self->{opts} .= " @ARGV";
+  my @args;
+  push(@args, "--cached") if $staged;
+  push(@args, "--no-index") if $no_index;
+  push(@args, @ARGV);
 
   #
   # Parse revs
@@ -1616,7 +1591,9 @@ EOF
     push(@$revs, "HEAD")
   }
 
-  @ARGV = split ' ', "$self->{opts} @$revs @$files"
+  push(@args, @$revs);
+  push(@args, @$files);
+  @ARGV = @args;
 }
 
 ###########################################################################
@@ -2873,7 +2850,7 @@ sub _get_revision_name {
 
 sub run {
   my $self = shift;
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
 
   my $branch = RepoUtil::current_branch();
 
@@ -3433,7 +3410,7 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(@{$self->{args}});
+  @args = Util::quote_args(@{$self->{args}});
   return ExecUtil::execute("git pull @args", ignore_ret => 1);
 }
 
@@ -3789,7 +3766,7 @@ EOF
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(@{$self->{args}});
+  @args = Util::quote_args(@{$self->{args}});
   return ExecUtil::execute("git push @args", ignore_ret => 1);
 }
 
@@ -4044,7 +4021,7 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  @args = $self->quote_args(@{$self->{args}});
+  @args = Util::quote_args(@{$self->{args}});
   return ExecUtil::execute("git rebase @args", ignore_ret => 1);
 }
 
@@ -4330,7 +4307,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
 }
 
@@ -4558,7 +4535,7 @@ sub preprocess {
   my $files_modified = RepoUtil::files_modified();
   my @quoted_files;
   if (@$files) {
-    @quoted_files = $self->quote_args(@$files);
+    @quoted_files = Util::quote_args(@$files);
   } else {
     push(@quoted_files, $top_dir);
   }
@@ -4741,7 +4718,7 @@ sub run {
   }
 
   # Get the list of files we are working with (well, most of them...)
-  my @files = $self->quote_args( @{$self->{files}} );
+  my @files = Util::quote_args( @{$self->{files}} );
   my $file_list = "";
   $file_list = "-- @files" if @files;
 
@@ -4755,7 +4732,7 @@ sub run {
 
     # Any newly added files should be unstaged, not deleted
     if ($self->{staged} && @{$self->{new_files}}) {
-      my @new_files = $self->quote_args( @{$self->{new_files}} );
+      my @new_files = Util::quote_args( @{$self->{new_files}} );
       ExecUtil::execute("git rm --cached -q -- @new_files", ignore_ret => 1);
     }
 
@@ -4764,7 +4741,7 @@ sub run {
     if (@{$self->{newish_files}}) {
       my $flags = "";
       $flags = "--cached" if ($self->{staged} && !$self->{unstaged});
-      my @delete_files = $self->quote_args( @{$self->{newish_files}} );
+      my @delete_files = Util::quote_args( @{$self->{newish_files}} );
       ExecUtil::execute("git rm $flags -q -- @delete_files", ignore_ret => 1);
     }
 
@@ -4773,7 +4750,7 @@ sub run {
     if ($self->{unstaged} && (@{$self->{revert_files}} || !@files)) {
       my $revert_list;
       if (@files) {
-        my @revert_files = $self->quote_args( @{$self->{revert_files}} );
+        my @revert_files = Util::quote_args( @{$self->{revert_files}} );
         $revert_list = "-- @revert_files";
       } else {
         $revert_list = "-- $top_dir";
@@ -5014,7 +4991,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
 }
 
@@ -5361,7 +5338,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
   return ExecUtil::execute("git status @ARGV", ignore_ret => 1);
 }
@@ -5610,7 +5587,7 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  @ARGV = $self->quote_args(@ARGV);
+  @ARGV = Util::quote_args(@ARGV);
   return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
 }
 
@@ -6510,7 +6487,7 @@ sub _convert_tree_info_to_stage_info {
 sub _get_files_from_stage_info {
   my @lines = @_;
   chomp(@lines);
-  my @files = map { m/.*[ \t]+(.*)/ && $1 } @lines;
+  my @files = map { m/[0-9]+ [0-9a-f]+ [0-9]\t(.*)/ && $1 } @lines;
   @files = Util::uniquify_list(@files);
   return @files;
 }
@@ -6614,6 +6591,31 @@ sub uniquify_list {
   return keys %unique;
 }
 
+sub quote_args {
+  my @args = @_;
+
+  # Quote arguments with special characters so that when we
+  # do something like
+  #   system("$command hardcoded_arg1 @args")
+  # that the @args will get passed correctly to the shell command $command
+  my @newargs;
+  foreach my $arg (@args) {
+    my $quotes_needed = 0;
+    if ($arg =~ /[;'"<>()|`* \\]/) {
+      $quotes_needed = 1;
+    }
+
+    $arg =~ s#\\#\\\\#g;    # Backslash escape backslashes
+    $arg =~ s#"#\\"#g;      # Backslash escape quotes
+    $arg =~ s#`#\\`#g;      # Backslash escape backticks
+
+    $arg = '"'.$arg.'"' if $quotes_needed;
+
+    push(@newargs, $arg);
+  }
+  return @newargs;
+}
+
 # Have git's rev-parse command parse @args and decide which part is files,
 # which is options, and which are revisions.  Further, have git translate
 # revisions into full 40-character hexadecimal commit ids.
@@ -6622,16 +6624,17 @@ sub git_rev_parse {
 
   Util::push_debug(new_value => 0);
 
+  my @quoted_args = Util::quote_args(@args);
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git rev-parse @args", ignore_ret => 1);
+    ExecUtil::execute_captured("git rev-parse @quoted_args", ignore_ret => 1);
   if ($ret != 0) {
     $output =~ /^(fatal:.*)$/m   && print STDERR "$1\n";
     $output =~ /^(Use '--'.*)$/m && print STDERR "$1\n";
     exit 1;
   }
-  my @opts  = split('\n', `git rev-parse --no-revs --flags    @args`);
-  my @revs  = split('\n', `git rev-parse --revs-only          @args`);
-  my @files = split('\n', `git rev-parse --no-revs --no-flags @args`);
+  my @opts  = split('\n', `git rev-parse --no-revs --flags    @quoted_args`);
+  my @revs  = split('\n', `git rev-parse --revs-only          @quoted_args`);
+  my @files = split('\n', `git rev-parse --no-revs --no-flags @quoted_args`);
 
   # Translate sha1sums back to human specified version of revisions.  Note that
   # something like "REV1...REV2" is translated into "SHA1 SHA2 ^SHA3", so one
