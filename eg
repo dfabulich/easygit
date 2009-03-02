@@ -1092,10 +1092,10 @@ sub run {
 
     # Determine local and remote branches
     my @remote_branches =
-      split('\n', `git for-each-ref --format '%(refname)' refs/remotes/`);
+      split('\n', `git for-each-ref --format '%(refname)' refs/remotes`);
     @remote_branches = map { m#^refs/remotes/(.*)$# && $1 } @remote_branches;
     my @local_branches =
-      split('\n', `git for-each-ref --format '%(refname)' refs/heads/`);
+      split('\n', `git for-each-ref --format '%(refname)' refs/heads`);
     @local_branches = map { m#^refs/heads/(.*)$# && $1 } @local_branches;
 
     # Set branch.@local_branches.rebase to true if branch.autosetuprebse is true
