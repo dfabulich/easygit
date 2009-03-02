@@ -6229,6 +6229,23 @@ EOF
   }
 }
 
+sub print_new_unknowns {
+  my ($new_unknowns) = @_;
+  my $num = scalar(@$new_unknowns);
+  print STDERR "New unknown files";
+  print STDERR " include" if $num > 5;
+  print STDERR ":\n";
+  my $i = 0;
+  foreach my $file (@$new_unknowns) {
+    print STDERR "  $file\n";
+    last if (++$i >= 5);
+  }
+  if ($num > 5) {
+    print STDERR "Run 'eg status' to see a full list of new unknown files.\n";
+  }
+  exit 1;
+}
+
 # Error messages spewed by commit with non-clean working copies
 sub commit_error_message_checks {
   my ($commit_type, $check_for, $status, $new_unknown) = @_;
@@ -6261,31 +6278,26 @@ EOF
     print STDERR <<EOF;
 Aborting: It is not clear which changes should be committed; you have new
 unknown files, staged (explictly marked as ready for commit) changes, and
-unstaged changes all present.  Run 'eg help $commit_type' for details.
-New unknown files:
+unstaged changes all present.  Run 'eg help $commit_type' for details (in
+particular, the -b option and either the -a or --staged options).
 EOF
-    foreach my $file (@$new_unknown) {
-      print STDERR "  $file\n";
-    }
-    exit 1;
+    print_new_unknowns($new_unknown);
   }
   elsif ($check_for->{unknown} && $status->{has_new_unknown_files}) {
     print STDERR <<EOF;
 Aborting: You have new unknown files present and it is not clear whether
-they should be committed.  Run 'eg help $commit_type' for details.
-New unknown files:
+they should be committed.  Run 'eg help $commit_type' for details (in
+particular the -b option).
 EOF
-    foreach my $file (@$new_unknown) {
-      print STDERR "  $file\n";
-    }
-    exit 1;
+    print_new_unknowns($new_unknown);
   }
   elsif ($check_for->{partially_staged} &&
          $status->{has_unstaged_changes} && $status->{has_staged_changes}) {
     print STDERR <<EOF;
 Aborting: It is not clear which changes should be committed; you have both
 staged (explictly marked as ready for commit) changes and unstaged changes
-present.  Run 'eg help $commit_type' for details.
+present.  Run 'eg help $commit_type' for details (in particular, the -a and
+--staged options).
 EOF
     exit 1;
   }
@@ -6309,26 +6321,18 @@ EOF
       ($status->{has_unstaged_changes} || $status->{has_staged_changes})) {
     print STDERR <<EOF;
 Aborting: You have new unknown files and changed files present.  You should
-first commit any such changes (or use the -b flag to bypass this check) before
-trying to $clean_check_type your work elsewhere.
-New unknown files:
+first commit any such changes (and/or use the -b flag to bypass this check)
+before trying to $clean_check_type your work elsewhere.
 EOF
-    foreach my $file (@$new_unknown) {
-      print STDERR "  $file\n";
-    }
-    exit 1;
+    print_new_unknowns($new_unknown);
   }
   elsif ($check_for->{unknown} && $status->{has_new_unknown_files}) {
     print STDERR <<EOF;
 Aborting: You have new unknown files present.  You should either commit these
 new files before trying to $clean_check_type your work elsewhere, or use the
 -b flag to bypass this check.
-New unknown files:
 EOF
-    foreach my $file (@$new_unknown) {
-      print STDERR "  $file\n";
-    }
-    exit 1;
+    print_new_unknowns($new_unknown);
   }
   elsif ($check_for->{changes} &&
          ($status->{has_unstaged_changes} || $status->{has_staged_changes})) {
