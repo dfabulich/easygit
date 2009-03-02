@@ -3726,7 +3726,7 @@ EOF
   #
   # Get the default branch to push to, if needed
   #
-  if (!@branches && !@tags && !$default_specified) {
+  if (!@branches && !@tags && !@git_refspecs && !$default_specified) {
     # User hasn't specified what to push; default choices:
     # 1 - remote.$remote.(push|mirror) options
     my $default_known = 0;
