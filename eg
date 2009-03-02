@@ -1250,8 +1250,7 @@ Options:
 
   The "--bypass-unknown-check" is unique to eg commit; git commit
   behavior differs by always turning on this functionality -- there is
-  no way to have git commit do an unknown files sanity check or a no
-  active branch check for you.
+  no way to have git commit do an unknown files sanity check for you.
 
   "-a" is not nearly as useful for eg commit as it is for git commit.  "-a"
   has the same behavior in both, but the "smart" behavior of eg commit
@@ -5297,13 +5296,21 @@ Description:
   currently active branch, this command will list files with content in any
   of the following states:
 
-     Unknown
+     Unknown files
        Files that are not explicitly ignored (i.e. do not appear in an
        ignore list such as a .gitignore file) but whose contents are still
        not tracked by git.
 
        These files can become known by running 'eg stage FILENAME', or
        ignored by having their name added to a .gitignore file.
+
+     Newly created unknown files
+       Same as unknown files; the reason for splitting unknown files into
+       two sets is to make it easier to find the files users are more
+       likely to want to add.  Also, 'eg commit' will by default error out
+       with a warning message if there are any newly created unknown files
+       in order to prevent forgetting to add files that should be included
+       in a commit.
 
      Changed but not updated (\"unstaged\")
        Files whose contents have been modified in the working copy.
@@ -5320,12 +5327,14 @@ Description:
        usage.
 
        Files enter this state through the use of 'eg stage'.  Files can
-       return to the unstaged state by running 'eg revert --staged FILE'.
-       See 'eg help topic staging' to learn about the staging area.
+       return to the unstaged state by running 'eg unstage' See 'eg help
+       topic staging' to learn about the staging area.
+
 ";
   $self->{'differences'} = '
   eg status output is essentially just a streamlined and cleaned version of
-  git status output.
+  git status output, with the addition of a new section (newly created
+  untracked files).
 
   The streamlining serves to avoid information overload to new users (which
   is only possible with a less error prone "commit" command) and the
@@ -5457,8 +5466,43 @@ sub postprocess {
     print "($line)\n";
   }
 
+  # Split the unknown files into those that are newly created and those that
+  # have been around
+  if (defined($files{'unknown'})) {
+    # Get the list of unknown files that have been around for a while
+    my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
+    my %old_unknown;
+    if (-f "$git_dir/info/ignored-unknown") {
+      my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
+      chomp(@old_unknown_files);
+      @old_unknown_files =
+        Util::reroot_paths__from_to_files($top_dir, $cur_dir, @old_unknown_files);
+      map { $old_unknown{$_} = 1 } @old_unknown_files;
+    }
+
+    my @new_unknowns;
+    my @old_unknowns;
+    foreach my $fileline (@{$files{'unknown'}{'file_list'}}) {
+      $fileline =~ m#(\s+(?:\e\[.*?m)?)(.*?)((?:\e\[m)?)$# ||
+        die "Failed parsing git status output: '$fileline'\n";
+      if ($old_unknown{$2}) {
+        push(@old_unknowns, $fileline);
+      } else {
+        push(@new_unknowns, $fileline);
+      }
+    }
+    if (@new_unknowns) {
+      $files{'new_unknowns'} = { title     => 'Newly created unknown files:',
+                                 file_list => \@new_unknowns };
+    }
+    if (@old_unknowns) {
+      $files{'old_unknowns'} = { title     => 'Unknown files:',
+                                 file_list => \@old_unknowns };
+    }
+  }
+
   # Print out all the various changes
-  foreach my $section ('staged', 'unstaged', 'unknown') {
+  foreach my $section ('staged', 'unstaged', 'new_unknowns', 'old_unknowns') {
     if (defined($files{$section})) {
       print "$files{$section}{'title'}\n";
       foreach my $fileline (@{$files{$section}{'file_list'}}) {
@@ -6325,7 +6369,7 @@ sub commit_push_checks {
   #
   my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
   my @unmerged_files = `git ls-files --unmerged`;
-  $status{has_new_unknown_files} = ($output =~ /^Unknown files:$/m);
+  $status{has_new_unknown_files} = ($output =~ /^Newly created unknown files:$/m);
   $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
   $status{has_staged_changes}    = ($output =~ /^Changes ready to be commit/m);
   $status{has_no_changes}        =
