@@ -1358,7 +1358,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
