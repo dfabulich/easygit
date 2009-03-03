@@ -1265,27 +1265,29 @@ sub preprocess {
   # Parse options
   #
   $self->{args} = [];
-  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
-  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
+  my $record_arg   = sub { push(@{$self->{args}}, "$_[0]$_[1]"); };
+  my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
+                           push(@{$self->{args}}, splice(@_, 2)); };
   my ($all_known, $bypass_unknown, $staged, $amend) = (0, 0, 0, 0);
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
     "bypass-unknown-check|b"      => \$bypass_unknown,
     "staged|dirty|d"              => \$staged,
-    "s"                           => sub { &$record_arg(@_) },
-    "v"                           => sub { &$record_arg(@_) },
-    "u"                           => sub { &$record_arg(@_) },
-    "c=s"                         => sub { &$record_args(@_) },
-    "C=s"                         => sub { &$record_args(@_) },
-    "F=s"                         => sub { &$record_args(@_) },
-    "m=s"                         => sub { &$record_args(@_) },
-    "amend"                       => sub { $amend = 1; &$record_arg(@_) },
-    "allow-empty"                 => sub { &$record_arg(@_) },
-    "no-verify"                   => sub { &$record_arg(@_) },
-    "e"                           => sub { &$record_arg(@_) },
-    "author=s"                    => sub { &$record_args(@_) },
-    "cleanup=s"                   => sub { &$record_args(@_) },
+    "s"                           => sub { &$record_arg("-", @_) },
+    "v"                           => sub { &$record_arg("-", @_) },
+    "u"                           => sub { &$record_arg("-", @_) },
+    "c=s"                         => sub { &$record_args("-", @_) },
+    "C=s"                         => sub { &$record_args("-", @_) },
+    "F=s"                         => sub { &$record_args("-", @_) },
+    "file=s"                      => sub { &$record_args("--", @_) },
+    "m=s"                         => sub { &$record_args("-", @_) },
+    "amend"                       => sub { $amend = 1; &$record_arg("--", @_) },
+    "allow-empty"                 => sub { &$record_arg("--", @_) },
+    "no-verify"                   => sub { &$record_arg("--", @_) },
+    "e"                           => sub { &$record_arg("-", @_) },
+    "author=s"                    => sub { &$record_args("--", @_) },
+    "cleanup=s"                   => sub { &$record_args("--", @_) },
     );
   my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
 
@@ -3338,16 +3340,15 @@ sub preprocess {
     "--no-tags"        => \$no_tags,
     "commit!"          => sub { &$record_arg(@_) },
     "summary!"         => sub { &$record_arg(@_) },
-    "-n"               => sub { &$record_arg(@_) },
+    "no-stat|n"        => sub { &$record_arg(@_) },
     "squash!"          => sub { &$record_arg(@_) },
     "ff!"              => sub { &$record_arg(@_) },
-    "strategy=s"       => sub { &$record_args(@_) },
-    "s=s"              => sub { &$record_args(@_) },
+    "strategy|s=s"     => sub { &$record_args(@_) },
     "rebase!"          => sub { &$record_arg(@_) },
     "quiet|q"          => sub { &$record_arg(@_) },
     "verbose|v"        => sub { &$record_arg(@_) },
     "append|a"         => sub { &$record_arg(@_) },
-    "--upload-pack=s"  => sub { &$record_args(@_) },
+    "upload-pack=s"    => sub { &$record_args(@_) },
     "force|f"          => sub { &$record_arg(@_) },
     "tags"             => \$all_tags,
     "keep|k"           => sub { &$record_arg(@_) },
