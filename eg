@@ -17,6 +17,7 @@ use warnings;
 use Getopt::Long;
 use Cwd qw(getcwd abs_path);
 use List::Util qw(max);
+use File::Temp qw/ tempfile /;
 
 # configurables
 my $debug=0;
@@ -4918,6 +4919,135 @@ sub preprocess {
   foreach my $i (0..$#ARGV) {
     $ARGV[$i] = "--cached" if $ARGV[$i] eq "--staged";
   }
+}
+
+###########################################################################
+# squash                                                                  #
+###########################################################################
+package squash;
+@squash::ISA = qw(subcommand);
+INIT {
+  $command{squash} = {
+    new_command => 1,
+    extra => 1,
+    section => 'modification',
+    about => 'Combine all changes since a given revision into a new commit'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg squash [--against REVISION]
+
+Description:
+  Combines all commits since REVISION into a single commit, and open an
+  editor with the concatenation of log messages for the user to edit to
+  create a new log message.
+
+  REVISION must be an ancestor of the current commit.  If REVISION is
+  not specified, the remote tracking branch for the current branch is
+  assumed.  (If there is no such branch, eg squash will abort with an
+  error.)
+
+Examples:
+  Combine all commits in the current branch that aren't in origin/master
+  into a single commit
+      \$ eg squash --against origin/master
+
+Options:
+  --against
+    An optional command line argument that makes it clearer what is
+    happening.  (In the example above, we are not \"squashing origin/master\",
+    we are squashing all changes since origin/master on top of origin/master.
+";
+  $self->{'differences'} = '
+  eg squash is a command new to eg that is not part of git.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $since;
+  my $result = main::GetOptions(
+    "--help"    => sub { $self->help() },
+    "against=s" => sub { $since=$_[1] },
+    );
+  $since = shift @ARGV if !defined($since);
+  die "Aborting: Too many revisions specified.\n" if @ARGV > 1;
+  if (!defined($since)) {
+    my $branch = RepoUtil::current_branch();
+    die "Aborting: No revision specified.\n" if !defined($branch);
+    $merge_remote = RepoUtil::get_config("branch.$branch.remote");
+    $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+    die "Aborting: No revision specified.\n" if !defined($merge_branch);
+    $merge_branch =~ s#^refs/heads/##;
+    $since = "$merge_remote/$merge_branch";
+  }
+
+  $self->{since} = $since;
+
+  Util::push_debug(new_value => 0);
+  my ($retval, $orig_head, $since_sha1sum);
+
+  # Get the sha1sum where HEAD points now, make sure HEAD is valid
+  ($retval, $orig_head) =
+    ExecUtil::execute_captured("git rev-parse HEAD", ignore_ret => 1);
+  die "Aborting: You have no commits on HEAD.\n" if $retval != 0;
+  chomp($orig_head);
+  $self->{orig_head} = $orig_head;
+
+  # Get the sha1sum where $since points now, make sure it is valid
+  ($retval, $since_sha1sum) =
+    ExecUtil::execute_captured("git rev-parse $self->{since}", ignore_ret => 1);
+  die "Invalid revision reference: $self->{since}\n" if $retval != 0;
+  chomp($since_sha1sum);
+
+  # Make sure user has no staged changes
+  my $output = `git diff --cached --quiet`;
+  die "Aborting: You have staged changes; please commit them first.\n" if $?;
+
+  # Ensure $self->{since} is an ancestor of HEAD
+  my ($ret, $unmerged) =
+      ExecUtil::execute_captured("git rev-list HEAD..$self->{since} | wc -l");
+  chomp($unmerged);
+  die "Aborting: $self->{since} is not an ancestor of HEAD.\n" if $unmerged;
+  die "Aborting: There are no commits since $self->{since}.\n"
+    if $orig_head eq $since_sha1sum;
+
+  Util::pop_debug();
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  # Fill out a basic log message
+  my ($fh, $filename) = main::tempfile();
+  print $fh <<EOF;
+# Please combine the following commit messages into a single commit message.
+# Lines starting with a '#' will be ignored.
+
+EOF
+  close($fh);
+  ExecUtil::execute("git log --pretty=format:" .
+            "'#commit %H%n#Author: %an <%ae>%n#Date:   %ad%n%n%s%n%n%b' " .
+            " $self->{since}..$self->{orig_head} >> $filename");
+
+  # Now, reset and commit
+  ExecUtil::execute("git reset --soft $self->{since}");
+  ExecUtil::execute("git commit -F $filename --edit", ignore_ret => 1);
+
+  # Restore the branch pointer if the commit failed (e.g. empty log message)
+  ExecUtil::execute("git reset --soft $self->{orig_head}") if $? != 0;
+
+  unlink($filename);
 }
 
 ###########################################################################
