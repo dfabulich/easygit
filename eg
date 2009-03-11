@@ -3388,14 +3388,13 @@ sub preprocess {
     my $branch = RepoUtil::current_branch();
     if ($branch) {
       my ($merge_branch, $url);
-      if ($repository) {
-        $merge_branch = RepoUtil::get_config("remote.$repository.merge");
-      } else {
+      $url = RepoUtil::get_config("branch.$branch.remote");
+      if ($url && (!$repository || $url eq $repository)) {
         $merge_branch = RepoUtil::get_config("branch.$branch.merge");
-        $url = RepoUtil::get_config("branch.$branch.remote");
       }
       if (!$merge_branch && ($repository || $url)) {
         my $only_branch = RepoUtil::get_only_branch($repository || $url);
+	push(@{$self->{args}}, $url) if !$repository;
         push(@branches, $only_branch);
       }
     }
