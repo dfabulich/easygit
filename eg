@@ -3662,7 +3662,7 @@ sub preprocess {
       }
       if (!$merge_branch && ($repository || $url)) {
         my $only_branch = RepoUtil::get_only_branch($repository || $url);
-	push(@{$self->{args}}, $url) if !$repository;
+        push(@{$self->{args}}, $url) if !$repository;
         push(@branches, $only_branch);
       }
     }
@@ -4012,7 +4012,7 @@ EOF
       if (defined $push_branch) {
         $push_branch =~ s#refs/heads/##;
         push(@{$self->{args}}, $push_branch);
-	$default_known = 1;
+        $default_known = 1;
       }
     }
     # 3 - the only branch that exists at the remote end
