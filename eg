@@ -1316,10 +1316,11 @@ sub preprocess {
   if ($status->{has_unstaged_changes} &&
       !$status->{has_staged_changes} && $amend && !$all_known && !$staged) {
     print STDERR <<EOF;
-Aborting: It is not clear whether you want to simply amend the commit message
-or whether you want to include your local changes in the amended commit.  Please
-pass --staged to just amend the previous commit message, or pass -a to include
-your current local changes with the previous amended commit.
+Aborting: It is not clear whether you want to simply amend the commit
+message or whether you want to include your local changes in the amended
+commit.  Please pass --staged to just amend the previous commit message, or
+pass -a to include your current local changes with the previous amended
+commit.
 EOF
     exit 1;
   }
