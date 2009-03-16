@@ -1801,6 +1801,268 @@ sub new {
   return $self;
 }
 
+sub middle_of_am {
+  my $continue_text = "
+1. Standard case
+
+When all conflicts have been resolved, run
+  eg am --resolved
+Do NOT run \"eg commit\" to continue an interrupted rebase (unless you want
+to manually insert a new commit; if you already accidentally ran eg commit,
+then run 'eg reset HEAD~1' to undo it).  If you try to continue without
+resolving all conflicts, the command will error out and tell you that some
+conflicts remain to be resolved.
+
+2. Special case -- skipping a commit
+
+If you do not want this particular commit to be included in the final
+result, run
+  eg am --skip";
+  my $abort_text = "
+To abort your rebase operation, simply run
+  eg am --abort";
+
+  return _conflict_resolution_message(op => "am",
+                                      show_empty_case => 1,
+                                      continue_text => $continue_text,
+                                      abort_text => $abort_text
+                                      );
+}
+
+sub middle_of_merge {
+  my $completion_text = "
+When all conflicts have been resolved, run
+  eg commit
+
+The log message will be pre-populated with a sample commit message for you,
+noting the merge and any file conflicts.  If you try to run this command
+without resolving all conflicts, the command will error out and tell you
+that some conflicts remain to be resolved.";
+  my $abort_text = "
+If you had no uncommitted changes before the merge (or do not care about
+keeping those changes), you can run
+  eg reset --working-copy ORIG_HEAD
+
+If you had uncommitted changes before starting the merge, and have
+git-1.6.2 or later, you can try
+  eg ls-files --unmerged | awk {'print \$4'} | uniq | xargs eg stage
+  eg reset --merge ORIG_HEAD
+The first command will mark all unmerged files as ready for commit (who
+doesn't like having conflict markers in their files?), and the second
+command undoes all changes to staged files since ORIG_HEAD -- both the
+files that were successfully merged by git, and the files that you manually
+staged in the first command.";
+  return _conflict_resolution_message(op => "merge",
+                                      show_empty_case => 0,
+                                      continue_text => $completion_text,
+                                      abort_text => $abort_text);
+}
+
+sub middle_of_rebase {
+  my $extra_stop_info = "
+
+If you are in the middle of an interactive rebase (i.e. you specified the
+--interactive flag), then rebase can also stop if you selected to edit a
+commit, even when there are no conflicts.  In such a case where there are
+no conflicts, there is something else you may want to do:
+  5) Editing during an interactive rebase
+Before telling git to continue the operation.";
+  my $continue_text = "
+1. Standard case
+
+When all conflicts have been resolved, run
+  eg rebase --continue
+Do NOT run \"eg commit\" to continue an interrupted rebase (unless you want
+to manually insert a new commit; if you already accidentally ran eg commit,
+then run 'eg reset HEAD~1' to undo it).  If you try to continue without
+resolving all conflicts, the command will error out and tell you that some
+conflicts remain to be resolved.
+
+2. Special case -- skipping a commit
+
+If you do not want this particular commit to be included in the final
+result, run
+  eg rebase --skip";
+  my $abort_text = "
+To abort your rebase operation, simply run
+  eg rebase --abort";
+  my $interactive_edit_text = "
+******************* Editing during an interactive rebase *******************
+
+When an interactive rebase stops to allow you to edit a commit, make any
+necessary changes to files, then run
+  eg commit --amend
+If you do not use the --amend flag, you will be inserting a new commit
+after the one you chose to edit.
+
+After you are done amending the previous commit (and/or commit message),
+run 'eg rebase --continue' to allow the rebase operation to continue.
+";
+  return _conflict_resolution_message(op => "rebase",
+                                      show_empty_case => 1,
+                                      extra_stop_info => $extra_stop_info,
+                                      continue_text => $continue_text,
+                                      abort_text => $abort_text,
+                                      final_text => $interactive_edit_text,
+                                      );
+}
+
+sub _conflict_resolution_message {
+  my $opts = {op              => "!!!FIXME!!!",
+              show_empty_case => 0,
+              extra_stop_info => '',
+              continue_text   => '!!!FIXME!!!',
+              abort_text      => '!!!FIXME!!!',
+              final_text      => '',
+              @_};  # Hashref initialized as we're told
+  my $result = "
+When conflicting changes are detected, a $opts->{op} operation will stop to
+allow a user to resolve the conflicts.  At this stage there is one of four
+things a user may want to do:
+  1) Find out more about what conflicts occurred
+  2) Resolve the conflicts
+  3) Tell git to complete the operation
+  4) Abort the operation
+Each will be discussed below.$opts->{extra_stop_info}
+
+*************** Find out more about what conflicts occurred ***************
+
+1. Standard case
+
+In order to find out which files have conflicts, run
+  eg status
+and then look for lines that begin with \"unmerged:\".  You can then open
+the relevant file in an editor and look for lines with conflict markers,
+i.e. lines that start with one of
+  <<<<<<<
+  =======
+  >>>>>>>
+Between the <'s and the ='s will be one version of the changed file, while
+betwen the ='s and the >'s will be another version.
+
+2. Simple tip
+
+Since git will stage any changes it is able to successfully merge, you can
+find the unresolved conflict sections of a file by running
+  eg diff --unstaged FILE
+";
+  if ($opts->{show_empty_case}) {
+  $result .= "
+3. Special empty commit case
+
+Sometimes, during a $opts->{op}, the changes in a commit will no longer be
+necessary since they have already been included in the code which your
+commit is being applied on top of.  In such a case, eg status will simply
+show that there are no changes at all, and you can continue by telling git
+to skip the current unneeded commit (see below).
+
+4. Difficult cases
+"
+  } else {
+  $result .= "
+3. Difficult cases
+";
+  }
+  $result .= "
+You can run
+  eg ls-files --unmerged
+to get a list of all files in the unmerged state.  This will list up to
+three lines for each file, and look like the following:
+  100644 45b983be36b73c0788dc9cbcb76cbb80fc7bb057 1	foo.C
+  100644 ce013625030ba8dba906f756967f9e9ca394464a 2	foo.C
+  100644 dd7e1c6f0fefe118f0b63d9f10908c460aa317a6 3	foo.C
+The first line corresponds to a version of the file at some common point in
+history, the second and third lines correspond to different versions of the
+file being merged (relative to the common version).  Each line is of the
+form
+  mode   internal-object-name                     stage filename
+The mode represents the permission bits and or type (executable file,
+symlink etc.), the internal-object-name is git's internal name for the
+contents of the file, the stage is a simple integer, and you should
+recognize the filename.
+
+You can make use of this information to detect the following situations:
+  A) There's a conflict in mode change (e.g. removed the executable bit on
+     one side of history, turned the file into a symlink in another)
+  B) The file is deleted in one version and modified in another (when this
+     happens either the 2nd or 3rd stage line will be missing)
+Further, you can view the different versions of the file easily, by using
+either of:
+  eg show :STAGE:FILENAME
+  eg show INTERNAL-OBJECT-NAME
+Some examples using the output above:
+  eg show :2:foo.C
+  eg show dd7e1c6f0fefe118f0b63d9f10908c460aa317a6
+
+************************** Resolve the conflicts **************************
+
+1. Standard case.
+
+For each file with conflicts, edit the file to remove the conflict markers
+and provide just the correct version of the merged file.  Then run
+  eg stage FILE
+to tell git that you have resolved the conflicts in FILE.
+
+2. Special cases
+
+Nearly all special cases (and even the standard case) boil down to making
+sure the file has the correct contents, the correct permission bits and
+type, and then running
+  eg stage FILE
+
+If the file is a binary, then there will not be any conflict markers.  In
+such a case, simply ensure that the contents of the file are what you want
+and then run eg stage, as noted above.
+
+If the file is deleted on one side of history and changed in another,
+decide what contents the file should have.  If the correct resolution is to
+delete the file, run
+  eg rm FILE
+Otherwise, put the appropriate contents in the file and run eg stage as
+noted above.
+
+If the file has a mode conflict, then fix up the mode of the file (run
+'man chmod' and 'man ln' for help on how to do so).  Note that the modes
+used by git are as follows:
+  100644  --  Normal, non-executable file
+  100755  --  File with the executable bit set
+  120000  --  symlink
+  160000  --  A git submodule (run 'man git-submodule' for more info)
+
+******************** Tell git to continue the operation ********************
+$opts->{continue_text}
+
+*************************** Abort the operation ***************************
+$opts->{abort_text}
+";
+  $result .= $opts->{final_text};
+  return $result;
+}
+
+sub middle_of_bisect {
+  return "
+When git is bisecting, it will pick commits that need to be tested, check
+them out, and then let you test them.  (Unless, of course, you give git a
+script that it can run to automatically test commits.)  At this point you
+can test and then:
+
+1) Continue
+
+  git bisect good    # Mark the current commit as good, give me a new commit
+OR
+  git bisect bad     # Mark the current commit as bad, give me a new commit
+
+2) Skip this particular commit
+
+  git bisect skip    # Can't test the current version; give me a new commit
+
+3) Abort
+
+  git bisect reset
+
+See 'man git-bisect' for more details."
+}
+
 sub refspecs {
   return "
 Before reading up on refspecs, be sure you understand all the following
@@ -2384,6 +2646,11 @@ sub help {
   # glossary      <Not yet written; this is just a stub>
 
   my $topics = "
+middle-of-am      How to resolve or abort an incomplete am (apply mail)
+middle-of-bisect  How to continue or abort a bisection
+middle-of-merge   How to resolve or abort an incomplete merge
+middle-of-rebase  How to resolve or abort an incomplete rebase
+
 refspecs      Advanced pushing and pulling: detailed control of storage
 remote-urls   Format for referring to remote (and not-so-remote) repositories
 revisions     Various methods for referring to revisions
@@ -5468,6 +5735,8 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  $self->{special_state} = RepoUtil::get_special_state($self->{git_dir});
+
   @ARGV = Util::quote_args(@ARGV);
   -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
   return ExecUtil::execute("git status @ARGV", ignore_ret => 1);
@@ -5571,6 +5840,34 @@ sub postprocess {
   }
   foreach my $line (@basic_info) {
     print "($line)\n";
+  }
+
+  # Print out info about any special state we're in
+  if (defined $self->{special_state}) {
+    my ($highlight, $reset) = ("", "");
+    if (-t STDOUT) {
+      $highlight=`git config --get-color color.status.header "red reverse"`;
+      $reset=`git config --get-color "" "reset"`;
+    }
+
+    print "($highlight";
+    print "YOU ARE IN THE MIDDLE OF A $self->{special_state}; ";
+    print "RUN 'eg help topic middle-of-";
+    if ($self->{special_state} eq "APPLY MAIL OR REBASE") {
+      # FIXME: How do we get into this state anyway, and what should they run?
+      # Well, printing nothing will just get them the general topic page, then
+      # they can pick between am and rebase
+    } elsif ($self->{special_state} =~ /REBASE$/) {
+      print "rebase";
+    } elsif ($self->{special_state} eq "APPLY MAIL") {
+      print "am";
+    } elsif ($self->{special_state} eq "MERGE") {
+      print "merge";
+    } elsif ($self->{special_state} eq "BISECT") {
+      print "bisect";
+    }
+    print "' FOR MORE INFO.";
+    print "$reset)\n";
   }
 
   # Split the unknown files into those that are newly created and those that
@@ -6247,6 +6544,30 @@ sub merge_branches {
   @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
   my @all_merge_branches = ($active_branch, @merge_branches);
   return @all_merge_branches;
+}
+
+sub get_special_state {
+  my $git_dir = shift;
+
+  my $special_state;
+  if ( -d "$git_dir/rebase-apply" ) {
+    if ( -f "$git_dir/rebase-apply/rebasing" ) {
+      return "REBASE";
+    } elsif ( -f "$git_dir/rebase-apply/applying" ) {
+      return "APPLY MAIL";
+    } else {
+      return "APPLY MAIL OR REBASE";
+    }
+  } elsif ( -f "$git_dir/rebase-merge/interactive" ) {
+    return "INTERACTIVE REBASE";
+  } elsif ( -d "$git_dir/rebase-merge" ) {
+    return "MERGE REBASE";
+  } elsif ( -f "$git_dir/MERGE_HEAD" ) {
+    return "MERGE";
+  } elsif ( -f "$git_dir/BISECT_LOG" ) {
+    return "BISECT";
+  }
+  return $special_state;
 }
 
 sub get_config {
