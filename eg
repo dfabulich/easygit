@@ -4011,7 +4011,7 @@ EOF
       $push_branch = RepoUtil::get_config("branch.$branch.merge");
       if (defined $push_branch) {
         $push_branch =~ s#refs/heads/##;
-        push(@{$self->{args}}, $push_branch);
+        push(@{$self->{args}}, "$branch:$push_branch");
         $default_known = 1;
       }
     }
