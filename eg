@@ -297,11 +297,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(
-    initial_commit_error_msg => "No branches can be created, deleted, or " .
-                                "listed until a commit has been made.",
-    @_
-    );
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3196,11 +3192,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(
-    initial_commit_error_msg => "No branches can be merged until there is " .
-                                "at least one commit.",
-    @_
-    );
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -6035,11 +6027,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(
-    initial_commit_error_msg => "No tags can be created, deleted, or " .
-                                "listed until a commit has been made.",
-    @_
-    );
+  my $self = $class->SUPER::new(@_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
