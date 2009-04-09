@@ -368,9 +368,10 @@ sub run {
   }
 
   @ARGV = Util::quote_args(@ARGV);
-  ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
-  ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
-    if ($switch);
+  my $ret = ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
+  $ret = ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
+    if ($switch && $ret == 0);
+  return $ret;
 }
 
 ###########################################################################
@@ -1112,6 +1113,8 @@ sub run {
       ExecUtil::execute("git branch $branch $remote/$branch > /dev/null");
     }
   }
+
+  return $ret;
 }
 
 ###########################################################################
@@ -2931,6 +2934,9 @@ EOF
   #   Number of unpacked objects?
 
   chdir($orig_dir);
+
+  # Well, if we got this far, it must have worked, so...
+  return 0;
 }
 
 ###########################################################################
@@ -3183,6 +3189,9 @@ sub run {
 
   # Make sure we close the pipe from rev-list too
   close(REV_LIST_INPUT);
+
+  # FIXME: Um, git log doesn't seem to return a useful exit status, so
+  # I guess it's okay that I don't bother to either?!?
 }
 
 ###########################################################################
@@ -3404,12 +3413,13 @@ EOF
   # rsync .git to the publish location
   #
   print "Copy local repository to remote location...\n" if $debug < 2;
-  ExecUtil::execute(
+  my $ret = ExecUtil::execute(
     "rsync -e ssh -az --delete --exclude=refs/remotes " .
     "--exclude=COMMIT_EDITMSG --exclude=index --exclude=logs " .
     "--exclude=info/ignored-unknown " .
     "--exclude=ORIG_HEAD --exclude=FETCH_HEAD --exclude=MERGE_HEAD " .
     "./ \"$self->{remote_dir}\"");
+  exit $ret if $ret;
 
   #
   # Undo any temporary changes we did for publishing
@@ -3453,6 +3463,7 @@ EOF
   }
 
   chdir($orig_dir);
+  return 0;
 }
 
 ###########################################################################
@@ -4995,9 +5006,13 @@ sub run {
     # If we're reverting unstaged changes only, and the user didn't specify a
     # revision to revert relative to, then we want to revert relative to the
     # index, not relative to HEAD or some prior commit.
-    ExecUtil::execute("git checkout $file_list", ignore_ret => 1);
+    $ret = ExecUtil::execute("git checkout $file_list", ignore_ret => 1);
+    exit $ret if $ret;
   }
   elsif (!$self->{in}) {
+    # FIXME: I should really check return status of all these calls and
+    # exit early if I get an error (as I do in the previous block, and
+    # in the if $self->{in} block below)...
 
     # Any newly added files should be unstaged, not deleted
     if ($self->{staged} && @{$self->{new_files}}) {
@@ -5022,7 +5037,7 @@ sub run {
         my @revert_files = Util::quote_args( @{$self->{revert_files}} );
         $revert_list = "-- @revert_files";
       } else {
-        $revert_list = "-- $top_dir";
+        $revert_list = "-- ";
       }
       ExecUtil::execute("git checkout $self->{revs} $revert_list");
     }
@@ -5105,6 +5120,7 @@ sub run {
 
   # Return to original directory
   chdir($cur_dir);
+  return 0;
 }
 
 ###########################################################################
@@ -5303,18 +5319,21 @@ sub run {
 
 EOF
   close($fh);
-  ExecUtil::execute("git log --pretty=format:" .
+  $ret = ExecUtil::execute("git log --pretty=format:" .
             "'#commit %H%n#Author: %an <%ae>%n#Date:   %ad%n%n%s%n%n%b' " .
             " $self->{since}..$self->{orig_head} >> $filename");
+  exit $ret if $ret;
 
   # Now, reset and commit
-  ExecUtil::execute("git reset --soft $self->{since}");
-  ExecUtil::execute("git commit -F $filename --edit", ignore_ret => 1);
+  $ret = ExecUtil::execute("git reset --soft $self->{since}");
+  exit $ret if $ret;
+  $ret = ExecUtil::execute("git commit -F $filename --edit", ignore_ret => 1);
 
   # Restore the branch pointer if the commit failed (e.g. empty log message)
-  ExecUtil::execute("git reset --soft $self->{orig_head}") if $? != 0;
+  ExecUtil::execute("git reset --soft $self->{orig_head}") if $ret != 0;
 
   unlink($filename);
+  return 0;
 }
 
 ###########################################################################
@@ -6303,7 +6322,7 @@ sub run {
     die "Error updating (output = $output); please report the bug, and\n" .
         "try using 'eg pull' instead.\n";
   } else {
-    ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
+    $ret = ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
     if ($has_orig_head && $debug < 2) {
       open(ORIG_HEAD, "> $self->{git_dir}/ORIG_HEAD");
       print ORIG_HEAD $output;
@@ -6311,6 +6330,7 @@ sub run {
     }
     print "Updated the current branch.\n" if ($debug < 2);
   }
+  return $ret;
 }
 
 ###########################################################################
@@ -6352,7 +6372,7 @@ sub run {
 
   print "eg version $version\n" if $debug < 2;
   print "    >>(We can print the eg version directly)<<\n" if $debug == 2;
-  $self->SUPER::run();
+  return $self->SUPER::run();
 }
 
 
@@ -6425,6 +6445,7 @@ sub _execute_impl {
     }
   }
 
+  $ret = ($ret >> 8);
   return $options{capture_output} ? ($ret, $output) : $ret;
 }
 
@@ -6796,7 +6817,8 @@ sub commit_push_checks {
   #
   # Determine which types of changes are present
   #
-  my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status");
+  my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status",
+                                                  ignore_ret => 1);
   my @unmerged_files = `git ls-files --unmerged`;
   $status{has_new_unknown_files} = ($output =~ /^Newly created unknown files:$/m);
   $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
@@ -7180,6 +7202,7 @@ sub launch {
   my $action;
   $action = $job->new()                           if  $job->can("new");
   $action = subcommand->new(command => $orig_job) if !$job->can("new");
+  my $ret;
 
   # preprocess
   if ($action->can("preprocess")) {
@@ -7196,12 +7219,12 @@ sub launch {
   # run & postprocess
   if (!$action->can("postprocess")) {
     print ">>Stage: Run<<\n" if $debug;
-    $action->run();
+    $ret = $action->run();
   } else {
     my $output = "";
     open($outfh, '>', \$output) || die "eg $job: cannot open \$outfh: $!";
     print ">>Stage: Run<<\n" if $debug;
-    $action->run();
+    $ret = $action->run();
     print ">>Stage: Postprocess<<\n" if $debug;
     $action->postprocess($output);
   }
@@ -7211,6 +7234,8 @@ sub launch {
     print ">>Stage: Wrapup<<\n" if $debug;
     $action->wrapup();
   }
+
+  exit $ret;
 }
 
 sub version {
