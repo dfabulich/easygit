@@ -4673,9 +4673,9 @@ Examples:
       \$ eg revert --since bling~3
 
   While on the stable branch, you determine that the seventh commit prior
-  to the most recent was faulty and you simply want to undo it.  This can
-  be accomplished by:
-      \$ eg revert --in stable~7
+  to the most recent had a faulty change to foo.c and you simply want to
+  undo it.  This can be accomplished by:
+      \$ eg revert --in stable~7 -- foo.c
 
   You decide that all changes to foobar.cpp in your working copy and in the
   last 2 commits are bad and want to revert them.  This is done by:
@@ -4688,7 +4688,7 @@ Examples:
       \$ eg revert -m 2 --in HEAD~4 baz.py
   
   (Advanced) Undo a previous stage, marking changes in foo.c as not
-  being ready for commit:
+  being ready for commit (this is equivalent to eg unstage foo.c):
       \$ eg revert --staged foo.c
 
   (Advanced) You decide that the changes to abracadabra.xml made in commit
@@ -4779,7 +4779,7 @@ Options:
 
   It seems that perhaps eg revert could be extended further, to accept
   things like
-      \$ eg revert --in HEAD~8..HEAD~5
+      \$ eg revert --in HEAD~8..HEAD~5 foo.c
   to allow reverting changes made in a range of commits.  The --in could
   even be optional in such a case, since the range makes it clear what is
   wanted.
