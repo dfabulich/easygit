@@ -6936,6 +6936,17 @@ sub parse_args {
   @files = @args;
   if (!$stop_marker_found && @files && $files[0] eq "--") {
     shift @files;
+  } else {
+    # If "--" appears in argument list and not at front, then some bad
+    # revisions specified by the user showed up in our @files list since
+    # they didn't validate as existing revisions.
+    my $i = -1;
+    foreach my $file (@files) {
+      if ($file eq "--") {
+        die "Bad revision(s): @files[0..$i]\n";
+      }
+      ++$i;
+    }
   }
 
   ## FIXME: I should add sanity checking: whether there are too many revs
