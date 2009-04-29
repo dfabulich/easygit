@@ -836,20 +836,6 @@ sub preprocess {
      ) {
     $self->{command} = 'clone';
   }
-
-  # Avoid checking out a remote tracking branch
-  my $valid_ref = RepoUtil::valid_ref($ARGV[-1]);
-  if ($self->{command} eq 'checkout' &&    # Checkout, not clone
-      (@ARGV == 1 || $ARGV[1] =~ /^-/) &&  # First form of checkout
-      ($ARGV[-1] =~ m#/# && $valid_ref)) { # They want a remote-tracking branch
-    print STDERR<<EOF;
-Aborting: Should not switch to a remote tracking branch.  Please instead
-create a branch based on the remote tracking branch (use the command
-'eg branch NEWBRANCH $ARGV[-1]') and then switch to the new branch.
-EOF
-    exit 1;
-  }
-
 }
 
 sub run {
@@ -6029,16 +6015,6 @@ EOF
     my $valid_ref = RepoUtil::valid_ref($ARGV[0]);
     Util::pop_debug();
     die "Invalid branch/revision reference: $ARGV[0]\n" if !$valid_ref;
-  }
-
-  # Avoid switching to a remote tracking branch
-  if ($ARGV[-1] =~ m#/#) {
-    print STDERR<<EOF;
-Aborting: Should not switch to a remote tracking branch.  Please instead
-create a branch based on the remote tracking branch (use the command
-'eg branch NEWBRANCH $ARGV[-1]') and then switch to the new branch.
-EOF
-    exit 1;
   }
 
   $self->SUPER::preprocess();
