@@ -1656,6 +1656,7 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
+  eg help --all
   eg help [COMMAND]
   eg help topic [TOPIC]
 
@@ -1666,6 +1667,9 @@ Description:
 Examples:
   Show help for eg
       \$ eg help
+
+  Show help for extended list of commands available in eg
+      \$ eg help --all
 
   Show help for the switch command of eg
       \$ eg help switch
@@ -1738,11 +1742,16 @@ sub run {
     $subcommand_obj->help();
   }
 
-  # Print valid subcommands sorted by section
+  # Set up a pager, if wanted
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
   my $less = `git config core.pager` || "less";
   chomp($less);
   open(OUTPUT, "| $less");
+
+  # Help users know about the --all switch
+  print OUTPUT "(Run 'eg help --all' for a more detailed list.)\n\n";
+
+  # Print valid subcommands sorted by section
   foreach my $name (sort
                     {$section->{$a}{'order'} <=> $section->{$b}{'order'}}
                     keys %$section) {
