@@ -735,33 +735,45 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg checkout [--depth DEPTH] REPOSITORY [DIRECTORY]
   eg checkout [-b] BRANCH
   eg checkout [REVISION] PATH...
 
 Description:
-  eg checkout simulates the checkout command from both git and svn - if you
-  are not used to checkout from those systems, you should use eg clone, eg
-  switch, or eg revert and ignore eg checkout.
+  eg checkout mostly exists as a compatibility wrapper for those used to
+  other systems (cvs/svn and git).  If you:
+    (1) want a new copy of the source code from a remote repository
+    OR
+    (2) want to switch your working copy to a different branch
+    OR
+    (3) want to revert the contents of a file to its content from a
+        different revision
+  Then use:
+    (1) eg clone
+    (2) eg switch
+    (3) eg revert
 
-  The first usage form of eg checkout is used to get a new project based on
-  a (usually remote) repository.  Users are encouraged to use eg clone
-  instead, though eg checkout accepts all parameters that eg clone does.
+  eg checkout will accept the same arguments as eg clone (for getting a new
+  copy of the source code from a remote repository), but will provide an
+  error message and tell the user to use eg clone in such cases.
 
-  The second usage form of eg checkout is used to switch to a different
+  The first usage form of eg checkout is used to switch to a different
   branch (optionally also creating it first).  This is something that can
   be done with no network connectivity in git and thus eg.  Users can find
   identical functionality in eg switch.
 
-  The third usage form of eg checkout is used to replace files in the
+  The second usage form of eg checkout is used to replace files in the
   working copy with versions from an older commit, i.e. to revert files to
-  an older version.  Users can find the same functionality (as well as many
-  other capabilities) in eg revert.
+  an older version.  Note that this only works when the specified files
+  also existed in the older version (eg checkout will not delete or unstage
+  files for you), does not work for the initial commit (since there's no
+  older revision to revert back to -- unless you are an advanced user
+  interested in just undoing the changes since the most recent staging),
+  and cannot be used to undo an incomplete merge (since it only operates on
+  a subset of files and not everything since a given commit).  Users can
+  find the same functionality (without all the caveats) as well as other
+  capabilities in eg revert.
 
 Examples:
-  Get a local copy of cairo
-      \$ eg checkout git://git.cairographics.org/git/cairo
-
   Switch to the stable branch
       \$ eg checkout stable
 
@@ -776,8 +788,10 @@ Examples:
   such cases).
 
   The only difference between eg and git regarding checkout is that eg
-  checkout will also accept all arguments to git clone, and then call git
-  clone.
+  checkout will also accept all arguments to git clone, and then tell users
+  that they must have meant to run eg clone (a much nicer error message for
+  users trying to get a copy of source code from a remote repository than
+  "fatal: Not a git repository").
 ';
   return $self;
 }
@@ -851,7 +865,7 @@ sub run {
 
     return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
   } else {
-    return ExecUtil::execute("$eg_exec  clone    @ARGV", ignore_ret => 1);
+    die "Did you mean to run\n  eg clone @ARGV\n?\n";
   }
 }
 
