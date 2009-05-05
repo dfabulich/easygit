@@ -5929,6 +5929,7 @@ sub postprocess {
   }
 
   # Print out info about any special state we're in
+  my $notice = "";
   if (defined $self->{special_state}) {
     my ($highlight, $reset) = ("", "");
     if (-t STDOUT) {
@@ -5936,24 +5937,25 @@ sub postprocess {
       $reset=`git config --get-color "" "reset"`;
     }
 
-    print "($highlight";
-    print "YOU ARE IN THE MIDDLE OF A $self->{special_state}; ";
-    print "RUN 'eg help topic middle-of-";
+    $notice .= "($highlight";
+    $notice .= "YOU ARE IN THE MIDDLE OF A $self->{special_state}; ";
+    $notice .= "RUN 'eg help topic middle-of-";
     if ($self->{special_state} eq "APPLY MAIL OR REBASE") {
       # FIXME: How do we get into this state anyway, and what should they run?
       # Well, printing nothing will just get them the general topic page, then
       # they can pick between am and rebase
     } elsif ($self->{special_state} =~ /REBASE$/) {
-      print "rebase";
+      $notice .= "rebase";
     } elsif ($self->{special_state} eq "APPLY MAIL") {
-      print "am";
+      $notice .= "am";
     } elsif ($self->{special_state} eq "MERGE") {
-      print "merge";
+      $notice .= "merge";
     } elsif ($self->{special_state} eq "BISECT") {
-      print "bisect";
+      $notice .= "bisect";
     }
-    print "' FOR MORE INFO.";
-    print "$reset)\n";
+    $notice .= "' FOR MORE INFO.";
+    $notice .= "$reset)\n";
+    print $notice;
   }
 
   # Split the unknown files into those that are newly created and those that
@@ -5992,13 +5994,21 @@ sub postprocess {
   }
 
   # Print out all the various changes
+  my $linecount = 0;
   foreach my $section ('staged', 'unstaged', 'new_unknowns', 'old_unknowns') {
     if (defined($files{$section})) {
       print "$files{$section}{'title'}\n";
+      $linecount += 1;
       foreach my $fileline (@{$files{$section}{'file_list'}}) {
         print "$fileline\n";
+        $linecount += 1;
       }
     }
+  }
+
+  # Repeat the notice so users will see it
+  if (defined $self->{special_state} && $linecount > 0) {
+    print $notice;
   }
 
 }
