@@ -2057,17 +2057,17 @@ can test and then:
 
 1) Continue
 
-  git bisect good    # Mark the current commit as good, give me a new commit
+  eg bisect good    # Mark the current commit as good, give me a new commit
 OR
-  git bisect bad     # Mark the current commit as bad, give me a new commit
+  eg bisect bad     # Mark the current commit as bad, give me a new commit
 
 2) Skip this particular commit
 
-  git bisect skip    # Can't test the current version; give me a new commit
+  eg bisect skip    # Can't test the current version; give me a new commit
 
 3) Abort
 
-  git bisect reset
+  eg bisect reset
 
 See 'man git-bisect' for more details."
 }
