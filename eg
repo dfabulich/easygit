@@ -7381,6 +7381,15 @@ sub main {
     if ($ARGV[0] !~ m#^[a-z]#);
 
   #
+  # Fix the environment, if needed
+  #
+  if (defined $ENV{"EG_GIT_TEST_PATH"}) {
+    # Trim the first dir out of path, since it has a symlink git -> eg
+    my $oldpath = $ENV{PATH};
+    $ENV{PATH} = substr($oldpath, index($oldpath, ':') + 1);
+  }
+
+  #
   # Now execute the action
   #
   my $action = shift @ARGV;
