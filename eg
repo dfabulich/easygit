@@ -6500,18 +6500,20 @@ sub _execute_impl {
     elsif ($? & 127) {
       print STDERR "eg: received signal ".($? & 127)."\n";
     }
-    elsif (! $options{ignore_ret}) {
-      print STDERR "eg: failed ($ret)\n" if $debug;
-      if ($ret >> 8 != 0) {
-        print STDERR "eg: command ($command) failed\n";
-      }
-      elsif ($ret != 0) {
-        print STDERR "eg: command ($command) died (retval=$ret)\n";
+    else {
+      $ret = ($ret >> 8);
+      if (! $options{ignore_ret}) {
+        print STDERR "eg: failed ($ret)\n" if $debug;
+        if ($ret >> 8 != 0) {
+          print STDERR "eg: command ($command) failed\n";
+        }
+        elsif ($ret != 0) {
+          print STDERR "eg: command ($command) died (retval=$ret)\n";
+        }
       }
     }
   }
 
-  $ret = ($ret >> 8);
   return $options{capture_output} ? ($ret, $output) : $ret;
 }
 
