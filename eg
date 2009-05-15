@@ -26,6 +26,8 @@ my $debug=0;
 my $outfh;
 my $version = ".98";
 my $eg_exec = abs_path($0);
+my $git_cmd = "git";  # Includes any global args, thus "git --exec-path=..."
+my $use_pager = -1;
 my %command;    # command=>{section, short_description} mapping
 my $section = {
   'creation' =>
@@ -153,11 +155,13 @@ sub help {
   $git_equiv =~ s/_/-/;  # Packages use underscores, commands use dashes
 
   if ($package_name eq "subcommand") {
-    exit ExecUtil::execute("git $self->{command} --help")
+    exit ExecUtil::execute("$git_cmd $self->{command} --help")
   }
 
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
-  my $less = `git config core.pager` || "less";
+  my $less = ($use_pager == 1) ? "less" :
+             ($use_pager == 0) ? "cat" :
+             `$git_cmd config core.pager` || "less";
   chomp($less);
   open(OUTPUT, "| $less");
   print OUTPUT "$package_name: $command{$package_name}{about}\n";
@@ -192,7 +196,7 @@ sub run {
     $package_name eq "subcommand" ? $self->{'command'} : $package_name;
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("git $subcommand @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd $subcommand @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -368,8 +372,8 @@ sub run {
   }
 
   @ARGV = Util::quote_args(@ARGV);
-  my $ret = ExecUtil::execute("git branch @ARGV", ignore_ret => 1);
-  $ret = ExecUtil::execute("git checkout $ARGV[0]", ignore_ret => 1)
+  my $ret = ExecUtil::execute("$git_cmd branch @ARGV", ignore_ret => 1);
+  $ret = ExecUtil::execute("$git_cmd checkout $ARGV[0]", ignore_ret => 1)
     if ($switch && $ret == 0);
   return $ret;
 }
@@ -515,7 +519,7 @@ sub preprocess {
     die "$oldname does not exist.\n" if ! -f $oldname;
 
     my ($retval, $output) =
-      ExecUtil::execute_captured("git bundle list-heads $oldname");
+      ExecUtil::execute_captured("$git_cmd bundle list-heads $oldname");
     my @lines = split '\n', $output;
 
     my @refs = map { m#^([0-9a-f]+)# && "^$1" } @lines;
@@ -611,7 +615,7 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("git show @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd show @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -670,7 +674,9 @@ sub run {
   my $indent = "  ";
   my $header_indent = "";
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
-  my $less = `git config core.pager` || "less";
+  my $less = ($use_pager == 1) ? "less" :
+             ($use_pager == 0) ? "cat" :
+             `$git_cmd config core.pager` || "less";
   chomp($less);
   open(OUTPUT, "| $less");
 
@@ -849,7 +855,7 @@ sub run {
     $self->{git_dir} = RepoUtil::git_dir();
     die "Must be run inside a git repository!\n" if !defined $self->{git_dir};
 
-    return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("$git_cmd checkout @ARGV", ignore_ret => 1);
   } else {
     die "Did you mean to run\n  eg clone @ARGV\n?\n";
   }
@@ -969,9 +975,9 @@ sub run {
 
   @ARGV = Util::quote_args(@ARGV);
   if ($self->{reverse}) {
-    return ExecUtil::execute("git revert @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("$git_cmd revert @ARGV", ignore_ret => 1);
   } else {
-    return ExecUtil::execute("git cherry-pick @ARGV", ignore_ret => 1);
+    return ExecUtil::execute("$git_cmd cherry-pick @ARGV", ignore_ret => 1);
   }
 }
 
@@ -1070,15 +1076,15 @@ sub run {
   # Perform the clone
   #
   @args = Util::quote_args(@{$self->{args}});
-  my $ret = ExecUtil::execute("git clone @args", ignore_ret => 1);
+  my $ret = ExecUtil::execute("$git_cmd clone @args", ignore_ret => 1);
   return if $self->{bare};
   if ($debug == 2) {
     return if $self->{bare};
     print "    >>Running: 'cd $self->{directory}'<<\n";
-    print "    >>Running: 'git branch -r'<<\n";
+    print "    >>Running: '$git_cmd branch -r'<<\n";
     print "    --- Setting up extra branches by default ---\n";
     print "    >>Running, for each remote branch besides master (referred to as BRANCH):\n";
-    print "        git branch BRANCH origin/BRANCH\n";
+    print "        $git_cmd branch BRANCH origin/BRANCH\n";
   } elsif ($ret == 0) {
     # Switch to the appropriate directory, remembering the repository we
     # checked out
@@ -1090,18 +1096,18 @@ sub run {
 
     # Determine local and remote branches
     my @remote_branches =
-      split('\n', `git for-each-ref --format '%(refname)' refs/remotes`);
+      split('\n', `$git_cmd for-each-ref --format '%(refname)' refs/remotes`);
     @remote_branches = map { m#^refs/remotes/(.*)$# && $1 } @remote_branches;
     my @local_branches =
-      split('\n', `git for-each-ref --format '%(refname)' refs/heads`);
+      split('\n', `$git_cmd for-each-ref --format '%(refname)' refs/heads`);
     @local_branches = map { m#^refs/heads/(.*)$# && $1 } @local_branches;
 
     # Set branch.@local_branches.rebase to true if branch.autosetuprebse is true
-    my $autosetuprebase = `git config --global branch.autosetuprebase`;
+    my $autosetuprebase = `$git_cmd config --global branch.autosetuprebase`;
     chomp($autosetuprebase);
     if ($autosetuprebase eq 'always' || $autosetuprebase eq 'remote') {
       foreach my $branch (@local_branches) {
-        ExecUtil::execute("git config branch.$branch.rebase true");
+        ExecUtil::execute("$git_cmd config branch.$branch.rebase true");
       }
     }
 
@@ -1110,7 +1116,7 @@ sub run {
       ($remote, $branch) = ($b =~ m#^(.*)/(.*?)$#);
       next if $branch eq "HEAD";
       next if grep {$branch eq $_} @local_branches;
-      ExecUtil::execute("git branch $branch $remote/$branch > /dev/null");
+      ExecUtil::execute("$git_cmd branch $branch $remote/$branch > /dev/null");
     }
   }
 
@@ -1734,7 +1740,7 @@ sub run {
             " to git $subcommand).\nWill try running 'git help $subcommand'" .
             " in 2 seconds...\n";
       sleep 2;
-      exit ExecUtil::execute("git help $subcommand");
+      exit ExecUtil::execute("$git_cmd help $subcommand");
     }
 
     my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '',
@@ -1744,7 +1750,9 @@ sub run {
 
   # Set up a pager, if wanted
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
-  my $less = `git config core.pager` || "less";
+  my $less = ($use_pager == 1) ? "less" :
+             ($use_pager == 0) ? "cat" :
+             `$git_cmd config core.pager` || "less";
   chomp($less);
   open(OUTPUT, "| $less");
 
@@ -2680,7 +2688,9 @@ storage       High level overview of how commits, tags, and branches are stored
   }
 
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
-  my $less = `git config core.pager` || "less";
+  my $less = ($use_pager == 1) ? "less" :
+             ($use_pager == 0) ? "cat" :
+             `$git_cmd config core.pager` || "less";
   chomp($less);
   open(OUTPUT, "| $less");
   print OUTPUT "$topic\n";
@@ -2792,7 +2802,7 @@ sub preprocess {
   if ($path) {
     die "$path does not look like a directory.\n" if ! -d $path;
     my ($ret, $useless_output) =
-      ExecUtil::execute_captured("git ls-remote $path", ignore_ret => 1);
+      ExecUtil::execute_captured("$git_cmd ls-remote $path", ignore_ret => 1);
     if ($ret != 0) {
       die "$path does not appear to be a git archive " .
           "(maybe it has no commits yet?).\n";
@@ -2830,7 +2840,7 @@ EOF
   #
 
   # total commits
-  my $total_commits = ExecUtil::output("git rev-list --all | wc -l");;
+  my $total_commits = ExecUtil::output("$git_cmd rev-list --all | wc -l");
   print "Total commits: $total_commits\n" if $debug < 2;
 
   # local repo
@@ -2839,7 +2849,7 @@ EOF
   # named remote repos
   my %remotes;
   my $longest = 0;
-  my @abbrev_remotes = split('\n', ExecUtil::output("git remote"));
+  my @abbrev_remotes = split('\n', ExecUtil::output("$git_cmd remote"));
   foreach $remote (@abbrev_remotes) {
     chomp($remote);
     my $url = RepoUtil::get_config("remote.$remote.url");
@@ -2866,15 +2876,15 @@ EOF
   print "Current branch: $branch\n" if $debug < 2;
 
   # Sha1sum
-  my $current_commit = ExecUtil::output("git show-ref -s -h | head -n 1");
+  my $current_commit = ExecUtil::output("$git_cmd show-ref -s -h | head -n 1");
   print "  Cryptographic checksum (sha1sum): $current_commit\n" if $debug < 2;
 
   # Default pull/push options
   my $default = "-None-";
   my $print_config_options = 0;
   my ($ret, $options) =
-    ExecUtil::execute_captured("git config --get-regexp ^branch\.$branch\.*",
-                               ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd config --get-regexp " .
+                               "^branch\.$branch\.*", ignore_ret => 1);
   chomp($options);
   my @lines;
   if ($ret == 0) {
@@ -2886,7 +2896,7 @@ EOF
       $default = $1;
       $print_config_options = ($line_count > 1);
     } else {
-      my @output = `git config --get-regexp remote.origin.*`;
+      my @output = `$git_cmd config --get-regexp remote.origin.*`;
       $default = "origin" if @output;
     }
   }
@@ -2900,16 +2910,16 @@ EOF
   }
 
   # No. contributors
-  my $contributors  = ExecUtil::output("git shortlog -s -n HEAD | wc -l");
+  my $contributors  = ExecUtil::output("$git_cmd shortlog -s -n HEAD | wc -l");
   print "  Number of contributors: $contributors\n" if $debug < 2;
 
   # No. files
-  my $num_files = ExecUtil::output("git ls-tree -r HEAD | wc -l");
+  my $num_files = ExecUtil::output("$git_cmd ls-tree -r HEAD | wc -l");
   print "  Number of files: $num_files\n" if $debug < 2;
 
   # No. dirs
   my $num_dirs = ExecUtil::output(
-                    "git ls-tree -r -t HEAD " .
+                    "$git_cmd ls-tree -r -t HEAD " .
                     " | grep -E '[0-9]+ tree'" .
                     " | wc -l");
   print "  Number of directories: $num_dirs\n" if $debug < 2;
@@ -2918,7 +2928,7 @@ EOF
   # method I could find that would work given the corner case filenames
   # (spaces and unicode chars) in the git.git repo (Try eg info on repo
   # from 'git clone git://git.kernel.org/pub/scm/git/git.git').
-  my @files = `git ls-tree -r -l --full-name HEAD`;
+  my @files = `$git_cmd ls-tree -r -l --full-name HEAD`;
   my %biggest = (name => '', size => 0);
   foreach my $line (@files) {
     if ($line =~ m#^[0-9]+ [a-z]+ [0-9a-f]+[ ]*(\d+)[ \t]*(.*)$#) {
@@ -2934,7 +2944,7 @@ EOF
   print "  Biggest file size, in bytes: $biggest_file\n" if $debug < 2;
 
   # No. commits
-  my $branch_depth  = ExecUtil::output("git rev-list HEAD | wc -l");;
+  my $branch_depth  = ExecUtil::output("$git_cmd rev-list HEAD | wc -l");
   print "  Commits: $branch_depth\n" if $debug < 2;
 
   # Other possibilities:
@@ -3146,32 +3156,35 @@ sub run {
 
   # We can just run plain git log if there's not current branch
   if (!$branch) {
-    ExecUtil::execute("git log @ARGV");
+    ExecUtil::execute("$git_cmd log @ARGV");
     return;
   }
 
   my ($ret, $revision) =
-    ExecUtil::execute_captured("git rev-parse refs/heads/$branch");
+    ExecUtil::execute_captured("$git_cmd rev-parse refs/heads/$branch");
   chomp($revision);
 
   # Show the user the essential equivalent to what we manually do
   if ($debug) {
-    print "    >>Running: git log @ARGV | \\\n" .
-       "               git name-rev --stdin --refs=refs/heads/$branch | \\\n" .
+    print "    >>Running: $git_cmd log @ARGV | \\\n" .
+       "               $git_cmd name-rev --stdin " .
+           "--refs=refs/heads/$branch | \\\n" .
        "               less\n";
     return if $debug == 2;
   }
 
   # Setup name determination via output from git rev-list
   my %names;
-  open(REV_LIST_INPUT, "git rev-list --parents $branch | ");
+  open(REV_LIST_INPUT, "$git_cmd rev-list --parents $branch | ");
   $names{$revision} = [$branch, 0];
 
   # Loop over the output of git log, printing/modifying as we go
   my $use_colors = -t STDOUT ? "GIT_PAGER_IN_USE=1" : "";
-  open(INPUT, "$use_colors git log @ARGV | ");
+  open(INPUT, "$use_colors $git_cmd log @ARGV | ");
   $ENV{"LESS"} = "FRSX" unless defined $ENV{"LESS"};
-  my $less = `git config core.pager` || "less";
+  my $less = ($use_pager == 1) ? "less" :
+             ($use_pager == 0) ? "cat" :
+             `$git_cmd config core.pager` || "less";
   chomp($less);
   my $pid = open(OUTPUT, "| $less");
 
@@ -3409,14 +3422,14 @@ EOF
   #
   ExecUtil::execute("touch git-daemon-export-ok");
   print "Optimizing local repository and compressing it...\n" if $debug < 2;
-  ExecUtil::execute("git gc");
-  ExecUtil::execute("git --bare update-server-info");
+  ExecUtil::execute("$git_cmd gc");
+  ExecUtil::execute("$git_cmd --bare update-server-info");
   if (-f "hooks/post-update.sample") {
     ExecUtil::execute("mv hooks/post-update.sample hooks/post-update");
   }
   ExecUtil::execute("chmod u+x hooks/post-update");
-  my $is_bare = ExecUtil::output("git config --get core.bare");
-  ExecUtil::execute("git config core.bare true");
+  my $is_bare = ExecUtil::output("$git_cmd config --get core.bare");
+  ExecUtil::execute("$git_cmd config core.bare true");
 
   #
   # rsync .git to the publish location
@@ -3433,7 +3446,7 @@ EOF
   #
   # Undo any temporary changes we did for publishing
   #
-  ExecUtil::execute("git config core.bare $is_bare");
+  ExecUtil::execute("$git_cmd config core.bare $is_bare");
   # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
   # the files that 'man git-update-server-info' says it creates.
 
@@ -3442,7 +3455,7 @@ EOF
   # is not already setup.  Otherwise, tell the user how to simplify
   # future pushes/pulls.
   #
-  my @output = `git config --get-regexp remote.origin.*`;
+  my @output = `$git_cmd config --get-regexp remote.origin.*`;
   if (@output) { 
     print <<EOF;
 NOTE: Not setting up $self->{remote_dir} as your default push/pull location,
@@ -3454,14 +3467,14 @@ and then do future pushes and pulls with
   eg pull NICKNAME
 EOF
   } else {
-    ExecUtil::execute("git remote add origin $self->{remote_dir}");
+    ExecUtil::execute("$git_cmd remote add origin $self->{remote_dir}");
 
     #
     # Set up the configuration variables branch.BRANCH.(remote|merge)
     # for each BRANCH (used later as default push/pull locations)
     #
-    my @branches = `git branch`;
-    print "    >>Running: 'git branch'<<\n" if $debug;
+    my @branches = `$git_cmd branch`;
+    print "    >>Running: '$git_cmd branch'<<\n" if $debug;
     foreach my $branch (@branches) {
       chomp($branch);
       $branch =~ s#..##;
@@ -3700,7 +3713,7 @@ sub run {
   my $self = shift;
 
   @args = Util::quote_args(@{$self->{args}});
-  return ExecUtil::execute("git pull @args", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd pull @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -3856,7 +3869,7 @@ sub _check_if_bare {
     chdir($repository);
 
     my ($ret, $output) = 
-      ExecUtil::execute_captured("git rev-parse --is-bare-repository",
+      ExecUtil::execute_captured("$git_cmd rev-parse --is-bare-repository",
                                  ignore_ret => 1);
 
     chdir($orig_dir);
@@ -3883,7 +3896,7 @@ sub _check_if_bare {
 
   my ($ret, $output) = 
     ExecUtil::execute_captured(
-      "ssh $user$machine 'cd $path && git rev-parse --is-bare-repository'",
+      "ssh $user$machine 'cd $path && $git_cmd rev-parse --is-bare-repository'",
       ignore_ret => 1);
   return undef if $ret != 0;
   chomp($output);
@@ -4056,7 +4069,7 @@ sub run {
   my $self = shift;
 
   @args = Util::quote_args(@{$self->{args}});
-  return ExecUtil::execute("git push @args", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd push @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -4311,7 +4324,7 @@ sub run {
   my $self = shift;
 
   @args = Util::quote_args(@{$self->{args}});
-  return ExecUtil::execute("git rebase @args", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd rebase @args", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -4597,7 +4610,7 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd add @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -4924,7 +4937,7 @@ EOF
   }
 
   my @quoted_files = Util::quote_args(@$files);
-  my @unmerged_files = `git ls-files --full-name -u -- @quoted_files`;
+  my @unmerged_files = `$git_cmd ls-files --full-name -u -- @quoted_files`;
   if (@unmerged_files && $in) {
     die "Aborting: please clear conflicts from @unmerged_files before " .
         "proceeding.\n";
@@ -4942,7 +4955,7 @@ EOF
     # Get the revision whose changes we want to revert, and its parents
     Util::push_debug(new_value => 0);
     my $links = ExecUtil::output(
-                  "git rev-list --parents --max-count=1 $self->{revs}");
+                  "$git_cmd rev-list --parents --max-count=1 $self->{revs}");
     Util::pop_debug();
     my @list = split(' ', $links);  # commit id + parent ids
 
@@ -5002,8 +5015,8 @@ sub run {
     # Case: Initial commit
     #
     if ($self->{initial_commit}) {
-      $ret = ExecUtil::execute("git rm --cached --quiet -- @newly_added_files",
-                               ignore_ret => 1);
+      $ret = ExecUtil::execute("$git_cmd rm --cached --quiet -- " .
+                               "@newly_added_files", ignore_ret => 1);
       exit $ret if $ret;
     }
 
@@ -5020,7 +5033,7 @@ sub run {
           # state; if three files have conflicts and I try to reset some
           # file other than those three, the command is successful but it
           # spews warnings and gives a bad exit status
-          ExecUtil::execute("git reset -q $revision --" .
+          ExecUtil::execute("$git_cmd reset -q $revision --" .
                             " @newly_added_files >/dev/null",
                             ignore_ret => 1);
         }
@@ -5029,21 +5042,22 @@ sub run {
         if ($revision ne "HEAD") {
           Util::push_debug(new_value => 0);
           ($temp_ret, $revision_sha1) =
-            ExecUtil::execute_captured("git rev-parse --verify $revision",
+            ExecUtil::execute_captured("$git_cmd rev-parse --verify $revision",
                                        ignore_ret => 1);
           ($temp_ret, $head_sha1) =
-            ExecUtil::execute_captured("git rev-parse --verify HEAD",
+            ExecUtil::execute_captured("$git_cmd rev-parse --verify HEAD",
                                        ignore_ret => 1);
           Util::pop_debug();
         }
 
-        $ret = ExecUtil::execute("git reset --hard $revision", ignore_ret => 1);
+        $ret = ExecUtil::execute("$git_cmd reset --hard $revision",
+                                 ignore_ret => 1);
         exit $ret if $ret;
 
         if ($revision ne "HEAD" && $revision_sha1 ne $head_sha1) {
           # Note, cannot git reset --soft HEAD, since HEAD has changed in
           # the above reset...
-          $ret = ExecUtil::execute("git reset --soft HEAD\@{1}",
+          $ret = ExecUtil::execute("$git_cmd reset --soft HEAD\@{1}",
                                    ignore_ret => 1);
           exit $ret if $ret;
         }
@@ -5055,21 +5069,22 @@ sub run {
       if ($paths_specified) {
         if (@newly_added_files) {
           # See rant above about 'git reset is not quiet even when requested'
-          ExecUtil::execute("git reset -q $revision --" .
+          ExecUtil::execute("$git_cmd reset -q $revision --" .
                             " @newly_added_files >/dev/null",
                             ignore_ret => 1);
         }
         if (@new_since_rev_files) {
           # Ugh, when --quiet doesn't actually mean "quiet".
           # (Reproduce with git-1.6.0.6 on incomplete merge handling testcase)
-          $ret = ExecUtil::execute("git rm --quiet --force --ignore-unmatch" .
-                                   " -- @new_since_rev_files > /dev/null",
+          $ret = ExecUtil::execute("$git_cmd rm --quiet --force " .
+                                   "--ignore-unmatch -- @new_since_rev_files" .
+                                   " > /dev/null",
                                    ignore_ret => 1);
           exit $ret if $ret;
         }
         if (@other_files) {
-          $ret = ExecUtil::execute("git checkout $revision -- @other_files",
-                                   ignore_ret => 1);
+          $ret = ExecUtil::execute("$git_cmd checkout $revision -- " .
+                                   "@other_files", ignore_ret => 1);
           exit $ret if $ret;
         }
       }
@@ -5080,11 +5095,11 @@ sub run {
     #
     elsif ($self->{staged}) {
       if ($paths_specified) {
-        $ret = ExecUtil::execute("git reset -q $revision -- @all_files",
+        $ret = ExecUtil::execute("$git_cmd reset -q $revision -- @all_files",
                                  ignore_ret => 1);
         exit $ret if $ret;
       } else {
-        $ret = ExecUtil::execute("git read-tree $revision",
+        $ret = ExecUtil::execute("$git_cmd read-tree $revision",
                                  ignore_ret => 1);
         exit $ret if $ret;
       }
@@ -5096,7 +5111,7 @@ sub run {
     elsif ($self->{unstaged}) {
       if ($self->{just_recent_unstaged}) {
         die "Assertion failed: Paths not specified.\n" if (!$paths_specified);
-        $ret = ExecUtil::execute("git checkout -- @all_files",
+        $ret = ExecUtil::execute("$git_cmd checkout -- @all_files",
                                  ignore_ret => 1);
         exit $ret if $ret;
       }
@@ -5122,8 +5137,8 @@ sub run {
             my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
             ($cf) = Util::reroot_paths__from_to_files($top_dir, $cur_dir, '.');
           }
-          $ret = ExecUtil::execute("$git_index git checkout $revision -- $cf",
-                                   ignore_ret => 1);
+          $ret = ExecUtil::execute("$git_index $git_cmd checkout $revision " .
+                                   "-- $cf", ignore_ret => 1);
           exit $ret if $ret;
 
           $ret = ExecUtil::execute("rm $tmp_index");
@@ -5154,9 +5169,9 @@ sub run {
     # debugging information
     if ($debug) {
       print "    >>Running: " .
-            "git diff @diff_flags $self->{revs} ${marker}@files | ";
+            "$git_cmd diff @diff_flags $self->{revs} ${marker}@files | ";
       print "(cd $top_dir && " if ($top_dir ne $cur_dir);
-      print "git apply @apply_flags -R";
+      print "$git_cmd apply @apply_flags -R";
       print ")" if ($top_dir ne $cur_dir);
       print "\n";
     }
@@ -5167,7 +5182,7 @@ sub run {
     # and then only pipe that output back out to git apply if we have
     # an actual diff to revert.
     if ($debug < 2) {
-      open(DIFF, "git diff @diff_flags $self->{revs} ${marker}@files |");
+      open(DIFF, "$git_cmd diff @diff_flags $self->{revs} ${marker}@files |");
       my @output = <DIFF>;
       my $diff = join("", @output);
       # Listing unmerged paths doesn't count as nonempty
@@ -5178,7 +5193,7 @@ sub run {
 
       if ($diff) {
         chdir($top_dir) if $top_dir ne $cur_dir;
-        open(APPLY, "| git apply @apply_flags -R");
+        open(APPLY, "| $git_cmd apply @apply_flags -R");
         print APPLY $diff;
         close(APPLY);
         chdir($cur_dir) if $top_dir ne $cur_dir;
@@ -5347,24 +5362,26 @@ sub preprocess {
 
   # Get the sha1sum where HEAD points now, make sure HEAD is valid
   ($retval, $orig_head) =
-    ExecUtil::execute_captured("git rev-parse HEAD", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse HEAD", ignore_ret => 1);
   die "Aborting: You have no commits on HEAD.\n" if $retval != 0;
   chomp($orig_head);
   $self->{orig_head} = $orig_head;
 
   # Get the sha1sum where $since points now, make sure it is valid
   ($retval, $since_sha1sum) =
-    ExecUtil::execute_captured("git rev-parse $self->{since}", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse $self->{since}",
+                               ignore_ret => 1);
   die "Invalid revision reference: $self->{since}\n" if $retval != 0;
   chomp($since_sha1sum);
 
   # Make sure user has no staged changes
-  my $output = `git diff --cached --quiet`;
+  my $output = `$git_cmd diff --cached --quiet`;
   die "Aborting: You have staged changes; please commit them first.\n" if $?;
 
   # Ensure $self->{since} is an ancestor of HEAD
   my ($ret, $unmerged) =
-      ExecUtil::execute_captured("git rev-list HEAD..$self->{since} | wc -l");
+      ExecUtil::execute_captured("$git_cmd rev-list HEAD..$self->{since} | " .
+                                 " wc -l");
   chomp($unmerged);
   die "Aborting: $self->{since} is not an ancestor of HEAD.\n" if $unmerged;
   die "Aborting: There are no commits since $self->{since}.\n"
@@ -5385,18 +5402,19 @@ sub run {
 
 EOF
   close($fh);
-  $ret = ExecUtil::execute("git log --no-merges --pretty=format:" .
+  $ret = ExecUtil::execute("$git_cmd log --no-merges --pretty=format:" .
             "'#commit %H%n#Author: %an <%ae>%n#Date:   %ad%n%n%s%n%n%b' " .
             " $self->{since}..$self->{orig_head} >> $filename");
   exit $ret if $ret;
 
   # Now, reset and commit
-  $ret = ExecUtil::execute("git reset --soft $self->{since}");
+  $ret = ExecUtil::execute("$git_cmd reset --soft $self->{since}");
   exit $ret if $ret;
-  $ret = ExecUtil::execute("git commit -F $filename --edit", ignore_ret => 1);
+  $ret = ExecUtil::execute("$git_cmd commit -F $filename --edit",
+                           ignore_ret => 1);
 
   # Restore the branch pointer if the commit failed (e.g. empty log message)
-  ExecUtil::execute("git reset --soft $self->{orig_head}") if $ret != 0;
+  ExecUtil::execute("$git_cmd reset --soft $self->{orig_head}") if $ret != 0;
 
   unlink($filename);
   return 0;
@@ -5475,7 +5493,7 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("git add @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd add @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -5825,7 +5843,7 @@ sub run {
 
   @ARGV = Util::quote_args(@ARGV);
   -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
-  return ExecUtil::execute("git status @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd status @ARGV", ignore_ret => 1);
 }
 
 sub postprocess {
@@ -5933,8 +5951,8 @@ sub postprocess {
   if (defined $self->{special_state}) {
     my ($highlight, $reset) = ("", "");
     if (-t STDOUT) {
-      $highlight=`git config --get-color color.status.header "red reverse"`;
-      $reset=`git config --get-color "" "reset"`;
+      $highlight=`$git_cmd config --get-color color.status.header "red reverse"`;
+      $reset=`$git_cmd config --get-color "" "reset"`;
     }
 
     $notice .= "($highlight";
@@ -6101,7 +6119,7 @@ sub run {
   my $package_name = ref($self);
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("git checkout @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd checkout @ARGV", ignore_ret => 1);
 }
 
 ###########################################################################
@@ -6340,7 +6358,7 @@ EOF
     # Check if the remote repository has exactly 1 branch...if so, return it,
     # otherwise throw an error
     my ($ret, $output) = 
-      ExecUtil::execute_captured("git ls-remote -h $self->{repository}");
+      ExecUtil::execute_captured("$git_cmd ls-remote -h $self->{repository}");
     if ($ret == 0) {
       my @remote_refs = split('\n', $output);
       if (@remote_refs == 1) {
@@ -6372,13 +6390,13 @@ sub run {
   # Get value to set ORIG_HEAD to (unless we are on the initial commit)
   Util::push_debug(new_value => 0);
   my ($retval, $orig_sha1sum) = 
-    ExecUtil::execute_captured("git rev-parse HEAD", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse HEAD", ignore_ret => 1);
   my $has_orig_head = ($retval == 0);
   Util::pop_debug();
 
   # Do the fetch && reset, making sure to set ORIG_HEAD
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git fetch $self->{repository} " .
+    ExecUtil::execute_captured("$git_cmd fetch $self->{repository} " .
                                "$self->{merge_branch}:$self->{local_branch}",
                                ignore_ret => 1);
   if ($output =~ /\[rejected\].*\(non fast forward\)/) {
@@ -6388,7 +6406,8 @@ sub run {
     die "Error updating (output = $output); please report the bug, and\n" .
         "try using 'eg pull' instead.\n";
   } else {
-    $ret = ExecUtil::execute_captured("git reset --hard $self->{local_branch}");
+    $ret = ExecUtil::execute_captured("$git_cmd reset --hard " .
+                                      "$self->{local_branch}");
     if ($has_orig_head && $debug < 2) {
       open(ORIG_HEAD, "> $self->{git_dir}/ORIG_HEAD");
       print ORIG_HEAD $output;
@@ -6547,7 +6566,7 @@ package RepoUtil;
 # current_branch: Get the currently active branch
 sub current_branch {
   Util::push_debug(new_value => $debug ? 1 : 0);
-  my ($ret, $output) = ExecUtil::execute_captured("git symbolic-ref HEAD",
+  my ($ret, $output) = ExecUtil::execute_captured("$git_cmd symbolic-ref HEAD",
                                                   ignore_ret => 1);
   Util::pop_debug();
 
@@ -6565,7 +6584,7 @@ sub git_dir {
 
   Util::push_debug(new_value => 0);
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git rev-parse --git-dir", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse --git-dir", ignore_ret => 1);
   Util::pop_debug();
 
   return undef if $ret != 0;
@@ -6587,7 +6606,8 @@ sub get_dirs {
   # Get the toplevel repository directory
   $topdir = $curdir;
   my ($ret, $rel_dir) = 
-    ExecUtil::execute_captured("git rev-parse --show-prefix", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse --show-prefix",
+                               ignore_ret => 1);
   chomp($rel_dir);
   if ($ret != 0) {
     $topdir = undef;
@@ -6605,20 +6625,20 @@ sub get_dirs {
 }
 
 sub initial_commit {
-  my @output = `git rev-parse --verify -q HEAD`;
+  my @output = `$git_cmd rev-parse --verify -q HEAD`;
   return $?;
 }
 
 sub valid_ref {
   my ($ref) = @_;
   my ($ret, $sha1sum) =
-    ExecUtil::execute_captured("git rev-parse --verify -q $ref",
+    ExecUtil::execute_captured("$git_cmd rev-parse --verify -q $ref",
                                ignore_ret => 1);
   return $ret == 0;
 }
 
 sub files_modified() {
-  my @output = `git status -a`;
+  my @output = `$git_cmd status -a`;
   return $? == 0;
 }
 
@@ -6626,7 +6646,7 @@ sub merge_branches {
   my $git_dir = RepoUtil::git_dir();
   my $active_branch = RepoUtil::current_branch() || 'HEAD';
   my @merge_branches =
-    `cat $git_dir/MERGE_HEAD | git name-rev --stdin`;
+    `cat $git_dir/MERGE_HEAD | $git_cmd name-rev --stdin`;
   @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
   my @all_merge_branches = ($active_branch, @merge_branches);
   return @all_merge_branches;
@@ -6658,7 +6678,7 @@ sub get_special_state {
 
 sub get_config {
   my $key = shift;
-  my ($ret, $output) = ExecUtil::execute_captured("git config --get $key",
+  my ($ret, $output) = ExecUtil::execute_captured("$git_cmd config --get $key",
                                                   ignore_ret => 1);
   return undef if $ret != 0;
   chomp($output);
@@ -6668,12 +6688,12 @@ sub get_config {
 sub set_config {
   my $key = shift;
   my $value = shift;
-  ExecUtil::execute("git config $key \"$value\"");
+  ExecUtil::execute("$git_cmd config $key \"$value\"");
 }
 
 sub unset_config {
   my $key = shift;
-  ExecUtil::execute("git config --unset $key", ignore_ret => 1);
+  ExecUtil::execute("$git_cmd config --unset $key", ignore_ret => 1);
 }
 
 sub get_only_branch {
@@ -6681,14 +6701,14 @@ sub get_only_branch {
   my $check_type = shift;
 
   if ($debug == 2) {
-    print "    >>Running: 'git ls-remote -h $repository'<<\n";
+    print "    >>Running: '$git_cmd ls-remote -h $repository'<<\n";
     return;
   }
 
   # Check if the remote repository has exactly 1 branch...if so, return it,
   # otherwise throw an error
   my ($ret, $output) =
-    ExecUtil::execute_captured("git ls-remote -h $repository",
+    ExecUtil::execute_captured("$git_cmd ls-remote -h $repository",
                                capture_stdout_only => 1, ignore_ret => 1);
   die "Could not determine remote branches from repository '$repository'\n"
     if $ret != 0;
@@ -6725,13 +6745,13 @@ sub get_default_push_pull_repository {
   my $branch = current_branch();
   return undef if !$branch;
 
-  my $default_remote = `git config --get branch.$branch.remote`;
+  my $default_remote = `$git_cmd config --get branch.$branch.remote`;
   if ($default_remote) {
     chomp($default_remote);
     return $default_remote;
   }
 
-  my @output = `git config --get-regexp remote\.origin\.*`;
+  my @output = `$git_cmd config --get-regexp remote\.origin\.*`;
   if (@output) {
     return "origin";
   } else {
@@ -6874,10 +6894,10 @@ sub commit_push_checks {
     } else {
       print "    >>Commands to gather data for sanity checks:\n";
     }
-    print "        git status\n";
-    print "        git ls-files --unmerged\n";
-    print "        git symbolic-ref HEAD\n" if $check_for->{no_branch};
-    print "        cd $top_dir && git ls-files --exclude-standard --others --directory --no-empty-directory\n";
+    print "        $git_cmd status\n";
+    print "        $git_cmd ls-files --unmerged\n";
+    print "        $git_cmd symbolic-ref HEAD\n" if $check_for->{no_branch};
+    print "        cd $top_dir && $git_cmd ls-files --exclude-standard --others --directory --no-empty-directory\n";
   } else {
     Util::push_debug(new_value => 0);
   }
@@ -6887,7 +6907,7 @@ sub commit_push_checks {
   #
   my ($ret, $output) = ExecUtil::execute_captured("$eg_exec status",
                                                   ignore_ret => 1);
-  my @unmerged_files = `git ls-files --unmerged`;
+  my @unmerged_files = `$git_cmd ls-files --unmerged`;
   $status{has_new_unknown_files} = ($output =~ /^Newly created unknown files:$/m);
   $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
   $status{has_staged_changes}    = ($output =~ /^Changes ready to be commit/m);
@@ -6899,7 +6919,7 @@ sub commit_push_checks {
   #
   # Determine which unknown files are "newly created"
   #
-  my @new_unknown = `(cd "$top_dir" && git ls-files --exclude-standard --others --directory --no-empty-directory)`;
+  my @new_unknown = `(cd "$top_dir" && $git_cmd ls-files --exclude-standard --others --directory --no-empty-directory)`;
   chomp(@new_unknown);
   if ($check_for->{unknown} && $status{has_new_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
@@ -6914,7 +6934,7 @@ sub commit_push_checks {
   Util::pop_debug();
 
   if ($check_for->{no_branch}) {
-    my $rc = system('git symbolic-ref -q HEAD >/dev/null');
+    my $rc = system('$git_cmd symbolic-ref -q HEAD >/dev/null');
     $status{has_no_branch} = $rc >> 8;
   }
 
@@ -6943,7 +6963,7 @@ sub record_ignored_unknowns {
 
   mkdir "$git_dir/info" unless -d "$git_dir/info";
   open(OUTPUT, "> $git_dir/info/ignored-unknown");
-  my @unknown_files = `cd "$top_dir" && git ls-files --exclude-standard --others --directory --no-empty-directory`;
+  my @unknown_files = `cd "$top_dir" && $git_cmd ls-files --exclude-standard --others --directory --no-empty-directory`;
   foreach my $file (@unknown_files) {
     print OUTPUT $file;
   }
@@ -7052,9 +7072,9 @@ sub get_revert_info {
     my $ref2 = shift;
     my (@files, @lines);
     if (defined $ref2) {
-      @lines = `git diff-tree -r $ref1 $ref2 $marker @quoted_files`;
+      @lines = `$git_cmd diff-tree -r $ref1 $ref2 $marker @quoted_files`;
     } else {
-      @lines = `git diff-index --cached $ref1 $marker @quoted_files`;
+      @lines = `$git_cmd diff-index --cached $ref1 $marker @quoted_files`;
     }
     foreach my $line (@lines) {
       # Check for newly added files (not previously tracked but now staged)
@@ -7197,15 +7217,19 @@ sub git_rev_parse {
 
   my @quoted_args = Util::quote_args(@args);
   my ($ret, $output) = 
-    ExecUtil::execute_captured("git rev-parse @quoted_args", ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd rev-parse @quoted_args",
+                               ignore_ret => 1);
   if ($ret != 0) {
     $output =~ /^(fatal:.*)$/m   && print STDERR "$1\n";
     $output =~ /^(Use '--'.*)$/m && print STDERR "$1\n";
     exit 1;
   }
-  my @opts  = split('\n', `git rev-parse --no-revs --flags    @quoted_args`);
-  my @revs  = split('\n', `git rev-parse --revs-only          @quoted_args`);
-  my @files = split('\n', `git rev-parse --no-revs --no-flags @quoted_args`);
+  my @opts  =
+    split('\n', `$git_cmd rev-parse --no-revs --flags    @quoted_args`);
+  my @revs  =
+    split('\n', `$git_cmd rev-parse --revs-only          @quoted_args`);
+  my @files =
+    split('\n', `$git_cmd rev-parse --no-revs --no-flags @quoted_args`);
 
   # Translate sha1sums back to human specified version of revisions.  Note that
   # something like "REV1...REV2" is translated into "SHA1 SHA2 ^SHA3", so one
@@ -7371,12 +7395,24 @@ sub main {
   #
   Getopt::Long::Configure("no_bundling", "no_permute",
                           "pass_through", "no_auto_abbrev", "no_ignore_case");
+  my $record_arg   = sub { $git_cmd .= " --$_[0]"; };
+  my $record_args  = sub { $git_cmd .= " --$_[0]=$_[1]"; };
   my $result=GetOptions(
                "--debug"     => sub { $debug = 1 },
-               "--help"      => sub { help() },
+               "--help"      => sub { help()     },
                "--translate" => sub { $debug = 2 },
-               "--version"   => sub { version() },
+               "--version"   => sub { version()  },
+               "exec-path=s" => sub { &$record_args(@_) },
+               "paginate|p"  => sub { $use_pager = 1; &$record_arg(@_)  },
+               "no-pager"    => sub { $use_pager = 0; &$record_arg(@_)  },
+               "bare"        => sub { &$record_arg(@_)  },
+               "git-dir=s"   => sub { &$record_args(@_) },
+               "work-tree=s" => sub { &$record_args(@_) },
                         );
+  # Make sure all global args are passed to eg subprocesses as well...
+  $eg_exec .= substr($git_cmd, index($git_cmd, ' ')) if $git_cmd ne "git";
+
+  # Sanity check the arguments
   die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
   die "eg: No subcommand specified. (Try 'eg help')\n" if @ARGV < 1;
   die "eg: Invalid argument '$ARGV[0]'. (Try 'eg help')\n"
