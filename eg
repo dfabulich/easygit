@@ -117,7 +117,7 @@ INIT {
 package subcommand;
 sub new {
   my $class = shift;
-  my $self = {git_repo_needed => 1, @_};  # Hashref initialized as we're told
+  my $self = {git_repo_needed => 0, @_};  # Hashref initialized as we're told
   bless($self, $class);
 
   # Our "see also" section in help usually references the same subsection
@@ -214,7 +214,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Description:
@@ -237,7 +237,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 0, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -301,7 +301,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -394,6 +394,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     initial_commit_error_msg => "No bundles can be created until a commit " .
                                 "has been made.",
     @_
@@ -548,6 +549,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     git_equivalent => 'show',
     initial_commit_error_msg => "Error: Cannot show committed versions of " .
                                 "files when no commits have occurred.",
@@ -633,7 +635,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -876,7 +878,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1139,7 +1141,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1413,7 +1415,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -1621,7 +1623,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3044,6 +3046,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     initial_commit_error_msg => "Error: No recorded commits to show yet.",
     @_);
   bless($self, $class);
@@ -3231,7 +3234,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3297,6 +3300,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     git_equivalent => '',
     initial_commit_error_msg => "Error: No recorded commits to publish.",
     @_);
@@ -3502,7 +3506,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -3731,6 +3735,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     initial_commit_error_msg => "Error: No recorded commits to push.",
     @_);
   bless($self, $class);
@@ -4089,6 +4094,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     initial_commit_error_msg => "Error: No recorded commits to rewrite.",
     @_);
   bless($self, $class);
@@ -4343,8 +4349,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(
-    @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -4449,7 +4454,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -4583,7 +4588,9 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'add', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1,
+                                git_equivalent => 'add',
+                                @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -4628,7 +4635,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -5219,7 +5226,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -5301,7 +5308,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, git_equivalent => '', @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -5435,7 +5442,9 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => 'add', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1,
+                                git_equivalent => 'add',
+                                @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -5511,6 +5520,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     initial_commit_error_msg => "Error: Cannot stash away changes when there " .
                                 "is no commit yet.",
     @_);
@@ -5763,7 +5773,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -6047,6 +6057,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     git_equivalent => 'checkout',
     initial_commit_error_msg => "Error: Cannot create or switch branches " .
                                 "until a commit has been made.",
@@ -6138,7 +6149,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(@_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
   bless($self, $class);
   $self->{'help'} = "
 Usage:
@@ -6195,7 +6206,7 @@ INIT {
 
 sub new {
   my $class = shift;
-  my $self = $class->SUPER::new(git_equivalent => '', @_);
+  my $self = $class->SUPER::new(git_repo_needed => 1, git_equivalent => '', @_);
   bless($self, $class);
 
   unshift(@ARGV, "--") if scalar(@ARGV) > 0 && $ARGV[0] ne "--";
@@ -6256,6 +6267,7 @@ INIT {
 sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
+    git_repo_needed => 1,
     git_equivalent => 'pull',
     @_);
   bless($self, $class);
