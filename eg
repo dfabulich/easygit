@@ -185,6 +185,7 @@ EOF
 sub preprocess {
   my $self = shift;
 
+  return if (scalar(@ARGV) > 0 && $ARGV[0] eq "--");
   my $result=main::GetOptions("--help" => sub { $self->help() });
 }
 
@@ -831,7 +832,10 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  my $result = main::GetOptions("--help" => sub { $self->help() });
+  if (scalar(@ARGV) > 0 && $ARGV[0] ne "--") {
+    main::GetOptions("--help" => sub { $self->help() });
+  }
+
   $self->{command} = 'checkout';
   die "eg checkout requires at least one argument.\n" if !@ARGV;
 
@@ -1603,6 +1607,7 @@ EOF
   }
 
   push(@args, @$revs);
+  push(@args, "--");
   push(@args, @$files);
   @ARGV = @args;
 }
@@ -4561,6 +4566,8 @@ sub preprocess {
   # Parse options
   #
   my ($hard, $soft) = (0, 0);
+  return if (scalar(@ARGV) > 0 && $ARGV[0] eq "--");
+
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
     "--working-copy" => \$hard,
@@ -5286,7 +5293,9 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
+  return if (scalar(@ARGV) > 0 && $ARGV[0] eq "--");
   my $result = main::GetOptions("--help" => sub { $self->help() });
+
   foreach my $i (0..$#ARGV) {
     $ARGV[$i] = "--cached" if $ARGV[$i] eq "--staged";
   }
