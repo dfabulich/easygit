@@ -6002,7 +6002,7 @@ sub postprocess {
     my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
     my %old_unknown;
     if (-f "$git_dir/info/ignored-unknown") {
-      my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
+      my @old_unknown_files = `cat "$git_dir/info/ignored-unknown"`;
       chomp(@old_unknown_files);
       @old_unknown_files =
         Util::reroot_paths__from_to_files($top_dir, $cur_dir, @old_unknown_files);
@@ -6378,8 +6378,9 @@ EOF
   if (!$merge_branch) {
     # Check if the remote repository has exactly 1 branch...if so, return it,
     # otherwise throw an error
+    my ($quoted_repo) = Util::quote_args("$self->{repository}");
     my ($ret, $output) = 
-      ExecUtil::execute_captured("$git_cmd ls-remote -h $self->{repository}");
+      ExecUtil::execute_captured("$git_cmd ls-remote -h $quoted_repo");
     if ($ret == 0) {
       my @remote_refs = split('\n', $output);
       if (@remote_refs == 1) {
@@ -6667,7 +6668,7 @@ sub merge_branches {
   my $git_dir = RepoUtil::git_dir();
   my $active_branch = RepoUtil::current_branch() || 'HEAD';
   my @merge_branches =
-    `cat $git_dir/MERGE_HEAD | $git_cmd name-rev --stdin`;
+    `cat "$git_dir/MERGE_HEAD" | $git_cmd name-rev --stdin`;
   @merge_branches = map { /^[0-9a-f]* \((.*)\)$/ && $1 } @merge_branches;
   my @all_merge_branches = ($active_branch, @merge_branches);
   return @all_merge_branches;
@@ -6728,8 +6729,9 @@ sub get_only_branch {
 
   # Check if the remote repository has exactly 1 branch...if so, return it,
   # otherwise throw an error
+  my ($quoted_repo) = Util::quote_args("$repository");
   my ($ret, $output) =
-    ExecUtil::execute_captured("$git_cmd ls-remote -h $repository",
+    ExecUtil::execute_captured("$git_cmd ls-remote -h $quoted_repo",
                                capture_stdout_only => 1, ignore_ret => 1);
   die "Could not determine remote branches from repository '$repository'\n"
     if $ret != 0;
@@ -6944,7 +6946,7 @@ sub commit_push_checks {
   chomp(@new_unknown);
   if ($check_for->{unknown} && $status{has_new_unknown_files} &&
       -f "$git_dir/info/ignored-unknown") {
-    my @old_unknown_files = `cat $git_dir/info/ignored-unknown`;
+    my @old_unknown_files = `cat "$git_dir/info/ignored-unknown"`;
     chomp(@old_unknown_files);
     @new_unknown = Util::difference(\@new_unknown, \@old_unknown_files);
     $status{has_new_unknown_files} = (scalar(@new_unknown) > 0);
@@ -7082,7 +7084,7 @@ sub get_revert_info {
   my ($cur_dir, $top_dir, $git_dir) = RepoUtil::get_dirs();
   my @merge_branches;
   if (-f "$git_dir/MERGE_HEAD") {
-    @merge_branches = `cat $git_dir/MERGE_HEAD`;
+    @merge_branches = `cat "$git_dir/MERGE_HEAD"`;
     chomp(@merge_branches);
   }
 
@@ -7213,13 +7215,14 @@ sub quote_args {
   my @newargs;
   foreach my $arg (@args) {
     my $quotes_needed = 0;
-    if ($arg =~ /[;'"<>()|`* \\]/) {
+    if (!$arg || $arg =~ /[;'"<>()\[\]|`* 	\n\$\\]/) {
       $quotes_needed = 1;
     }
 
     $arg =~ s#\\#\\\\#g;    # Backslash escape backslashes
     $arg =~ s#"#\\"#g;      # Backslash escape quotes
     $arg =~ s#`#\\`#g;      # Backslash escape backticks
+    $arg =~ s#\$#\\\$#g;    # Backslash escape dollar signs
 
     $arg = '"'.$arg.'"' if $quotes_needed;
 
