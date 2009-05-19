@@ -1301,7 +1301,7 @@ sub preprocess {
     "author=s"                    => sub { &$record_args("--", @_) },
     "cleanup=s"                   => sub { &$record_args("--", @_) },
     );
-  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
+  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
 
   #
   # Set up flags based on options, do sanity checking of options
@@ -1547,9 +1547,10 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  my ($opts, $revs, $files) = Util::git_rev_parse(@ARGV);
-  ## Could also use (do I want to switch over?):
-  # my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+  # Avoid Util::git_rev_parse because it fails on t2010-checkout-ambiguous by
+  # treating "--quiet" as a revision rather than an option; use our own
+  # parse_args implementation instead.
+  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
 
   # Replace '..' with '...' in revision specifiers.  Use backslash escaping to
   # get actual dots and not just any character.  Use negative lookbehind and
