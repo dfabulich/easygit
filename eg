@@ -3167,6 +3167,7 @@ sub run {
 
   my ($ret, $revision) =
     ExecUtil::execute_captured("$git_cmd rev-parse refs/heads/$branch");
+  exit $ret if $ret;
   chomp($revision);
 
   # Show the user the essential equivalent to what we manually do
@@ -3211,14 +3212,22 @@ sub run {
       print OUTPUT;
     }
   }
-  close(INPUT);
-  close(OUTPUT);
+  my ($ret1, $ret2, $ret3);
+  close(INPUT);  $ret1 = $?;
+  close(OUTPUT); $ret2 = $?;
 
-  # Make sure we close the pipe from rev-list too
-  close(REV_LIST_INPUT);
+  # Make sure we close the pipe from rev-list too; We use "$? && $!"
+  # instead of "$?" because we don't care about the return value of the
+  # rev-list program -- which we prematurely close -- just whether the close
+  # succeeded.  We can't just use "$!" because if --pretty="format:%s" is
+  # passed to eg log, then $! will be "Bad file descriptor" which translates
+  # to a nonzero exit status.
+  # (This is my best guess at what to do given the random failures from
+  # t1411-reflog-show.sh, and reading 'man perlfunc' under 'close'; it seems
+  # to work.)
+  close(REV_LIST_INPUT);  $ret3 = $? && $!;
 
-  # FIXME: Um, git log doesn't seem to return a useful exit status, so
-  # I guess it's okay that I don't bother to either?!?
+  return $ret1 || $ret2 || $ret3;
 }
 
 ###########################################################################
