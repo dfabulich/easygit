@@ -1277,6 +1277,7 @@ sub preprocess {
   my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
                            push(@{$self->{args}}, splice(@_, 2)); };
   my ($all_known, $bypass_unknown, $staged, $amend) = (0, 0, 0, 0);
+  Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
