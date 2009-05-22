@@ -1577,7 +1577,6 @@ sub preprocess {
   #
   # Parse revs
   #
-  die "eg diff: Too many revisions specified.\n" if (scalar @$revs > 2);
   die "eg diff: Cannot specify '--staged' with more than 1 revision.\n"
     if ($staged && scalar @$revs > 1);
   die "eg diff: Cannot specify '--unstaged' with any revisions.\n"
