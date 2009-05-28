@@ -3049,7 +3049,6 @@ sub new {
   my $class = shift;
   my $self = $class->SUPER::new(
     git_repo_needed => 1,
-    initial_commit_error_msg => "Error: No recorded commits to show yet.",
     @_);
   bless($self, $class);
   $self->{'help'} = "
@@ -3159,10 +3158,17 @@ sub run {
 
   my $branch = RepoUtil::current_branch();
 
+  # Check whether to warn if there are no commits.  We don't want to parse
+  # all the arguments to determine if there is a valid revision listed on the
+  # command line (or, failing that, whether HEAD reference a valid revision);
+  # instead, we just check for the simple case of no branches existing yet.
+  if (!`$git_cmd branch -a`) {
+    die "Error: No recorded commits to show yet.\n";
+  }
+
   # We can just run plain git log if there's not current branch
-  if (!$branch) {
-    ExecUtil::execute("$git_cmd log @ARGV");
-    return;
+  if (!$branch || !RepoUtil::valid_ref($branch)) {
+    return ExecUtil::execute("$git_cmd log @ARGV", ignore_ret => 1);
   }
 
   my ($ret, $revision) =
