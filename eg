@@ -5866,6 +5866,16 @@ Description:
   return $self;
 }
 
+sub preprocess {
+  my $self = shift;
+
+  Getopt::Long::Configure("permute");
+  my $result = main::GetOptions(
+    "--help" => sub { $self->help() },
+    "v"      => sub { print STDERR "-v option is not supported.\n"; exit 1 },
+    );
+}
+
 sub run {
   my $self = shift;
   my $package_name = ref($self);
