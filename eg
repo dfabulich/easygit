@@ -6749,7 +6749,7 @@ sub get_only_branch {
     if $ret != 0;
   my @remote_refs = split('\n', $output);
 
-  die "'$repository' has no branches to pull!\n" if @remote_refs == 0;
+  die "'$repository' has no branches to $check_type!\n" if @remote_refs == 0;
   my @remote_branches = map { m#[0-9a-f]+.*/(.*)$# && $1 } @remote_refs;
 
   if (@remote_branches > 1) {
