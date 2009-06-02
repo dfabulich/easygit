@@ -1046,33 +1046,29 @@ sub preprocess {
   my $self = shift;
   my $package_name = ref($self);
 
-  $self->{args} = [];
   $self->{bare} = 0;
-  my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
-  my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
+  my @old_argv = @ARGV;
+  Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "help"             => sub { $self->help() },
-    "template=s"       => sub { &$record_args(@_) },
-    "local|l"          => sub { &$record_arg(@_) },
-    "shared|s"         => sub { &$record_arg(@_) },
-    "no-hard-links"    => sub { &$record_arg(@_) },
-    "quiet|q"          => sub { &$record_arg(@_) },
-    "no-checkout|n"    => sub { &$record_arg(@_) },
-    "bare"             => sub { $self->{bare} = 1; &$record_arg(@_) },
-    "origin|o=s"       => sub { &$record_args(@_) },
-    "upload-pack|u=s"  => sub { &$record_args(@_) },
-    "reference=s"      => sub { &$record_args(@_) },
-    "depth=i"          => sub { &$record_args(@_) },
+    "bare"             => sub { $self->{bare} = 1 },
+    "depth=i",
+    "origin|o=s",
+    "reference=s",
+    "upload-pack|u=s",
     );
+  shift @ARGV while ($ARGV[0] =~ /^-/);  # Skip past any other options
   $self->{repository} = shift @ARGV;
   die "No repository specified!\n" if !$self->{repository};
   my $basename = $self->{repository};
-  $basename =~ s#/*$##;     # Remove trailing slashes
-  $basename =~ s#.*[/:]##;  # Remove everything but final dirname
-  $basename =~ s#\.git$##;  # Remote .git suffix, if present
-  $self->{directory} = shift @ARGV || $basename;
+  $basename =~ s#/*$##;        # Remove trailing slashes
+  $basename =~ s#.*[/:]##;     # Remove everything but final dirname
+  $basename =~ s#\.git$##;     # Remote .git suffix, if present
+  $basename =~ s#\.bundle$##;  # Remote .bundle suffix, if present
+  $self->{directory} = shift @ARGV || $basename . ($self->{bare} ? ".git" : "");
+  die "Too many parameters to clone!\n" if (scalar(@ARGV) > 0);
 
-  push(@{$self->{args}}, ($self->{repository}, $self->{directory}));
+  @ARGV = @old_argv;  # Workaround: GetOptions may have stripped a leading '--'
 }
 
 sub run {
@@ -1081,9 +1077,9 @@ sub run {
   #
   # Perform the clone
   #
-  @args = Util::quote_args(@{$self->{args}});
-  my $ret = ExecUtil::execute("$git_cmd clone @args", ignore_ret => 1);
-  return if $self->{bare};
+  @ARGV = Util::quote_args(@ARGV);
+  my $ret = ExecUtil::execute("$git_cmd clone @ARGV", ignore_ret => 1);
+  return $ret if $self->{bare};
   if ($debug == 2) {
     return if $self->{bare};
     print "    >>Running: 'cd $self->{directory}'<<\n";
