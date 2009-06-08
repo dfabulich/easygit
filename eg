@@ -5821,6 +5821,10 @@ Description:
        in order to prevent forgetting to add files that should be included
        in a commit.
 
+     Modified submodules:
+       subdirectories that are tracked under their own git repository, and
+       that are being tracked via use of the 'git submodule' command.
+
      Changed but not updated (\"unstaged\")
        Files whose contents have been modified in the working copy.
 
@@ -5922,6 +5926,10 @@ sub postprocess {
       $cur_state = 1;
       $section = 'unknown';
       $title = "Unknown files:";
+    } elsif ($line =~ m/^# Modified submodules:$/) {
+      $cur_state = 3;
+      $section = 'submodules';
+      $title = "Modified submodules:";
     } elsif ($line =~ m/^# Changes to be committed:$/) {
       $cur_state = 2;
       $section = 'staged';
@@ -5959,6 +5967,11 @@ sub postprocess {
           if ($line =~ m/^#(\s+.*:\s+)(.*)/) {
             my $file = $2;
             push(@section_files, "$1$file");
+          }
+        } elsif ($cur_state == 3) {
+          if ($line =~ m/^#\s(.*)/) {
+            my $sub_info = $1;
+            push(@section_files, "$sub_info");
           }
         }
         $line = shift @lines;
@@ -6054,7 +6067,8 @@ sub postprocess {
 
   # Print out all the various changes
   my $linecount = 0;
-  foreach my $section ('staged', 'unstaged', 'new_unknowns', 'old_unknowns') {
+  foreach my $section ('staged', 'unstaged', 'submodules',
+                       'new_unknowns', 'old_unknowns') {
     if (defined($files{$section})) {
       print "$files{$section}{'title'}\n";
       $linecount += 1;
