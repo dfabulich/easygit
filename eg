@@ -482,7 +482,7 @@ Options:
 ";
   $self->{'differences'} = '
   eg bundle differs from git bundle in two ways:
-    (1) eg bundle defaults to "-all HEAD" if no revisions are passed to create
+    (1) eg bundle defaults to "--all HEAD" if no revisions are passed to create
     (2) eg bundle provides a create-update subcommand
 ';
   return $self;
