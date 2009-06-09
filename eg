@@ -5385,7 +5385,7 @@ sub run {
 
 EOF
   close($fh);
-  $ret = ExecUtil::execute("git log --pretty=format:" .
+  $ret = ExecUtil::execute("git log --no-merges --pretty=format:" .
             "'#commit %H%n#Author: %an <%ae>%n#Date:   %ad%n%n%s%n%n%b' " .
             " $self->{since}..$self->{orig_head} >> $filename");
   exit $ret if $ret;
