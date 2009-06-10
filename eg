@@ -1764,7 +1764,9 @@ sub run {
   open(OUTPUT, "| $less");
 
   # Help users know about the --all switch
-  print OUTPUT "(Run 'eg help --all' for a more detailed list.)\n\n";
+  if (!$self->{all}) {
+    print OUTPUT "(Run 'eg help --all' for a more detailed list.)\n\n";
+  }
 
   # Print valid subcommands sorted by section
   foreach my $name (sort
