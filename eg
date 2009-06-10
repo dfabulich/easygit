@@ -583,8 +583,10 @@ Examples
       \$ eg cat HEAD~1:hello.c timbuktu:world.h
 ";
   $self->{'differences'} = '
-  The output of "git show FILE" is probably confusing to users at first.
-  Thus, "eg cat FILE" calls "git show HEAD:PATH/TO/FILE".
+  The output of "git show FILE" is probably confusing to users at first,
+  as is the need to specify files relative to the top of the git project
+  rather than relative to the current directory.  Thus, "eg cat FILE"
+  calls "git show HEAD:PATH/TO/FILE".
 ';
   return $self;
 }
@@ -711,6 +713,7 @@ sub run {
     foreach my $c (sort keys %command) {
       next if $command{$c}{unmodified_help} || $command{$c}{unmodified_behavior};
 
+      $c =~ s/-/_/;  # Packages use underscores, commands use dashes
       next if !$c->can("new");
       my $obj = $c->new(initial_commit_error_msg => '');
 
@@ -3628,12 +3631,19 @@ Options
 ";
   $self->{'differences'} = "
   eg pull and git pull are nearly identical.  eg provides a slightly more
-  meaningful name for --tags (\"--all-tags\"), and introduces a new option
-  named --branch.  The new option (1) avoids the need to explain refspecs
-  too early to users, (2) makes command line examples more
-  self-documenting.  eg still accepts refspecs at the end of the
-  commandline the same as git pull, however their explanation is deferred
-  to 'eg help topic refspecs'.
+  meaningful name for --tags (\"--all-tags\"), introduces a new option
+  named --branch, and tries to assist the user when no branch to
+  merge/rebase is specified on the command line or in the config.
+
+  The new --branch option (1) avoids the need to explain refspecs too early
+  to users, (2) makes command line examples more self-documenting.  eg
+  still accepts refspecs at the end of the commandline the same as git
+  pull, however their explanation is deferred to 'eg help topic refspecs'.
+
+  When no branch to merge/rebase is specified, eg pull will provide a list
+  of known branches at the remote end.  In the special case that the remote
+  has exactly one branch, eg will use that branch for merging/rebasing
+  rather than erroring out.
 ";
   return $self;
 }
@@ -3843,18 +3853,33 @@ Options
     the remote repository.
 ";
   $self->{'differences'} = "
-  eg push tries to simplify git, but is essentially the same other than
+  eg push tries to simplify git, but is essentially the same other than (1)
   defaulting to pushing only the current branch instead of matching
-  branches.  eg does provide extra --tag and --branch flags to make command
-  lines more self-documenting, and to avoid introducing refspecs (a very
-  confusing topic for new users) too early.  However, refspecs still work
-  with eg push, and users can learn about them by running 'eg help topic
-  refspecs'.
+  branches, and (2) trying to avoid pushing into a bare repository.  There
+  are two other minor changes, namely providing extra --tag and --branch
+  flags to make command lines more self-documenting and to avoid
+  introducing refspecs (a very confusing topic for new users) too early.
+  However, refspecs still work with eg push, and users can learn about them
+  by running 'eg help topic refspecs'.
 
-  eg push also avoids pushing into a non-bare repository, by disabling
-  such pushes in cases it can detect unless the user specifies both source
-  and destination references explicitly (which can be done by running, for
-  example, 'eg push origin master:master').
+  Pushing just the current branch to its tracking branch is a change mostly
+  made with the idea that new git users coming from the cvs/svn world will
+  probably be using central repositories that many developers push to.
+  However, given the recent push.default config option introduced in
+  git-1.6.3 (which can be set to 'tracking' to get the eg behavior or
+  'matching' to get the old git default behavior), this change in eg may be
+  obsolete and reverted in the future.
+
+  The method eg push uses to avoid pushing into a non-bare repository is a
+  push-side check rather than a receive-side check.  In cases it can detect
+  that the remote repository is bare (pushing to a directory on a locally
+  mounted filesystem or pushing over ssh), it will disable such pushes
+  unless the user specifies both source and destination references
+  explicitly (which can be done by running, for example, 'eg push origin
+  master:master').  However, given the new receive-side check introduced in
+  git-1.6.x to avoid pushing into bare repositories unless they have
+  configured to allow it, this change in eg may be obsolete and reverted in
+  the future.
 ";
   return $self;
 }
@@ -4305,8 +4330,9 @@ Options:
   is somewhat confusing in that it isn't rebasing master but the current
   branch.  To make this clearer, eg allows (and encourages) the form
     eg rebase --against master
-  where --against has the same meaning as --since, but is clearer in cases
-  where the --onto flag is not also used.
+  The reason that both --against and --since flags were added (with
+  identical behavior), is that the former makes for clearer command lines
+  when the --onto flag is not also used.
 ";
   return $self;
 }
@@ -5635,8 +5661,8 @@ Options:
 
   eg stash apply and eg stash show also accept any string and will
   apply or show the stash whose description contains that string.
-  While stash and apply accept reflog syntax like their git stash
-  counterparts, i.e. while
+  Although stash and apply accept reflog syntax (like their git stash
+  counterparts), i.e. while
       $ eg stash apply stash@{3}
   will work, I think it will be easier for the user to run
       $ eg stash apply rudely interrupted changes
@@ -5844,29 +5870,40 @@ Description:
        topic staging' to learn about the staging area.
 
 ";
-  $self->{'differences'} = '
+  $self->{'differences'} = "
   eg status output is essentially just a streamlined and cleaned version of
   git status output, with the addition of a new section (newly created
-  untracked files).
+  untracked files) and an extra status message being displayed when in the
+  middle of a special state (am, bisect, merge, or rebase).
 
   The streamlining serves to avoid information overload to new users (which
-  is only possible with a less error prone "commit" command) and the
+  is only possible with a less error prone \"commit\" command) and the
   cleaning (removal of leading hash marks) serves to make the system more
   inviting to new users.
 
-  A slight wording change was done to transform "untracked" to "unknown"
-  since, as Havoc pointed out, the word "tracked" may not be very self
+  A slight wording change was done to transform \"untracked\" to \"unknown\"
+  since, as Havoc pointed out, the word \"tracked\" may not be very self
   explanatory (in addition to the real meaning, users might think of:
-  "tracked in the index?", "related to remote tracking branches?", "some
-  fancy new monitoring scheme unique to git that other vcses do not have?",
-  "is there some other meaning?").  I do not know if "known" will fully
+  \"tracked in the index?\", \"related to remote tracking branches?\", \"some
+  fancy new monitoring scheme unique to git that other vcses do not have?\",
+  \"is there some other meaning?\").  I do not know if \"known\" will fully
   solve this, but I suspect it will be more self-explanatory than
-  "tracked".
+  \"tracked\".
 
   There are also slight changes to the section names to reinforce
   consistent naming when referring to the same concept (staging, in this
   case), but the changes are very slight.
-';
+
+  The extra status message when in the middle of an am, bisect, merge,
+  or rebase serves two purposes: to remind users that they are in the
+  middle of some operation (some people don't use the special prompt
+  from git's bash-completion support), and to provide a command users
+  can run to get help resolving such situations.  (Many users were
+  confused about or unaware how to resolve incomplete merges and
+  rebases; providing them with a specially written help page they
+  could access seemed to effectively assist them figure out the
+  appropriate steps to take -- especially in tricky or special cases.)
+";
   return $self;
 }
 
