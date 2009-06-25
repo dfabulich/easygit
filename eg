@@ -5435,11 +5435,12 @@ sub preprocess {
   die "Aborting: You have staged changes; please commit them first.\n" if $?;
 
   # Ensure $self->{since} is an ancestor of HEAD
-  my ($ret, $unmerged) =
-      ExecUtil::execute_captured("$git_cmd rev-list HEAD..$self->{since} | " .
-                                 " wc -l");
-  chomp($unmerged);
-  die "Aborting: $self->{since} is not an ancestor of HEAD.\n" if $unmerged;
+  my $command = "$git_cmd rev-list HEAD..$self->{since} | wc -l";
+  my ($ret, $unique_to_since) = ExecUtil::execute_captured($command);
+  die "Couldn't parse '$command' output '$unique_to_since'"
+    unless ($unique_to_since =~ /^\s*([0-9]+)$/);
+  $need_commits = $1;
+  die "Aborting: $self->{since} is not an ancestor of HEAD.\n" if $need_commits;
   die "Aborting: There are no commits since $self->{since}.\n"
     if $orig_head eq $since_sha1sum;
 
