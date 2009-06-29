@@ -1613,6 +1613,60 @@ EOF
 }
 
 ###########################################################################
+# difftool                                                                #
+###########################################################################
+package difftool;
+@difftool::ISA = qw(diff);
+INIT {
+  $command{difftool} = {
+    new_command => 1,
+    extra => 1,
+    section => 'discovery',
+    about => 'Show changes to file contents using an external tool'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_repo_needed => 1, @_);
+  bless($self, $class);
+
+  $self->{'help'} = "
+Usage:
+  eg difftool [--tool=<tool>] [--unstaged | --staged] [REVISION] [REVISION] [FILE...]
+
+Description:
+  Shows differences between different versions of the project using an
+  external tool.  By default, it shows the differences between the last
+  locally recorded version and the version in the working copy.
+
+  This command behaves just like 'eg diff'; see 'eg help diff' for more
+  details.
+
+  You can configure the default external tool with 'eg config'.  You can
+  specify the default tool by setting 'diff.tool'; you can configure the
+  tool by setting 'difftool.<tool>.cmd'.  See the 'Configuration File'
+  section of 'man git-config' for more details.
+
+Example:
+  Show local unrecorded changes in vimdiff
+      \$ eg difftool --tool=vimdiff
+
+  See 'eg help diff' for more diff examples.
+
+";
+  $self->{'differences'} = "
+  git difftool behaves just like git diff, but launches an external tool
+  instead of using git's built-in machinery.  eg diff is quite different from
+  git diff (see 'eg help diff' for details); eg difftool behaves just like
+  eg diff.
+";
+  return $self;
+}
+
+
+
+###########################################################################
 # gc                                                                      #
 ###########################################################################
 package gc;
