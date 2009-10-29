@@ -3947,11 +3947,13 @@ sub _check_if_bare {
 
   my ($ret, $output) = 
     ExecUtil::execute_captured(
-      "ssh $port $user$machine 'cd $path && $git_cmd rev-parse --is-bare-repository'",
+      "ssh $port -q -o BatchMode=yes $user$machine 'cd $path && $git_cmd rev-parse --is-bare-repository'",
       ignore_ret => 1);
   return undef if $ret != 0;
   chomp($output);
-  return $output;
+  my @lines = split('\n', $output);
+  my $result = $lines[-1];
+  return $result;
 }
 
 sub preprocess {
