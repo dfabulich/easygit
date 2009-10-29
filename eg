@@ -4732,7 +4732,6 @@ package revert;
 @revert::ISA = qw(subcommand);
 INIT {
   $command{revert} = {
-    extra => 1,
     section => 'modification',
     about => 'Revert local changes and/or changes from previous commits'
     };
