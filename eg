@@ -6333,6 +6333,209 @@ Options:
 }
 
 ###########################################################################
+# track                                                                   #
+###########################################################################
+package track;
+@track::ISA = qw(subcommand);
+INIT {
+  $command{track} = {
+    new_command => 1,
+    extra => 1,
+    section => 'projects',
+    about => 'Set which remote branch a local branch tracks'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(git_repo_needed => 1, git_equivalent => '', @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg track (--show [LOCAL_BRANCH] | --show-all)
+  eg track [LOCAL_BRANCH] REMOTE_TRACKING_BRANCH
+  eg track --unset [LOCAL_BRANCH]
+
+Description:
+  eg track helps manage which remote branches your local branches
+  track.  Having a local branch track a remote branch means that when
+  the local branch is the active branch, that the corresponding remote
+  branch is the default push or pull location for eg push or eg pull.
+
+  There are three different things eg track can do, each corresponding to
+  one of the usage forms listed above: list which remote branch a local
+  branch tracks, make a local branch track some remote branch, or make a
+  local branch no longer track any remote branch.
+
+  If LOCAL_BRANCH is not specified, the currently active branch is
+  assumed.
+
+Examples:
+  Show which remote branches all local branches are tracking
+     \$ eg track --show-all
+
+  Show which remote branch the local branch 'stable' tracks
+     \$ eg track --show stable
+
+  Make your currently active branch track the 'magic' branch of the 'jim'
+  repository (see 'eg help remote' for setting up nicknames like 'jim' for
+  remote repositories)
+      \$ eg track jim/magic
+
+  Make your branch 'bugfix' track the 'master' branch of the 'origin'
+  repository (note that 'origin' is the repository you cloned from, unless
+  you've explicitly changed that using the eg remote command or some other
+  low-level means):
+      \$ eg track bugfix origin/master
+
+  Have your 'random-changes' branch stop tracking any remote branch:
+      \$ eg track --unset random-changes
+";
+  $self->{'differences'} = '
+  eg track is unique to eg; git does not have a similar command.
+';
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+
+  # Check for the --help arg
+  my $mode = "set";
+  my ($local_branch, $remote_branch, $remote);
+  Getopt::Long::Configure("permute");
+  my $result = main::GetOptions(
+    "--help"    => sub { $self->help() },
+    "show"      => sub { $mode = "show"; },
+    "show-all"  => sub { $mode = "show-all"; },
+    "unset"     => sub { $mode = "unset"; });
+
+  # Get the remote branch to track, if we're setting up tracking info
+  if ($mode eq "set") {
+    my ($ret, $remote_tracking_branch);
+
+    # Sanity checks
+    die "Error: Too many arguments.  Run 'eg help track'.\n" if (@ARGV > 2);
+    die "Error: Insufficient arguments.  Run 'eg help track'.\n" if (@ARGV < 1);
+
+    # Get the remote tracking branch, and sanity check it
+    $remote_tracking_branch = pop @ARGV;
+    die "Error: Invalid remote tracking branch '$remote_tracking_branch'\n" .
+        "Correct format for remote tracking branches is:\n" .
+        "  REMOTENAME/REMOTEBRANCHNAME\n" if $remote_tracking_branch !~ '/';
+
+    # Split remote tracking branch into remote name and remote branch name
+    ($remote, $remote_branch) = split('/', $remote_tracking_branch, 2);
+
+    # Make sure the remote is a valid name
+    Util::push_debug(new_value => 0);
+    $ret = ExecUtil::execute("$git_cmd remote | grep '^$remote\$' > /dev/null",
+                              ignore_ret => 1);
+    die "Error: '$remote' is not a valid remote name.\n" .
+        "(Use 'eg remote' to find valid remote names).\n" if $ret;
+    Util::pop_debug();
+  }
+
+  # Get the local branch to operate on
+  $local_branch = shift @ARGV;
+  if (!$local_branch && $mode ne "show-all") {
+    $local_branch = RepoUtil::current_branch();
+  }
+  if ($local_branch) {
+    # Make sure $local_branch is defined and has a valid value
+    Util::push_debug(new_value => 0);
+    if (!$local_branch || !RepoUtil::valid_ref("refs/heads/$local_branch")) {
+      die "Error: The branch '$local_branch' is not (yet) a valid local branch.\n";
+    }
+    Util::pop_debug();
+  }
+
+  $self->{mode} = $mode;
+  $self->{branch} = $local_branch;
+  if ($mode eq "set") {
+    $self->{remote_branch} = "refs/heads/$remote_branch";
+    $self->{remote} = $remote
+  }
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my ($ret, $output);
+  my ($mode, $branch, $remote_branch, $remote) =
+     ($self->{mode}, $self->{branch}, $self->{remote_branch}, $self->{remote});
+
+  if ($mode eq "show-all") {
+    $branch = ".*";
+    $mode = "show";
+  }
+
+  if ($mode eq "show") {
+    my %tracking;
+
+    # Get the remote tracking flags
+    ($ret, $output) = ExecUtil::execute_captured(
+      "$git_cmd config --get-regexp '^branch\.$branch\.(remote|merge)'",
+      ignore_ret => 1);
+    chomp($output);
+
+    # Exit early if we're in --translate mode
+    if ($debug == 2) {
+      print "    >>(No more commands to run, " .
+            "just output to parse and print)<<\n";
+    }
+
+    # Check if there are no matches
+    if ($ret) {
+      my $message = "Branch $branch is not";
+      $message = "No branches are" if $branch eq ".*";
+      print "$message set to track anything.\n";
+      return 0;
+    }
+
+    # Fill the %tracking hash
+    my @lines = split('\n', $output);
+    foreach my $line (@lines) {
+      $line =~ /^branch\.(.*)\.(remote|merge) (.*)$/
+        or die "Bad output '$line'!\n";
+
+      $tracking{$1}{$2} = $3;
+    }
+
+    # Show all the tracking information
+    foreach my $bname (sort keys %tracking) {
+      my $remote = $tracking{$bname}{'remote'} || "''";
+      my $remote_branch = $tracking{$bname}{'merge'} || "''";
+      print "Branch $bname tracks $remote_branch of remote $remote.\n";
+    }
+    return 0;
+
+  } elsif ($mode eq "set") {
+    $ret =  ExecUtil::execute(
+       "$git_cmd config branch.$branch.remote $remote", ignore_ret => 1);
+    $ret |= ExecUtil::execute(
+       "$git_cmd config branch.$branch.merge $remote_branch", ignore_ret => 1);
+
+    if (!$ret && $debug < 2) {
+      print "$branch now set to track " .
+            "branch $remote_branch of remote $remote.\n";
+    }
+    return $ret;
+  } elsif ($mode eq "unset") {
+    ExecUtil::execute(
+       "$git_cmd config --unset branch.$branch.remote", ignore_ret => 1);
+    ExecUtil::execute(
+       "$git_cmd config --unset branch.$branch.merge", ignore_ret => 1);
+
+    if ($debug < 2) {
+      print "$branch no longer tracks any remote branch.\n";
+    }
+    return 0;
+  }
+}
+
+###########################################################################
 # unstage                                                                 #
 ###########################################################################
 package unstage;
