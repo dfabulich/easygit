@@ -6035,6 +6035,10 @@ sub postprocess {
       $cur_state = 2;
       $section = 'unstaged';
       $title = 'Changed but not updated ("unstaged"):';
+    } elsif ($line =~ m/^# Unmerged paths:$/) {
+      $cur_state = 2;
+      $section = 'unmerged';
+      $title = 'Unmerged paths (files with conflicts):';
     } elsif ($cur_state < 0) {
       next if $line !~ m/^# (.+)/;
       push(@basic_info, $1);
@@ -6062,8 +6066,12 @@ sub postprocess {
           }
         } elsif ($cur_state == 2) {
           if ($line =~ m/^#(\s+.*:\s+)(.*)/) {
+            my $label = $1;
             my $file = $2;
-            push(@section_files, "$1$file");
+            if ($label =~ /^\s*\e\[.*?m/ && $file !~ /\e\[m$/) {
+              $file .= "\e[m";
+	    }
+            push(@section_files, "$label$file");
           }
         } elsif ($cur_state == 3) {
           if ($line =~ m/^#\s(.*)/) {
@@ -6164,7 +6172,7 @@ sub postprocess {
 
   # Print out all the various changes
   my $linecount = 0;
-  foreach my $section ('staged', 'unstaged', 'submodules',
+  foreach my $section ('staged', 'unmerged', 'unstaged', 'submodules',
                        'new_unknowns', 'old_unknowns') {
     if (defined($files{$section})) {
       print "$files{$section}{'title'}\n";
