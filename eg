@@ -1055,6 +1055,7 @@ sub preprocess {
   my $result = main::GetOptions(
     "help"             => sub { $self->help() },
     "bare"             => sub { $self->{bare} = 1 },
+    "branch|b=s",
     "depth=i",
     "origin|o=s",
     "reference=s",
