@@ -3944,7 +3944,9 @@ sub _get_push_repository {
   my ($repository) = @_;
 
   if (defined $repository) {
-    return RepoUtil::get_config("remote.$repository.url") || $repository;
+    return RepoUtil::get_config("remote.$repository.pushurl") ||
+           RepoUtil::get_config("remote.$repository.url") ||
+           $repository;
   } else {
     return RepoUtil::get_config("remote.origin.url")
   }
