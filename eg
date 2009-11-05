@@ -5747,17 +5747,9 @@ sub preprocess {
     $self->{subcommand} = shift @ARGV;
     push(@args, $self->{subcommand});
 
-    if ($self->{subcommand} eq 'apply' && @ARGV > 0 && $ARGV[0] eq '--index') {
+    # Pass all flags on to git
+    while(@ARGV > 0 && $ARGV[0] =~ /^-/) {
       push(@args, shift @ARGV);
-    }
-    if ($self->{subcommand} eq 'save' &&
-        @ARGV > 0 && $ARGV[0] eq '--keep-index') {
-      push(@args, shift @ARGV);
-    }
-    if ($self->{subcommand} eq 'show') {
-      while(@ARGV > 0 && $ARGV[0] =~ /^-/) {
-        push(@args, shift @ARGV);
-      }
     }
     if ($self->{subcommand} eq 'branch') {
       push(@args, shift @ARGV);  # Pull off the branch name
