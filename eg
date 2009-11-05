@@ -5738,11 +5738,15 @@ sub preprocess {
   # Parse options
   #
   my @args;
-  my $result=main::GetOptions("--help" => sub { $self->help() });
+  if (scalar(@ARGV) > 0 && $ARGV[0] ne "--") {
+    main::GetOptions("--help" => sub { $self->help() });
+  }
 
   # Get the (sub)subcommand
   if (scalar @ARGV == 0) {
     $self->{subcommand} = 'save';
+  } elsif ($ARGV[0] eq "--") {
+    $self->{subcommand} = "save";
   } else {
     $self->{subcommand} = shift @ARGV;
     if ($self->{subcommand} eq '-k') {
