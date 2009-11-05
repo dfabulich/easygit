@@ -5745,6 +5745,10 @@ sub preprocess {
     $self->{subcommand} = 'save';
   } else {
     $self->{subcommand} = shift @ARGV;
+    if ($self->{subcommand} eq '-k') {
+      $self->{subcommand} = "save";
+      unshift @ARGV, '-k';
+    }
     push(@args, $self->{subcommand});
 
     # Pass all flags on to git
