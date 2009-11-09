@@ -5840,17 +5840,20 @@ EOF
   @ARGV = @args;
 }
 
-sub postprocess {
+sub run {
   my $self = shift;
-  my $output = shift;
+  my $package_name = ref($self);
+  my $ret;
 
-  if ($debug == 2) {
-    print "    >>(No commands to run, just data to print)<<\n";
-    return;
-  }
-
-  my @lines = split('\n', $output);
+  @ARGV = Util::quote_args(@ARGV);
   if ($self->{subcommand} eq 'list') {
+    my $output = "";
+    open($outfh, '>', \$output) ||
+      die "eg $package_name: cannot open \$outfh: $!";
+
+    $ret = ExecUtil::execute("$git_cmd $package_name @ARGV", ignore_ret => 1);
+
+    my @lines = split('\n', $output);
     my $regex = 
       qr#(stash\@{[^}]+}): (?:WIP )?[Oo]n [^ ]*: (?:[0-9a-f]+\.\.\. )?#;
     foreach my $line (@lines) {
@@ -5863,10 +5866,9 @@ sub postprocess {
       }
     }
   } else {
-    foreach my $line (@lines) {
-      print "$line\n";
-    }
+    $ret = ExecUtil::execute("$git_cmd $package_name @ARGV", ignore_ret => 1);
   }
+  return $ret;
 }
 
 ###########################################################################
