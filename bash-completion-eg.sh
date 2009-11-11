@@ -180,7 +180,7 @@ _eg_track ()
     return
     ;;
   esac
-  __git_complete_file
+  __git_complete_remote_or_refspec
 }
 
 _eg ()
