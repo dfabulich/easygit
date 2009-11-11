@@ -5900,8 +5900,10 @@ Usage:
 
 Description:
   Show the current state of the project.  In addition to showing the
-  currently active branch, this command will list files with content in any
-  of the following states:
+  currently active branch, whether you have unpushed local commits,
+  whether you have stashed any sets of changes away (see 'eg help
+  stash'), this command will list files with content in any of the
+  following states:
 
      Unknown files
        Files that are not explicitly ignored (i.e. do not appear in an
@@ -6160,6 +6162,12 @@ sub postprocess {
   }
   foreach my $line (@basic_info) {
     print "($line)\n";
+  }
+  my ($retval, $num_stashes) =
+      ExecUtil::execute_captured("$git_cmd stash list | wc -l");
+  chomp($num_stashes);
+  if ($num_stashes > 0) {
+    print "(You have $num_stashes stash(es).  Use 'eg stash list' to see them.)\n";
   }
 
   # Print out info about any special state we're in
