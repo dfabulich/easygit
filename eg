@@ -5655,6 +5655,14 @@ Description:
   When no arguments are specified to eg stash, the current changes are
   saved away with a default description.
 
+  WARNING: Using the default description can be a bad idea if you will not
+  be reapplying the stash very soon.  The default description provided for
+  you is based on the commit message of the most recent commit, which has
+  confused some users into believing that they have already incorporated
+  changes from a stash and throwing the stash away (something that can be
+  recovered from, but which involves some sleuthing and low-level commands
+  like git-fsck and git-cat-file).
+
 Examples:
   You have lots of changes that you're working on, then get an important
   but simple bug report.  You can stash away your current changes, fix the
