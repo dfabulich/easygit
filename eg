@@ -5759,8 +5759,16 @@ sub preprocess {
     push(@args, $self->{subcommand});
 
     # Pass all flags on to git
-    while(@ARGV > 0 && $ARGV[0] =~ /^-/) {
-      push(@args, shift @ARGV);
+    while(@ARGV > 0 && $ARGV[0] =~ /^-/ && $ARGV[0] !~ /^--$/) {
+      if ($self->{subcommand} eq 'list' && $ARGV[0] eq '--refs') {
+        $self->{show_refs} = 1;
+        shift @ARGV;
+      } elsif ($self->{subcommand} eq 'list' && $ARGV[0] eq '--details') {
+        $self->{show_details} = 1;
+        shift @ARGV;
+      } else {
+        push(@args, shift @ARGV);
+      }
     }
     if ($self->{subcommand} eq 'branch') {
       push(@args, shift @ARGV);  # Pull off the branch name
@@ -5821,15 +5829,6 @@ EOF
         if $bad_refs{$stash_description};
 
       push(@args, $refs{$stash_description});
-    }
-  } elsif ($self->{subcommand} eq 'list' && @ARGV) {
-    my $arg = shift @ARGV;
-    if ($arg eq '--refs') {
-      $self->{show_refs} = 1;
-    } elsif ($arg eq '--details') {
-      $self->{show_details} = 1;
-    } else {
-      unshift(@ARGV, $arg);
     }
   }
 
