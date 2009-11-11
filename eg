@@ -5932,6 +5932,13 @@ Description:
        However, a file can appear in both the unstaged and staged lists if
        only part of the changes in the file are marked as ready for commit.
 
+     Unmerged paths (files with conflicts)
+       Files which could not be automatically merged.  If such files are
+       text files, they will have the typical conflict markers.  These
+       files need to be manually edited to give them the correct contents,
+       and then the user should inform git that the conflicts are resolved
+       by running 'eg resolved FILENAME'.
+
      Changes ready to be committed (\"staged\")
        Files with content changes that have explicitly been marked as ready
        to be committed.  This state only typically appears in advanced
