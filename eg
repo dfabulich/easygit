@@ -4714,10 +4714,16 @@ Examples
   be done and the contents ready to commit.
       \$ eg resolved foo.c
 ";
-  $self->{'differences'} = '
-  eg resolved is a command new to eg that is not part of git; however, it
-  simply calls git add.
-';
+  $self->{'differences'} = "
+  eg resolved is a command new to eg that is not part of git.  It is
+  almost synonymous with git add; however, there are two differences:
+  (a) eg resolved will work on a locally deleted file in the unmerged
+  state (git add will complain that there's 'No such file or
+  directory', and some users have had difficulty trying to find out
+  that they needed to run git rm on such files), (b) eg resolved only
+  works on files in the unmerged state (reporting an error if files
+  not in such a state are specified).
+";
   return $self;
 }
 
@@ -4725,8 +4731,46 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  die "Error: Must specify paths to resolve.\n" if !@ARGV;
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("$git_cmd add @ARGV", ignore_ret => 1);
+
+  # Determine which files are actually unmerged
+  my ($ret, $output) =
+    ExecUtil::execute_captured("git ls-files -u --error-unmatch @ARGV",
+      ignore_ret => 1);
+  chomp($output);
+  my @lines = split('\n', $output);
+
+  # If there are some files that do not have conflicts, scream at the user
+  if ($ret != 0) {
+    my @not_unmerged_paths;
+
+    foreach my $line (@lines) {
+      if ($line =~ m/^error: pathspec '(.*?)' did not match any file/) {
+        push(@not_unmerged_paths, $1);
+      }
+    }
+    if (@not_unmerged_paths) {
+      die "Error: The following are not unmerged files and thus don't " .
+          "need resolving:\n  " . join("\n  ", @not_unmerged_paths) . "\n";
+    } else {
+      die "$output\n";
+    }
+  }
+
+  # Determine the unmerged files (users may have passed a directory which
+  # has both unmerged files and modified but unstaged ones; we only want
+  # to stage the unmerged files from such a directory).
+  my %files;
+  foreach my $line (@lines) {
+    $line =~ m/^\d+ [0-9a-f]+ \d\t(.*)$/;
+    $files{$1} = 1;
+  }
+  my @unmerged_files = keys %files;
+
+  # Run add -u instead of just add, since we want locally deleted files to
+  # be picked up as well.
+  return ExecUtil::execute("$git_cmd add -u @unmerged_files", ignore_ret => 1);
 }
 
 ###########################################################################
