@@ -3248,7 +3248,7 @@ sub run {
 
   # Setup name determination via output from git rev-list
   my %names;
-  open(REV_LIST_INPUT, "$git_cmd rev-list --parents $branch | ");
+  open(REV_LIST_INPUT, "$git_cmd rev-list --parents $branch -- | ");
   $names{$revision} = [$branch, 0];
 
   # Loop over the output of git log, printing/modifying as we go
