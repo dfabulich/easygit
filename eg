@@ -713,11 +713,12 @@ sub run {
     foreach my $c (sort keys %command) {
       next if $command{$c}{unmodified_help} || $command{$c}{unmodified_behavior};
 
+      my $real_c = $c;
       $c =~ s/-/_/;  # Packages use underscores, commands use dashes
       next if !$c->can("new");
       my $obj = $c->new(initial_commit_error_msg => '');
 
-      print OUTPUT "Changes to $c:\n";
+      print OUTPUT "Changes to $real_c:\n";
       if ($obj->{differences}) {
         $obj->{differences} =~ s/^\n//;
         print OUTPUT $obj->{differences};
