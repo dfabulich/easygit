@@ -3243,7 +3243,7 @@ sub run {
        "               $git_cmd name-rev --stdin " .
            "--refs=refs/heads/$branch | \\\n" .
        "               less\n";
-    return if $debug == 2;
+    return 0 if $debug == 2;
   }
 
   # Setup name determination via output from git rev-list
