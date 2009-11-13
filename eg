@@ -7236,14 +7236,6 @@ EOF
   }
 
   if ($check_for->{no_changes} && $status->{has_no_changes}) {
-    print STDERR <<EOF;
-Committing changes should (usually) only be done on a branch.  Specify
---bypass-no-branch-check to commit anyway.
-EOF
-    exit 1;
-  }
-
-  if ($check_for->{no_changes} && $status->{has_no_changes}) {
     print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
     exit 1;
   }
@@ -7352,9 +7344,10 @@ sub commit_push_checks {
   $status{has_new_unknown_files} = ($output =~ /^Newly created unknown files:$/m);
   $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
   $status{has_staged_changes}    = ($output =~ /^Changes ready to be commit/m);
-  $status{has_no_changes}        =
-    ($output =~ /^nothing to commit \(working directory clean\)\n\z/m);
   $status{has_unmerged_changes}  = (scalar @unmerged_files > 0);
+  $status{has_no_changes}        = !$status{has_unstaged_changes} &&
+                                   !$status{has_staged_changes} &&
+                                   !$status{has_unmerged_changes};
   $status{output} = $output;
 
   #
