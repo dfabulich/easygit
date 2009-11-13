@@ -1324,7 +1324,7 @@ sub preprocess {
   #
   my $status =
     RepoUtil::commit_push_checks($package_name,
-                                 {no_changes       => 1,
+                                 {no_changes       => !$amend,
                                   unknown          => $check_unknown,
                                   partially_staged => $check_mixed});
 
