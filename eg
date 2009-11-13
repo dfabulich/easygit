@@ -1790,7 +1790,8 @@ sub run {
 
   # Check if we were asked to get help on a subtopic rather than toplevel help
   if (@ARGV > 0) {
-    my $subcommand = shift @ARGV;
+    my $orig_subcommand = shift @ARGV;
+    my $subcommand = $orig_subcommand;
     $subcommand =~ s/-/_/;  # Packages use underscores, commands use dashes
     if (@ARGV != 0 && ($subcommand ne 'topic' || @ARGV != 1)) {
       die "Too many arguments to help.\n";
@@ -1799,11 +1800,11 @@ sub run {
     $subcommand = "help::topic" if $subcommand eq 'topic';
 
     if (!$subcommand->can("new")) {
-      print "$subcommand is not modified by eg (eg $subcommand is equivalent" .
-            " to git $subcommand).\nWill try running 'git help $subcommand'" .
-            " in 2 seconds...\n";
+      print "$orig_subcommand is not modified by eg (eg $orig_subcommand is" .
+            " equivalent to git $orig_subcommand).\nWill try running 'git" .
+            " help $orig_subcommand' in 2 seconds...\n";
       sleep 2;
-      exit ExecUtil::execute("$git_cmd help $subcommand");
+      exit ExecUtil::execute("$git_cmd help $orig_subcommand");
     }
 
     my $subcommand_obj = $subcommand->new(initial_commit_error_msg => '',
