@@ -28,6 +28,7 @@ my $version = ".995";
 my $eg_exec = abs_path($0);
 my $git_cmd = "git";  # Includes any global args, thus "git --exec-path=..."
 my $use_pager = -1;
+my %alias;
 my %command;    # command=>{section, short_description} mapping
 my $section = {
   'creation' =>
@@ -298,6 +299,7 @@ INIT {
     section => 'projects',
     about => 'List, create, or delete branches'
     };
+  $alias{'br'} = "branch";
 }
 
 sub new {
@@ -5943,6 +5945,7 @@ INIT {
     section => 'discovery',
     about => 'Summarize current changes'
     };
+  $alias{'st'} = "status";
 }
 
 sub new {
@@ -6286,6 +6289,7 @@ INIT {
     section => 'projects',
     about => 'Switch the working copy to another branch'
     };
+  $alias{'sw'} = "switch";
 }
 
 sub new {
@@ -7765,6 +7769,7 @@ package main;
 
 sub launch {
   my $job=shift;
+  $job = $alias{$job} || $job;
   my $orig_job = $job;
   $job =~ s/-/_/;  # Packages must have underscores, commands often have dashes
 
