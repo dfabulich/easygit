@@ -3049,7 +3049,7 @@ Description:
   Creates a new repository.
 
   If you want to publish a copy of an existing repository so that others
-  can access it, use eg publish instead.
+  can access it, use 'eg publish' instead.
 
   Note for cvs/svn users: With cvs or svn it is common to create an empty
   repository on \"the server\", then check it out locally and start adding
@@ -3599,7 +3599,9 @@ Description:
   See 'eg help topic remote-urls' for valid syntax for remote repositories.
   If you frequently pull from the same repository, you may want to set up a
   nickname for it (see 'eg help remote'), so that you can specify the
-  nickname instead of the full repository URL every time.
+  nickname instead of the full repository URL every time.  If you want to
+  set a (different) default repository and branch to pull from, see 'eg
+  track'.
 
   By default, tags in the remote repository associated with commits that
   are pulled, will themselves be pulled.  One can specify to pull
@@ -3832,7 +3834,11 @@ Usage:
 
 Description:
   Push committed changes in the current repository to a published remote
-  repository.  The push can fail if the remote repository has commits not
+  repository.  Note that this command cannot be used to create a new remote
+  repository; use 'eg publish' (which both creates a remote repository and
+  pushes to it) if you need to do that.
+
+  The push can fail if the remote repository has commits not
   in the current repository; this can be fixed by pulling and merging
   changes from the remote repository (use eg pull for this) and then
   repeating the push.  Note that for getting changes directly to a fellow
@@ -3849,7 +3855,8 @@ Description:
 
   If you frequently push to the same repository, you may want to set up a
   nickname for it (see 'eg help remote'), so that you can specify the
-  nickname instead of the full repository URL every time.
+  nickname instead of the full repository URL every time.  Also, if you want
+  to change the default repository and branch to push to, see 'eg track'.
 
 Examples:
   Push commits in the current branch
@@ -5609,8 +5616,10 @@ Usage:
 Description:
   Marks the contents of the specified files as being ready to commit,
   scheduling them for addition to the repository.  (This is also known as
-  staging.)  When a directory is passed, all files in that directory or any
-  subdirectory are recursively added.
+  staging.)  This step is often not neccessary, since 'eg commit' will fall
+  back to unstaged changes if you have not staged anything.  When a
+  directory is passed, all files in that directory or any subdirectory are
+  recursively added.
 
   You can use 'eg unstage PATH...' to unstage files.
 
