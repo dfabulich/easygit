@@ -48,7 +48,8 @@ test_expect_success setup '
 	(
 		cd two && git branch another
 	) &&
-	git clone one test
+	git clone one test &&
+        ( cd test && git branch -D side )
 
 '
 

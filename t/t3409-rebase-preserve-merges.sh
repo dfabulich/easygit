@@ -43,7 +43,7 @@ test_expect_success 'setup for merge-preserving rebase' \
 
 	git clone ./. clone1 &&
 	cd clone1 &&
-	git checkout -b topic origin/topic &&
+	git switch topic &&
 	git merge origin/master &&
 	cd .. &&
 
@@ -53,7 +53,7 @@ test_expect_success 'setup for merge-preserving rebase' \
 
 	git clone ./. clone2 &&
 	cd clone2 &&
-	git checkout -b topic origin/topic &&
+	git switch topic &&
 	test_must_fail git merge origin/master &&
 	echo Resolved > B &&
 	git add B &&

@@ -24,10 +24,8 @@ test_expect_success 'prepare pushable branches' '
 	cd aa &&
 	b1=$(git rev-parse origin/b1) &&
 	b2=$(git rev-parse origin/b2) &&
-	git checkout -b b1 origin/b1 &&
 	echo aa-b1 >>file &&
 	git commit -a -m aa-b1 &&
-	git checkout -b b2 origin/b2 &&
 	echo aa-b2 >>file &&
 	git commit -a -m aa-b2 &&
 	git checkout master &&

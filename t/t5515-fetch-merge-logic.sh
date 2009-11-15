@@ -42,6 +42,7 @@ test_expect_success setup '
 
 	git clone . cloned &&
 	cd cloned &&
+	echo master one two | xargs -n 1 git branch -D &&
 	git config remote.origin.url ../.git/ &&
 
 	git config remote.config-explicit.url ../.git/ &&

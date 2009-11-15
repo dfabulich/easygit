@@ -108,18 +108,10 @@ test_expect_success 'bundle clone from b4.bundle that does not exist' '
 	fi
 '
 
-test_expect_success 'bundle clone with nonexistent HEAD' '
-	cd "$D" &&
-	git clone b2.bundle b2 &&
-	cd b2 &&
-	git fetch
-	test ! -e .git/refs/heads/master
-'
-
 test_expect_success 'clone empty repository' '
 	cd "$D" &&
 	mkdir empty &&
-	(cd empty && git init) &&
+	(cd empty && git init --bare) &&
 	git clone empty empty-clone &&
 	test_tick &&
 	(cd empty-clone
@@ -128,7 +120,7 @@ test_expect_success 'clone empty repository' '
 	 git commit -m "Initial commit" &&
 	 git push origin master &&
 	 expected=$(git rev-parse master) &&
-	 actual=$(git --git-dir=../empty/.git rev-parse master) &&
+	 actual=$(git --git-dir=../empty rev-parse master) &&
 	 test $actual = $expected)
 '
 
