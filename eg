@@ -6056,7 +6056,6 @@ sub preprocess {
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help" => sub { $self->help() },
-    "v"      => sub { print STDERR "-v option is not supported.\n"; exit 1 },
     );
 }
 
@@ -6096,6 +6095,7 @@ sub postprocess {
        );
 
   my @basic_info;
+  my @diff_info;
 
   # Exit early if git status had an error
   if ($output =~ m/^fatal:/) {
@@ -6124,6 +6124,10 @@ sub postprocess {
     } elsif ($line =~ m/^no changes added to commit/ ||
              $line =~ m/^# Untracked files not listed/) {
       next;  # Skip this line
+    } elsif ($line =~ m#^(?:\e\[.*?m)?diff --git a/#) {
+      push(@diff_info, $line);
+      push(@diff_info, @lines);
+      last;
     } else {
       die "ERROR: Cannot parse git status output.\n" .
           "$workaround_msg\n" .
@@ -6161,6 +6165,7 @@ sub postprocess {
           push @section_files, "$space$file";
         }
         $line = shift @lines;
+        unshift(@lines, $line) if $line =~ m#^(?:\e\[.*?m)?diff --git a/#;
       }
 
       if (defined($files{$section})) {
@@ -6280,6 +6285,8 @@ sub postprocess {
     print $notice;
   }
 
+  # Print the diff if we're running with the -v option
+  print join("\n", @diff_info)."\n" if (@diff_info);
 }
 
 ###########################################################################
