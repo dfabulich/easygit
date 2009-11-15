@@ -83,14 +83,14 @@ index 2ffffff,3ffffff..0000000
 
 test_expect_success 'combined (empty submodule)' '
 	rm -fr sub && mkdir sub &&
-	git diff >actual &&
+	git diff --unstaged >actual &&
 	test_cmp expect.nosub actual
 '
 
 test_expect_success 'combined (with submodule)' '
 	rm -fr sub &&
 	git clone --no-checkout . sub &&
-	git diff >actual &&
+	git diff --unstaged >actual &&
 	test_cmp expect.withsub actual
 '
 

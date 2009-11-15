@@ -15,7 +15,7 @@ test_expect_success setup '
 	cp sub/file1 saved &&
 	git add sub/file1 &&
 	echo "B " >sub/file1 &&
-	git diff >patch.file
+	git diff --unstaged >patch.file
 '
 
 # Also handcraft GNU diff output; note this has trailing whitespace.

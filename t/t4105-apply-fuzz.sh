@@ -25,7 +25,7 @@ test_expect_success setup '
 		echo $i
 	done >file &&
 	cat file >expect &&
-	git diff >O0.diff &&
+	git diff --unstaged >O0.diff &&
 
 	sed -e "s/@@ -5,6 +5,11 @@/@@ -2,6 +2,11 @@/" >O1.diff O0.diff &&
 	sed -e "s/@@ -5,6 +5,11 @@/@@ -7,6 +7,11 @@/" >O2.diff O0.diff &&

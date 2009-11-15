@@ -23,7 +23,7 @@ test_expect_success 'apply same filename with independent changes' '
 	git diff > patch0 &&
 	git add same_fn &&
 	modify "s/^i/y/" same_fn &&
-	git diff >> patch0 &&
+	git diff --unstaged >> patch0 &&
 	cp same_fn same_fn2 &&
 	git reset --hard &&
 	git apply patch0 &&
@@ -36,7 +36,7 @@ test_expect_success 'apply same filename with overlapping changes' '
 	git diff > patch0 &&
 	git add same_fn &&
 	modify "s/^e/y/" same_fn &&
-	git diff >> patch0 &&
+	git diff --unstaged >> patch0 &&
 	cp same_fn same_fn2 &&
 	git reset --hard &&
 	git apply patch0 &&
@@ -50,7 +50,7 @@ test_expect_success 'apply same new filename after rename' '
 	git add new_fn &&
 	git diff -M --cached > patch1 &&
 	modify "s/^e/y/" new_fn &&
-	git diff >> patch1 &&
+	git diff --unstaged >> patch1 &&
 	cp new_fn new_fn2 &&
 	git reset --hard &&
 	git apply --index patch1 &&
@@ -82,7 +82,7 @@ test_expect_success 'apply A->B (rename), C->A (rename), A->A -- should pass.' '
 	git add same_fn &&
 	git diff -M --cached >> patch1 &&
 	modify "s/^g/x/" same_fn &&
-	git diff >> patch1 &&
+	git diff --unstaged >> patch1 &&
 	git reset --hard HEAD^ &&
 	git apply patch1
 '

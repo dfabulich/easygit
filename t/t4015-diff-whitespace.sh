@@ -42,13 +42,13 @@ index adf3937..6edc172 100644
 +while (0);
 EOF
 
-git diff > out
+git diff --unstaged > out
 test_expect_success "Ray's example without options" 'test_cmp expect out'
 
-git diff -w > out
+git diff --unstaged -w > out
 test_expect_success "Ray's example with -w" 'test_cmp expect out'
 
-git diff -b > out
+git diff --unstaged -b > out
 test_expect_success "Ray's example with -b" 'test_cmp expect out'
 
 tr 'Q' '\015' << EOF > x
@@ -89,20 +89,20 @@ index d99af23..8b32fb5 100644
 -CR at endQ
 +CR at end
 EOF
-git diff > out
+git diff --unstaged > out
 test_expect_success 'another test, without options' 'test_cmp expect out'
 
 cat << EOF > expect
 diff --git a/x b/x
 index d99af23..8b32fb5 100644
 EOF
-git diff -w > out
+git diff --unstaged -w > out
 test_expect_success 'another test, with -w' 'test_cmp expect out'
-git diff -w -b > out
+git diff --unstaged -w -b > out
 test_expect_success 'another test, with -w -b' 'test_cmp expect out'
-git diff -w --ignore-space-at-eol > out
+git diff --unstaged -w --ignore-space-at-eol > out
 test_expect_success 'another test, with -w --ignore-space-at-eol' 'test_cmp expect out'
-git diff -w -b --ignore-space-at-eol > out
+git diff --unstaged -w -b --ignore-space-at-eol > out
 test_expect_success 'another test, with -w -b --ignore-space-at-eol' 'test_cmp expect out'
 
 tr 'Q' '\015' << EOF > expect
@@ -120,9 +120,9 @@ index d99af23..8b32fb5 100644
  unchanged line
  CR at endQ
 EOF
-git diff -b > out
+git diff --unstaged -b > out
 test_expect_success 'another test, with -b' 'test_cmp expect out'
-git diff -b --ignore-space-at-eol > out
+git diff --unstaged -b --ignore-space-at-eol > out
 test_expect_success 'another test, with -b --ignore-space-at-eol' 'test_cmp expect out'
 
 tr 'Q' '\015' << EOF > expect
@@ -141,14 +141,14 @@ index d99af23..8b32fb5 100644
  unchanged line
  CR at endQ
 EOF
-git diff --ignore-space-at-eol > out
+git diff --unstaged --ignore-space-at-eol > out
 test_expect_success 'another test, with --ignore-space-at-eol' 'test_cmp expect out'
 
 test_expect_success 'check mixed spaces and tabs in indent' '
 
 	# This is indented with SP HT SP.
 	echo " 	 foo();" > x &&
-	git diff --check | grep "space before tab in indent"
+	git diff --unstaged --check | grep "space before tab in indent"
 
 '
 
@@ -156,7 +156,7 @@ test_expect_success 'check mixed tabs and spaces in indent' '
 
 	# This is indented with HT SP HT.
 	echo "	 	foo();" > x &&
-	git diff --check | grep "space before tab in indent"
+	git diff --unstaged --check | grep "space before tab in indent"
 
 '
 

@@ -13,7 +13,7 @@ test_expect_success setup '
 	cp sub/file1 file1 &&
 	git add sub/file1 &&
 	echo B >sub/file1 &&
-	git diff >patch.file &&
+	git diff --unstaged >patch.file &&
 	rm sub/file1 &&
 	rmdir sub
 '

@@ -32,7 +32,7 @@ test_expect_success setup '
 	git add F &&
 	mv F G &&
 	sed -e "s/1/11/" -e "s/999999/9/" -e "s/H/HH/" <G >F &&
-	git diff >patch &&
+	git diff --unstaged >patch &&
 	sed -e "/^\$/d" <G >F &&
 	git add F
 

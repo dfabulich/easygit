@@ -148,7 +148,7 @@ test_expect_success 'diff -U0' '
 
 	for n in $sample
 	do
-		git diff -U0 file-?$n
+		git diff --unstaged -U0 file-?$n
 	done | zc >actual &&
 	test_cmp expect actual
 

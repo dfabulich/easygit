@@ -14,7 +14,7 @@ test_expect_success setup '
 '
 
 test_expect_success 'check all changes are staged' '
-	git diff --exit-code
+	git diff --unstaged --exit-code
 '
 
 test_expect_success 'second commit' '

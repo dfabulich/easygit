@@ -79,7 +79,7 @@ chmod a+x fake_editor.sh
 test_set_editor "$(pwd)/fake_editor.sh"
 test_expect_success 'dummy edit works' '
 	(echo e; echo a) | git add -p &&
-	git diff > diff &&
+	git diff --unstaged > diff &&
 	test_cmp expected diff
 '
 
@@ -134,7 +134,7 @@ index b5dd6c9..f910ae9 100644
 EOF
 test_expect_success 'real edit works' '
 	(echo e; echo n; echo d) | git add -p &&
-	git diff >output &&
+	git diff --unstaged >output &&
 	test_cmp expected output
 '
 
@@ -143,7 +143,7 @@ test_expect_success 'skip files similarly as commit -a' '
 	echo file >.gitignore &&
 	echo changed >file &&
 	echo y | git add -p file &&
-	git diff >output &&
+	git diff --unstaged >output &&
 	git reset &&
 	git commit -am commit &&
 	git diff >expected &&
@@ -185,7 +185,7 @@ test_expect_success FILEMODE 'stage mode and hunk' '
 	printf "y\\ny\\n" | git add -p &&
 	git diff --cached file | grep "new mode" &&
 	git diff --cached file | grep "+content" &&
-	test -z "$(git diff file)"
+	test -z "$(git diff --unstaged file)"
 '
 
 # end of tests disabled when filemode is not usable

@@ -24,17 +24,17 @@ cat > expected <<\EOF
  4 files changed, 2 insertions(+), 2 deletions(-)
 EOF
 test_expect_success 'diff without --binary' \
-	'git diff | git apply --stat --summary >current &&
+	'git diff --unstaged | git apply --stat --summary >current &&
 	 test_cmp expected current'
 
 test_expect_success 'diff with --binary' \
-	'git diff --binary | git apply --stat --summary >current &&
+	'git diff --unstaged --binary | git apply --stat --summary >current &&
 	 test_cmp expected current'
 
 # apply needs to be able to skip the binary material correctly
 # in order to report the line number of a corrupt patch.
 test_expect_success 'apply detecting corrupt patch correctly' \
-	'git diff | sed -e 's/-CIT/xCIT/' >broken &&
+	'git diff --unstaged | sed -e 's/-CIT/xCIT/' >broken &&
 	 if git apply --stat --summary broken 2>detected
 	 then
 		echo unhappy - should have detected an error
@@ -48,7 +48,7 @@ test_expect_success 'apply detecting corrupt patch correctly' \
 	 test "$detected" = xCIT'
 
 test_expect_success 'apply detecting corrupt patch correctly' \
-	'git diff --binary | sed -e 's/-CIT/xCIT/' >broken &&
+	'git diff --unstaged --binary | sed -e 's/-CIT/xCIT/' >broken &&
 	 if git apply --stat --summary broken 2>detected
 	 then
 		echo unhappy - should have detected an error

@@ -28,7 +28,7 @@ index 557db03..263414f 100644
 EOF
 git diff-files -p > diff.output
 test_expect_success 'git diff-files -p' 'cmp diff.expect diff.output'
-git diff > diff.output
+git diff --unstaged > diff.output
 test_expect_success 'git diff' 'cmp diff.expect diff.output'
 
 tree=$(git write-tree 2>/dev/null)

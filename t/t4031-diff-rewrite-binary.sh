@@ -28,18 +28,18 @@ test_expect_success 'create binary file with changes' '
 '
 
 test_expect_success 'vanilla diff is binary' '
-	git diff >diff &&
+	git diff --unstaged >diff &&
 	grep "Binary files a/file and b/file differ" diff
 '
 
 test_expect_success 'rewrite diff is binary' '
-	git diff -B >diff &&
+	git diff --unstaged -B >diff &&
 	grep "dissimilarity index" diff &&
 	grep "Binary files a/file and b/file differ" diff
 '
 
 test_expect_success 'rewrite diff can show binary patch' '
-	git diff -B --binary >diff &&
+	git diff --unstaged -B --binary >diff &&
 	grep "dissimilarity index" diff &&
 	grep "GIT binary patch" diff
 '
@@ -58,7 +58,7 @@ test_expect_success 'setup textconv' '
 '
 
 test_expect_success 'rewrite diff respects textconv' '
-	git diff -B >diff &&
+	git diff --unstaged -B >diff &&
 	grep "dissimilarity index" diff &&
 	grep "^-61" diff &&
 	grep "^-0" diff

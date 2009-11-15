@@ -27,7 +27,7 @@ test_expect_success setup '
 	echo Q | tr -d "\\012" >>file2 &&
 	cat file1 >file1.mods &&
 	cat file2 >file2.mods &&
-	git diff |
+	git diff --unstaged |
 	sed -e "s/^ \$//" >diff.output
 '
 

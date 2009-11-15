@@ -78,7 +78,7 @@ test_expect_success 'git diff-index --cached HEAD' '
 
 test_expect_success '--check --exit-code returns 0 for no difference' '
 
-	git diff --check --exit-code
+	git diff --unstaged --check --exit-code
 
 '
 

@@ -140,7 +140,7 @@ test_expect_success 'GIT_EXTERNAL_DIFF generates pretty paths' '
 	touch file.ext &&
 	git add file.ext &&
 	echo with extension > file.ext &&
-	GIT_EXTERNAL_DIFF=echo git diff file.ext | grep ......_file\.ext &&
+	GIT_EXTERNAL_DIFF=echo git diff --unstaged file.ext | grep ......_file\.ext &&
 	git update-index --force-remove file.ext &&
 	rm file.ext
 '

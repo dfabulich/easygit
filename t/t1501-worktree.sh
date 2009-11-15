@@ -109,10 +109,10 @@ test_expect_success 'repo finds its work tree from work tree, too' '
 test_expect_success '_gently() groks relative GIT_DIR & GIT_WORK_TREE' '
 	(cd repo.git/work/sub/dir &&
 	GIT_DIR=../../.. GIT_WORK_TREE=../.. GIT_PAGER= \
-		git diff --exit-code tracked &&
+		git diff --unstaged --exit-code tracked &&
 	echo changed > tracked &&
 	! GIT_DIR=../../.. GIT_WORK_TREE=../.. GIT_PAGER= \
-		git diff --exit-code tracked)
+		git diff --unstaged --exit-code tracked)
 '
 cat > diff-index-cached.expected <<\EOF
 :000000 100644 0000000000000000000000000000000000000000 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 A	sub/dir/tracked
@@ -165,7 +165,7 @@ test_expect_success 'git diff' '
 	test_cmp diff-TREE.expected result &&
 	GIT_DIR=repo.git git diff --cached $EMPTY_TREE > result &&
 	test_cmp diff-TREE-cached.expected result &&
-	GIT_DIR=repo.git GIT_WORK_TREE=repo.git/work git diff > result &&
+	GIT_DIR=repo.git GIT_WORK_TREE=repo.git/work git diff --unstaged > result &&
 	test_cmp diff-FILES.expected result
 '
 

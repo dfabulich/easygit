@@ -59,7 +59,7 @@ test_expect_success 'merging with modify/modify conflict' '
 	git checkout -b test1 a &&
 	test_must_fail git merge b &&
 	test -f .git/MERGE_MSG &&
-	git diff &&
+	git diff --unstaged &&
 	test -n "$(git ls-files -u)"
 '
 

@@ -8,7 +8,7 @@ test_expect_success setup '
 	echo hello >text &&
 	git add text &&
 	echo goodbye >text &&
-	git diff >patch
+	git diff --unstaged >patch
 '
 
 test_expect_success 'git apply --numstat - < patch' '

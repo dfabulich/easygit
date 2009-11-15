@@ -25,7 +25,7 @@ test_expect_success 'branch switching' '
 test_expect_success 'checkout world from the index' '
 	echo bye > world &&
 	git checkout -- world &&
-	git diff --exit-code --quiet
+	git diff --unstaged --exit-code --quiet
 '
 
 test_expect_success 'non ambiguous call' '

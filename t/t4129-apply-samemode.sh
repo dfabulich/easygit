@@ -36,7 +36,7 @@ test_expect_success FILEMODE 'same mode (with index)' '
 	git add file &&
 	git apply --index patch-0.txt &&
 	test -x file &&
-	git diff --exit-code
+	git diff --unstaged --exit-code
 '
 
 test_expect_success FILEMODE 'same mode (index only)' '
@@ -57,7 +57,7 @@ test_expect_success FILEMODE 'mode update (with index)' '
 	git reset --hard &&
 	git apply --index patch-1.txt &&
 	test -x file &&
-	git diff --exit-code
+	git diff --unstaged --exit-code
 '
 
 test_expect_success FILEMODE 'mode update (index only)' '

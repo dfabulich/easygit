@@ -41,7 +41,7 @@ test_expect_success 'apply in reverse' '
 
 	git reset --hard second &&
 	git apply --reverse --binary --index patch &&
-	git diff >diff &&
+	git diff --unstaged >diff &&
 	test_cmp /dev/null diff
 
 '
@@ -85,7 +85,7 @@ test_expect_success 'apply in reverse without postimage' '
 test_expect_success 'reversing a whitespace introduction' '
 	sed "s/a/a /" < file1 > file1.new &&
 	mv file1.new file1 &&
-	git diff | git apply --reverse --whitespace=error
+	git diff --unstaged | git apply --reverse --whitespace=error
 '
 
 test_done

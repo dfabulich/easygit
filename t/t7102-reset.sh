@@ -34,7 +34,7 @@ test_expect_success 'creating initial files and commits' '
 
 check_changes () {
 	test "$(git rev-parse HEAD)" = "$1" &&
-	git diff | test_cmp .diff_expect - &&
+	git diff --unstaged | test_cmp .diff_expect - &&
 	git diff --cached | test_cmp .cached_expect - &&
 	for FILE in *
 	do
@@ -391,7 +391,7 @@ test_expect_success 'test --mixed <paths>' '
 	echo 5 > file1 &&
 	git add file1 file3 file4 &&
 	test_must_fail git reset HEAD -- file1 file2 file3 &&
-	git diff > output &&
+	git diff --unstaged > output &&
 	test_cmp output expect &&
 	git diff --cached > output &&
 	test_cmp output cached_expect

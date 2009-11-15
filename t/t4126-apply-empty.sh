@@ -14,7 +14,7 @@ test_expect_success setup '
 		echo $i
 	done >empty &&
 	cat empty >expect &&
-	git diff |
+	git diff --unstaged |
 	sed -e "/^diff --git/d" \
 	    -e "/^index /d" \
 	    -e "s|a/empty|empty.orig|" \
@@ -36,7 +36,7 @@ test_expect_success 'apply --index empty' '
 	rm -f missing &&
 	git apply --index patch0 &&
 	test_cmp expect empty &&
-	git diff --exit-code
+	git diff --unstaged --exit-code
 '
 
 test_expect_success 'apply create' '
@@ -51,7 +51,7 @@ test_expect_success 'apply --index create' '
 	rm -f missing &&
 	git apply --index patch1 &&
 	test_cmp expect missing &&
-	git diff --exit-code
+	git diff --unstaged --exit-code
 '
 
 test_done

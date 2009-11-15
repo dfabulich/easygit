@@ -168,11 +168,11 @@ test_expect_success 'stash branch' '
 	test $(git rev-parse HEAD) = $(git rev-parse master^) &&
 	git diff --cached > output &&
 	test_cmp output expect &&
-	git diff > output &&
+	git diff --unstaged > output &&
 	test_cmp output expect1 &&
 	git add file &&
 	git commit -b -m alternate\ second &&
-	git diff master..stashbranch > output &&
+	git diff master stashbranch > output &&
 	test_cmp output expect2 &&
 	test 0 = $(git stash list | wc -l)
 '

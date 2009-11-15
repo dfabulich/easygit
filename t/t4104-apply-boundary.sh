@@ -24,8 +24,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >add-a-expect &&
-	git diff victim >add-a-patch.with &&
-	git diff --unified=0 >add-a-patch.without &&
+	git diff --unstaged victim >add-a-patch.with &&
+	git diff --unstaged --unified=0 >add-a-patch.without &&
 
 	: insert at line two
 	for i in b a '"$L"' y
@@ -33,8 +33,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >insert-a-expect &&
-	git diff victim >insert-a-patch.with &&
-	git diff --unified=0 >insert-a-patch.without &&
+	git diff --unstaged victim >insert-a-patch.with &&
+	git diff --unstaged --unified=0 >insert-a-patch.without &&
 
 	: modify at the head
 	for i in a '"$L"' y
@@ -42,8 +42,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >mod-a-expect &&
-	git diff victim >mod-a-patch.with &&
-	git diff --unified=0 >mod-a-patch.without &&
+	git diff --unstaged victim >mod-a-patch.with &&
+	git diff --unstaged --unified=0 >mod-a-patch.without &&
 
 	: remove from the head
 	for i in '"$L"' y
@@ -51,8 +51,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >del-a-expect &&
-	git diff victim >del-a-patch.with
-	git diff --unified=0 >del-a-patch.without &&
+	git diff --unstaged victim >del-a-patch.with
+	git diff --unstaged --unified=0 >del-a-patch.without &&
 
 	: add to the tail
 	for i in b '"$L"' y z
@@ -60,8 +60,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >add-z-expect &&
-	git diff victim >add-z-patch.with &&
-	git diff --unified=0 >add-z-patch.without &&
+	git diff --unstaged victim >add-z-patch.with &&
+	git diff --unstaged --unified=0 >add-z-patch.without &&
 
 	: modify at the tail
 	for i in b '"$L"' z
@@ -69,8 +69,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >mod-z-expect &&
-	git diff victim >mod-z-patch.with &&
-	git diff --unified=0 >mod-z-patch.without &&
+	git diff --unstaged victim >mod-z-patch.with &&
+	git diff --unstaged --unified=0 >mod-z-patch.without &&
 
 	: remove from the tail
 	for i in b '"$L"'
@@ -78,8 +78,8 @@ test_expect_success setup '
 		echo $i
 	done >victim &&
 	cat victim >del-z-expect &&
-	git diff victim >del-z-patch.with
-	git diff --unified=0 >del-z-patch.without &&
+	git diff --unstaged victim >del-z-patch.with
+	git diff --unstaged --unified=0 >del-z-patch.without &&
 
 	: done
 '
@@ -126,7 +126,7 @@ test_expect_success 'two lines' '
 	>file &&
 	git add file &&
 	echo aaa >file &&
-	git diff >patch &&
+	git diff --unstaged >patch &&
 	git add file &&
 	echo bbb >file &&
 	git add file &&

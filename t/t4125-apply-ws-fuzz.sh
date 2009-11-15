@@ -17,7 +17,7 @@ test_expect_success setup '
 
 	# patch-0 creates a whitespace broken file
 	cat file-0 >file &&
-	git diff >patch-0 &&
+	git diff --unstaged >patch-0 &&
 	git add file &&
 
 	# file-1 is still full of whitespace breakages,
@@ -26,13 +26,13 @@ test_expect_success setup '
 	# patch-1 records that change.
 	sed -e "s/d/D/" file-0 >file-1 &&
 	cat file-1 >file &&
-	git diff >patch-1 &&
+	git diff --unstaged >patch-1 &&
 
 	# patch-all is the effect of both patch-0 and patch-1
 	>file &&
 	git add file &&
 	cat file-1 >file &&
-	git diff >patch-all &&
+	git diff --unstaged >patch-all &&
 
 	# patch-2 is the same as patch-1 but is based
 	# on a version that already has whitespace fixed,

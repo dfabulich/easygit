@@ -140,8 +140,8 @@ test_expect_success 'am changes committer and keeps author' '
 	git am patch2 &&
 	! test -d .git/rebase-apply &&
 	test "$(git rev-parse master^^)" = "$(git rev-parse HEAD^^)" &&
-	test -z "$(git diff master..HEAD)" &&
-	test -z "$(git diff master^..HEAD^)" &&
+	test -z "$(git diff master HEAD)" &&
+	test -z "$(git diff master^ HEAD^)" &&
 	compare author master HEAD &&
 	compare author master^ HEAD^ &&
 	test "$GIT_COMMITTER_NAME <$GIT_COMMITTER_EMAIL>" = \
@@ -234,7 +234,7 @@ test_expect_success 'am takes patches from a Pine mailbox' '
 	git checkout first &&
 	cat pine patch1 | git am &&
 	! test -d .git/rebase-apply &&
-	test -z "$(git diff master^..HEAD)"
+	test -z "$(git diff master^ HEAD)"
 '
 
 test_expect_success 'am fails on mail without patch' '
