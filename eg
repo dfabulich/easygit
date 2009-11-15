@@ -7728,7 +7728,7 @@ sub reroot_paths__from_to_files {
     # Find what $oldpath and $to have in common
     my $common_leading_path = "";
     my $combined = "$oldpath\n$to";
-    if ($combined =~ /^(.*).*\n\1.*$/) {
+    if ($combined =~ m#^(.*/).*\n\1.*$#) {
       $common_leading_path = $1;
     }
 
