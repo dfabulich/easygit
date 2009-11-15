@@ -76,7 +76,7 @@ test_expect_success 'pushing from symlinked subdir' '
 		cd subdir-link/ &&
 		echo push >file &&
 		git commit -m push ./file &&
-		git push
+		git push origin master:master
 	) &&
 	test push = $(git show HEAD:subdir/file)
 '

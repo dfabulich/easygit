@@ -110,7 +110,10 @@ test_expect_success 'push --all excludes remote tracking hierarchy' '
 	mkdir parent &&
 	(
 	    cd parent &&
-	    git init && : >file && git add file && git commit -m add
+	    git init --bare && : >file && blob=$(git hash-object -w file) &&
+	    tree=$(printf "100644 blob %s\tfile" $blob | git mktree) &&
+	    commit=$(echo "add" | git commit-tree $tree) &&
+	    echo $commit > refs/heads/master
 	) &&
 	git clone parent child &&
 	(

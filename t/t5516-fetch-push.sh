@@ -11,8 +11,8 @@ mk_empty () {
 	mkdir testrepo &&
 	(
 		cd testrepo &&
-		git init &&
-		mv .git/hooks .git/hooks-disabled
+		git init --bare &&
+		mv hooks hooks-disabled
 	)
 }
 
@@ -142,7 +142,7 @@ test_expect_success 'fetch with pushInsteadOf (should not rewrite)' '
 test_expect_success 'push without wildcard' '
 	mk_empty &&
 
-	git push testrepo refs/heads/master:refs/remotes/origin/master &&
+	git push -b testrepo refs/heads/master:refs/remotes/origin/master &&
 	(
 		cd testrepo &&
 		r=$(git show-ref -s --verify refs/remotes/origin/master) &&
@@ -212,7 +212,7 @@ test_expect_success 'push with pushInsteadOf and explicit pushurl (pushInsteadOf
 test_expect_success 'push with matching heads' '
 
 	mk_test heads/master &&
-	git push testrepo &&
+	git push --matching-branches testrepo &&
 	check_push_result $the_commit heads/master
 
 '
@@ -451,8 +451,7 @@ test_expect_success 'push with config remote.*.push = HEAD' '
 	git branch -f local $the_commit &&
 	(
 		cd testrepo &&
-		git checkout local &&
-		git reset --hard $the_first_commit
+		git branch -f local $the_first_commit
 	) &&
 	git config remote.there.url testrepo &&
 	git config remote.there.push HEAD &&
@@ -501,6 +500,7 @@ test_expect_success 'push updates local refs' '
 
 test_expect_success 'push updates up-to-date local refs' '
 
+	git ls-files --others --directory > .git/info/ignored-unknown &&
 	mk_test heads/master &&
 	mk_child child1 &&
 	mk_child child2 &&
@@ -514,6 +514,7 @@ test_expect_success 'push updates up-to-date local refs' '
 
 test_expect_success 'push preserves up-to-date packed refs' '
 
+	git ls-files --others --directory > .git/info/ignored-unknown &&
 	mk_test heads/master &&
 	mk_child child &&
 	(cd child &&
@@ -526,9 +527,9 @@ test_expect_success 'push does not update local refs on failure' '
 
 	mk_test heads/master &&
 	mk_child child &&
-	mkdir testrepo/.git/hooks &&
-	echo exit 1 >testrepo/.git/hooks/pre-receive &&
-	chmod +x testrepo/.git/hooks/pre-receive &&
+	mkdir testrepo/hooks &&
+	echo exit 1 >testrepo/hooks/pre-receive &&
+	chmod +x testrepo/hooks/pre-receive &&
 	(cd child &&
 		git pull .. master
 		test_must_fail git push &&
@@ -546,48 +547,11 @@ test_expect_success 'allow deleting an invalid remote ref' '
 
 '
 
-test_expect_success 'warn on push to HEAD of non-bare repository' '
-	mk_test heads/master
-	(cd testrepo &&
-		git checkout master &&
-		git config receive.denyCurrentBranch warn) &&
-	git push testrepo master 2>stderr &&
-	grep "warning: updating the current branch" stderr
-'
-
-test_expect_success 'deny push to HEAD of non-bare repository' '
-	mk_test heads/master
-	(cd testrepo &&
-		git checkout master &&
-		git config receive.denyCurrentBranch true) &&
-	test_must_fail git push testrepo master
-'
-
-test_expect_success 'allow push to HEAD of bare repository (bare)' '
-	mk_test heads/master
-	(cd testrepo &&
-		git checkout master &&
-		git config receive.denyCurrentBranch true &&
-		git config core.bare true) &&
-	git push testrepo master 2>stderr &&
-	! grep "warning: updating the current branch" stderr
-'
-
-test_expect_success 'allow push to HEAD of non-bare repository (config)' '
-	mk_test heads/master
-	(cd testrepo &&
-		git checkout master &&
-		git config receive.denyCurrentBranch false
-	) &&
-	git push testrepo master 2>stderr &&
-	! grep "warning: updating the current branch" stderr
-'
-
 test_expect_success 'fetch with branches' '
 	mk_empty &&
 	git branch second $the_first_commit &&
 	git checkout second &&
-	echo ".." > testrepo/.git/branches/branch1 &&
+	echo ".." > testrepo/branches/branch1 &&
 	(cd testrepo &&
 		git fetch branch1 &&
 		r=$(git show-ref -s --verify refs/heads/branch1) &&
@@ -599,7 +563,7 @@ test_expect_success 'fetch with branches' '
 
 test_expect_success 'fetch with branches containing #' '
 	mk_empty &&
-	echo "..#second" > testrepo/.git/branches/branch2 &&
+	echo "..#second" > testrepo/branches/branch2 &&
 	(cd testrepo &&
 		git fetch branch2 &&
 		r=$(git show-ref -s --verify refs/heads/branch2) &&
@@ -613,7 +577,7 @@ test_expect_success 'push with branches' '
 	mk_empty &&
 	git checkout second &&
 	echo "testrepo" > .git/branches/branch1 &&
-	git push branch1 &&
+	git push --matching-branches branch1 &&
 	(cd testrepo &&
 		r=$(git show-ref -s --verify refs/heads/master) &&
 		test "z$r" = "z$the_first_commit" &&
@@ -624,7 +588,7 @@ test_expect_success 'push with branches' '
 test_expect_success 'push with branches containing #' '
 	mk_empty &&
 	echo "testrepo#branch3" > .git/branches/branch2 &&
-	git push branch2 &&
+	git push --matching-branches branch2 &&
 	(cd testrepo &&
 		r=$(git show-ref -s --verify refs/heads/branch3) &&
 		test "z$r" = "z$the_first_commit" &&

@@ -164,7 +164,7 @@ test_expect_success 'create parallel branch without the bug' '
 '
 
 test_expect_success 'push to cloned repo' '
-     git push cloned $HASH6^:refs/heads/parallel &&
+     git push -b cloned $HASH6^:refs/heads/parallel &&
      cd clone_dir &&
      git checkout parallel &&
      git log --pretty=oneline | grep $PARA2 &&

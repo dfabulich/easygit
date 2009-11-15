@@ -34,7 +34,7 @@ test_expect_success 'forced push should succeed' '
 
 	(
 		cd another &&
-		git push .. +master:master
+		git push -b .. +master:master
 	)
 
 '

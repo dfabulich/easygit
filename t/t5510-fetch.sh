@@ -225,7 +225,7 @@ test_expect_success 'push via rsync' '
 	mkdir rsynced3 &&
 	(cd rsynced3 &&
 	 git init) &&
-	git push --all "rsync:$(pwd)/rsynced3/.git" &&
+	git push -b --all "rsync:$(pwd)/rsynced3/.git" &&
 	(cd rsynced3 &&
 	 test $(git rev-parse master) = $(cd .. && git rev-parse master) &&
 	 git fsck --full)

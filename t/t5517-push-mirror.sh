@@ -19,7 +19,7 @@ mk_repo_pair () {
 	mkdir mirror &&
 	(
 		cd mirror &&
-		git init
+		git init --bare
 	) &&
 	mkdir master &&
 	(
@@ -233,9 +233,9 @@ test_expect_success 'remote.foo.mirror adds and removes branches' '
 		echo one >foo && git add foo && git commit -m one &&
 		git branch keep master &&
 		git branch remove master &&
-		git push up &&
+		git push --matching-branches up &&
 		git branch -D remove
-		git push up
+		git push --matching-branches up
 	) &&
 	(
 		cd mirror &&
@@ -255,7 +255,7 @@ test_expect_success 'remote.foo.mirror=no has no effect' '
 		git branch keep master &&
 		git push --mirror up &&
 		git branch -D keep &&
-		git push up
+		git push --matching-branches up
 	) &&
 	(
 		cd mirror &&
