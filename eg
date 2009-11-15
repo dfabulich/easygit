@@ -1283,7 +1283,8 @@ sub preprocess {
   my $record_arg   = sub { push(@{$self->{args}}, "$_[0]$_[1]"); };
   my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
                            push(@{$self->{args}}, splice(@_, 2)); };
-  my ($all_known, $bypass_unknown, $staged, $amend) = (0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged, $amend, $allow_empty) =
+     (0, 0, 0, 0, 0);
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
@@ -1299,7 +1300,10 @@ sub preprocess {
     "file=s"                      => sub { &$record_args("--", @_) },
     "m=s"                         => sub { &$record_args("-", @_) },
     "amend"                       => sub { $amend = 1; &$record_arg("--", @_) },
-    "allow-empty"                 => sub { &$record_arg("--", @_) },
+    "allow-empty"                 => sub { $allow_empty = 1;
+					   &$record_arg("--", @_) },
+    "interactive"                 => sub { $allow_empty = 1;
+					   &$record_arg("--", @_) },
     "no-verify"                   => sub { &$record_arg("--", @_) },
     "e"                           => sub { &$record_arg("-", @_) },
     "author=s"                    => sub { &$record_args("--", @_) },
@@ -1324,7 +1328,7 @@ sub preprocess {
   #
   my $status =
     RepoUtil::commit_push_checks($package_name,
-                                 {no_changes       => !$amend,
+                                 {no_changes       => !$amend && !$allow_empty,
                                   unknown          => $check_unknown,
                                   partially_staged => $check_mixed});
 
@@ -7250,8 +7254,12 @@ EOF
   }
 
   if ($check_for->{no_changes} && $status->{has_no_changes}) {
-    print STDERR "Aborting: Nothing to commit (run 'eg status' for details).\n";
-    exit 1;
+    # There doesn't need to be any changes for a commit if we're trying to
+    # make a merge commit.
+    my $gitdir = git_dir();
+    if ( ! -f "$gitdir/MERGE_HEAD" ) {
+      die "Aborting: Nothing to commit (run 'eg status' for details).\n";
+    }
   }
   elsif ($check_for->{unknown} && $check_for->{partially_staged} &&
          $status->{has_new_unknown_files} && 
