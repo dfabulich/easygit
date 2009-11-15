@@ -94,7 +94,7 @@ test_expect_success setup '
 +*+ [initial] Initial
 EOF
 
-V=`git version | sed -e 's/^git version //' -e 's/\./\\./g'`
+V=`git version | grep -v 'eg ver' | sed -e 's/^git version //' -e 's/\./\\./g'`
 while read cmd
 do
 	case "$cmd" in
