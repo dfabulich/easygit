@@ -117,7 +117,7 @@ include an iso8859 character: ¡bueno!
 EOF
 test_expect_success 'setup complex body' '
 git config i18n.commitencoding iso8859-1 &&
-  echo change2 >foo && git commit -a -F commit-msg
+  echo change2 >foo && git commit -b -a -F commit-msg
 '
 
 test_format complex-encoding %e <<'EOF'

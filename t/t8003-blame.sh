@@ -135,7 +135,7 @@ test_expect_success 'blame path that used to be a directory' '
 	echo B B B B B >path/elif &&
 	git add path &&
 	test_tick &&
-	git commit -m "path was a directory" &&
+	git commit -b -m "path was a directory" &&
 	rm -fr path &&
 	echo A A A A A >path &&
 	git add path &&

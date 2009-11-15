@@ -18,7 +18,7 @@ test_expect_success 'setup' '
   git add df &&
   echo content >new &&
   git add new &&
-  git commit -m two
+  git commit -b -m two
 '
 
 test_expect_success 'reset should work' '

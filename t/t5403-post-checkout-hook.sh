@@ -19,7 +19,7 @@ test_expect_success setup '
         GIT_DIR=clone2/.git git branch -a new2 &&
         echo Data for commit1. >clone2/b &&
 	 GIT_DIR=clone2/.git git add clone2/b &&
-	 GIT_DIR=clone2/.git git commit -m new2
+	 GIT_DIR=clone2/.git git commit -b -m new2
 '
 
 for clone in 1 2; do

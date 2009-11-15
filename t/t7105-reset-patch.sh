@@ -8,7 +8,7 @@ test_expect_success 'setup' '
 	echo parent > dir/foo &&
 	echo dummy > bar &&
 	git add dir &&
-	git commit -m initial &&
+	git commit -b -m initial &&
 	test_tick &&
 	test_commit second dir/foo head &&
 	set_and_save_state bar bar_work bar_index &&

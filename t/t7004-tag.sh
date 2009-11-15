@@ -1097,7 +1097,7 @@ hash1=$(git rev-parse HEAD)
 test_expect_success 'creating second commit and tag' '
 	echo foo-2.0 >foo &&
 	git add foo &&
-	git commit -m second
+	git commit -b -m second &&
 	git tag v2.0
 '
 
@@ -1106,7 +1106,7 @@ hash2=$(git rev-parse HEAD)
 test_expect_success 'creating third commit without tag' '
 	echo foo-dev >foo &&
 	git add foo &&
-	git commit -m third
+	git commit -b -m third
 '
 
 hash3=$(git rev-parse HEAD)

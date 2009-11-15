@@ -135,7 +135,7 @@ test_expect_success 'bob works and pushes again' '
 		cd bob-work &&
 		git hash-object -t commit -w commit &&
 		echo even more bob >file &&
-		git commit -a -m seventh &&
+		git commit -b -a -m seventh &&
 		git push ../bob-pub
 	)
 '

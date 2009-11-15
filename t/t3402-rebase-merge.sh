@@ -28,7 +28,7 @@ test_expect_success setup '
 	(echo "0 $T" ; cat original) >renamed &&
 	git add renamed &&
 	git update-index --force-remove original &&
-	git commit -a -m"side renames and edits." &&
+	git commit -b -a -m"side renames and edits." &&
 
 	tr "[a-z]" "[A-Z]" <original >newfile &&
 	git add newfile &&

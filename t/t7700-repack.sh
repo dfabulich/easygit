@@ -40,7 +40,7 @@ test_expect_success 'loose objects in alternate ODB are not repacked' '
 	echo content3 > file3 &&
 	objsha1=$(GIT_OBJECT_DIRECTORY=alt_objects git hash-object -w file3) &&
 	git add file3 &&
-	git commit -m commit_file3 &&
+	git commit -b -m commit_file3 &&
 	git repack -a -d -l &&
 	git prune-packed &&
 	for p in .git/objects/pack/*.idx; do

@@ -103,7 +103,7 @@ test_expect_success 'filter subdirectory only' '
 	touch subdir/new &&
 	git add subdir/new &&
 	test_tick &&
-	git commit -m "subdir" &&
+	git commit -b -m "subdir" &&
 	echo H > a &&
 	test_tick &&
 	git commit -m "not subdir" a &&
@@ -282,6 +282,7 @@ test_expect_success 'Tag name filtering allows slashes in tag names' '
 
 test_expect_success 'Prune empty commits' '
 	git rev-list HEAD > expect &&
+	git ls-files --others --directory > .git/info/ignored-unknown &&
 	make_commit to_remove &&
 	git filter-branch -f --index-filter "git update-index --remove to_remove" --prune-empty HEAD &&
 	git rev-list HEAD > actual &&

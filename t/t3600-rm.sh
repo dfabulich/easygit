@@ -129,7 +129,7 @@ test_expect_success 'Remove nonexistent file with --ignore-unmatch' '
 test_expect_success '"rm" command printed' '
 	echo frotz > test-file &&
 	git add test-file &&
-	git commit -m "add file for rm test" &&
+	git commit -b -m "add file for rm test" &&
 	git rm test-file > rm-output &&
 	test `grep "^rm " rm-output | wc -l` = 1 &&
 	rm -f test-file rm-output &&
@@ -207,7 +207,7 @@ test_expect_success 'Recursive test setup' '
 	mkdir -p frotz &&
 	echo qfwfq >frotz/nitfol &&
 	git add frotz &&
-	git commit -m "subdir test"
+	git commit --staged -m "subdir test"
 '
 
 test_expect_success 'Recursive without -r fails' '

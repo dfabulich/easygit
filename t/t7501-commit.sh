@@ -49,7 +49,7 @@ test_expect_success \
 
 test_expect_success \
 	"testing nothing to commit" \
-	"test_must_fail git commit -m initial"
+	"test_must_fail git commit --staged -m initial"
 
 test_expect_success \
 	"next commit" \
@@ -75,7 +75,7 @@ test_expect_success \
 test_expect_success \
 	"commit message from file" \
 	"echo 'this is the commit message, coming from a file' >msg && \
-	 git commit -F msg -a"
+	 git commit -b -F msg -a"
 
 cat >editor <<\EOF
 #!/bin/sh
@@ -86,7 +86,7 @@ chmod 755 editor
 
 test_expect_success \
 	"amend commit" \
-	"VISUAL=./editor git commit --amend"
+	"VISUAL=./editor git commit -b --amend"
 
 test_expect_success \
 	"passing -m and -F" \
@@ -141,7 +141,7 @@ EOF
 test_expect_success \
 	'editor not invoked if -F is given' '
 	 echo "moo" >file &&
-	 VISUAL=./editor git commit -a -F msg &&
+	 VISUAL=./editor git commit -b -a -F msg &&
 	 git show -s --pretty=format:"%s" | grep -q good &&
 	 echo "quack" >file &&
 	 echo "Another good message." | VISUAL=./editor git commit -a -F - &&
@@ -205,7 +205,7 @@ test_expect_success 'amend commit to fix author' '
 	sed -e "s/author.*/author $author $oldtick/" \
 		-e "s/^\(committer.*> \).*$/\1$GIT_COMMITTER_DATE/" > \
 		expected &&
-	git commit --amend --author="$author" &&
+	git commit -b --amend --author="$author" &&
 	git cat-file -p HEAD > current &&
 	test_cmp expected current
 
@@ -232,7 +232,7 @@ test_expect_success 'sign off (2)' '
 	echo 2 >positive &&
 	git add positive &&
 	existing="Signed-off-by: Watch This <watchthis@example.com>" &&
-	git commit -s -m "thank you
+	git commit -b -s -m "thank you
 
 $existing" &&
 	git cat-file commit HEAD | sed -e "1,/^\$/d" >actual &&

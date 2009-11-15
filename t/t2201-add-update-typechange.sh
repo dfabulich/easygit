@@ -138,7 +138,7 @@ test_expect_success 'commit -a' '
 		rm -f ".git/index" &&
 		mv ".git/saved-index" ".git/index"
 	fi &&
-	git commit -m "second" -a &&
+	git commit -b -m "second" -a &&
 	git ls-files -s >actual &&
 	test_cmp expect-final actual &&
 	rm -f .git/index &&

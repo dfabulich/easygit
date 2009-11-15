@@ -129,7 +129,7 @@ test_expect_success 'set-up matching pattern tests' '
 	git tag -a -m test-annotated test-annotated &&
 	echo >>file &&
 	test_tick &&
-	git commit -a -m "one more" &&
+	git commit -b -a -m "one more" &&
 	git tag test1-lightweight &&
 	echo >>file &&
 	test_tick &&

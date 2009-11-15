@@ -20,11 +20,11 @@ git branch b-symlink &&
 git branch b-file &&
 l=$(printf file | git hash-object -t blob -w --stdin) &&
 echo "120000 $l	symlink" | git update-index --index-info &&
-git commit -m master &&
+git commit --staged -m master &&
 git checkout b-symlink &&
 l=$(printf file-different | git hash-object -t blob -w --stdin) &&
 echo "120000 $l	symlink" | git update-index --index-info &&
-git commit -m b-symlink &&
+git commit --staged -m b-symlink &&
 git checkout b-file &&
 echo plain-file > symlink &&
 git add symlink &&

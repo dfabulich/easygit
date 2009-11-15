@@ -51,7 +51,7 @@ test_expect_success 'setup git mirror and merge' '
 	git checkout -b merge &&
 	echo new file > new_file &&
 	git add new_file &&
-	git commit -a -m "New file" &&
+	git commit -b -a -m "New file" &&
 	echo hello >> README &&
 	git commit -a -m "hello" &&
 	echo add some stuff >> new_file &&
@@ -60,7 +60,7 @@ test_expect_success 'setup git mirror and merge' '
 	mv -f README tmp &&
 	echo friend > README &&
 	cat tmp >> README &&
-	git commit -a -m "friend" &&
+	git commit -b -a -m "friend" &&
 	git pull . merge
 	'
 

@@ -22,7 +22,7 @@ test_expect_success 'create subprojects' \
     git commit -q -m "subproject 2" ) &&
     git update-index --add sub1 &&
     git add sub2 &&
-    git commit -q -m "subprojects added" &&
+    git commit -q --staged -m "subprojects added" &&
     git diff-tree --abbrev=5 HEAD^ HEAD |cut -d" " -f-3,5- >current &&
     test_cmp expected current'
 
@@ -41,7 +41,7 @@ test_expect_success 'check if commit in a subproject detected' \
     }'
 
 test_expect_success 'check if a changed subproject HEAD can be committed' \
-    'git commit -q -a -m "sub1 changed" && {
+    'git commit -q -b -a -m "sub1 changed" && {
 	git diff-tree --exit-code HEAD^ HEAD
 	test $? = 1
     }'
@@ -68,7 +68,7 @@ test_expect_success 'removing and adding subproject' \
     'git update-index --force-remove -- sub2 &&
     mv sub2 sub3 &&
     git add sub3 &&
-    git commit -q -m "renaming a subproject" && {
+    git commit -q -b -m "renaming a subproject" && {
 	git diff -M --name-status --exit-code HEAD^ HEAD
 	test $? = 1
     }'

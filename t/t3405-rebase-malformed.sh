@@ -18,7 +18,7 @@ test_expect_success setup '
 	>file2 &&
 	git add file1 file2 &&
 	test_tick &&
-	git commit -m "Initial commit" &&
+	git commit -b -m "Initial commit" &&
 
 	git checkout -b side &&
 	cat F >file2 &&
@@ -33,7 +33,7 @@ test_expect_success setup '
 	echo One >file1 &&
 	test_tick &&
 	git add file1 &&
-	git commit -m "Second commit"
+	git commit -b -m "Second commit"
 '
 
 test_expect_success rebase '

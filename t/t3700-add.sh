@@ -168,7 +168,7 @@ test_expect_success 'git add with filemode=0, symlinks=0 prefers stage 2 over st
 '
 
 test_expect_success 'git add --refresh' '
-	>foo && git add foo && git commit -a -m "commit all" &&
+	>foo && git add foo && git commit -b -a -m "commit all" &&
 	test -z "`git diff-index HEAD -- foo`" &&
 	git read-tree HEAD &&
 	case "`git diff-index HEAD -- foo`" in

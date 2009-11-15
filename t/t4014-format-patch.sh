@@ -17,7 +17,7 @@ test_expect_success setup '
 
 	for i in 1 2 5 6 A B C 7 8 9 10; do echo "$i"; done >file &&
 	test_chmod +x elif &&
-	git commit -m "Side changes #1" &&
+	git commit --staged -m "Side changes #1" &&
 
 	for i in D E F; do echo "$i"; done >>file &&
 	git update-index file &&
@@ -396,7 +396,7 @@ test_expect_success 'excessive subject' '
 	git checkout side &&
 	for i in 5 6 1 2 3 A 4 B C 7 8 9 10 D E F; do echo "$i"; done >>file &&
 	git update-index file &&
-	git commit -m "This is an excessively long subject line for a message due to the habit some projects have of not having a short, one-line subject at the start of the commit message, but rather sticking a whole paragraph right at the start as the only thing in the commit message. It had better not become the filename for the patch." &&
+	git commit -b -m "This is an excessively long subject line for a message due to the habit some projects have of not having a short, one-line subject at the start of the commit message, but rather sticking a whole paragraph right at the start as the only thing in the commit message. It had better not become the filename for the patch." &&
 	git format-patch -o patches/ master..side &&
 	ls patches/0004-This-is-an-excessively-long-subject-line-for-a-messa.patch
 '
@@ -404,7 +404,7 @@ test_expect_success 'excessive subject' '
 test_expect_success 'cover-letter inherits diff options' '
 
 	git mv file foo &&
-	git commit -m foo &&
+	git commit -b -m foo &&
 	git format-patch --cover-letter -1 &&
 	! grep "file => foo .* 0 *$" 0000-cover-letter.patch &&
 	git format-patch --cover-letter -1 -M &&

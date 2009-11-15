@@ -111,7 +111,7 @@ test_expect_success 'rebase a single mode change' '
      echo 1 > X &&
      git add X &&
      test_tick &&
-     git commit -m prepare &&
+     git commit -b -m prepare &&
      git checkout -b modechange HEAD^ &&
      echo 1 > X &&
      git add X &&
@@ -148,7 +148,7 @@ test_expect_success 'Rebase a commit that sprinkles CRs in' '
 	) | q_to_cr >CR &&
 	git add CR &&
 	test_tick &&
-	git commit -a -m "A file with a line with CR" &&
+	git commit -b -a -m "A file with a line with CR" &&
 	git tag file-with-cr &&
 	git checkout HEAD^0 &&
 	git rebase --onto HEAD^^ HEAD^ &&

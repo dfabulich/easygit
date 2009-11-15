@@ -192,7 +192,7 @@ verify_no_mergehead() {
 test_expect_success 'setup' '
 	git add file &&
 	test_tick &&
-	git commit -m "commit 0" &&
+	git commit -b -m "commit 0" &&
 	git tag c0 &&
 	c0=$(git rev-parse HEAD) &&
 	cp file.1 file &&
@@ -526,7 +526,7 @@ test_expect_success 'merge early part of c2' '
 	git reset --hard c3 &&
 	echo c4 > c4.c &&
 	git add c4.c &&
-	git commit -m c4 &&
+	git commit -b -m c4 &&
 	git tag c4 &&
 	echo c5 > c5.c &&
 	git add c5.c &&
@@ -547,7 +547,7 @@ test_debug 'gitk --all'
 test_expect_success 'merge --no-ff --no-commit && commit' '
 	git reset --hard c0 &&
 	git merge --no-ff --no-commit c1 &&
-	EDITOR=: git commit &&
+	EDITOR=: git commit -b &&
 	verify_parents $c0 $c1
 '
 

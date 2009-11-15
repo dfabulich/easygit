@@ -28,7 +28,7 @@ test_expect_success 'setup' '
 	: > file1 &&
 	git add file1 &&
 	test_tick &&
-	git commit -m A &&
+	git commit -b -m A &&
 	git tag A &&
 	echo 1 > file1 &&
 	test_tick &&
@@ -149,7 +149,7 @@ test_expect_success 'retain authorship' '
 	echo A > file7 &&
 	git add file7 &&
 	test_tick &&
-	GIT_AUTHOR_NAME="Twerp Snog" git commit -m "different author" &&
+	GIT_AUTHOR_NAME="Twerp Snog" git commit -b -m "different author" &&
 	git tag twerp &&
 	git rebase -i --onto master HEAD^ &&
 	git show HEAD | grep "^Author: Twerp Snog"
@@ -266,7 +266,7 @@ test_expect_success 'squash works as expected' '
 	do
 		echo $n >> file$n &&
 		git add file$n &&
-		git commit -m $n
+		git commit -b -m $n
 	done &&
 	one=$(git rev-parse HEAD~3) &&
 	FAKE_LINES="1 squash 3 2" git rebase -i HEAD~3 &&

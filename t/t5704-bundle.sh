@@ -15,7 +15,7 @@ test_expect_success 'setup' '
 	git add file2 &&
 	: > file3 &&
 	test_tick &&
-	git commit -m second &&
+	git commit -b -m second &&
 	git add file3 &&
 	test_tick &&
 	git commit -m third

@@ -26,7 +26,7 @@ test_expect_success 'setup' '
 	git submodule add "$(pwd)" sub &&
 	git symbolic-ref HEAD refs/heads/super &&
 	test_tick &&
-	git commit -m super-initial &&
+	git commit -b -m super-initial &&
 	echo 1 > super-file &&
 	test_tick &&
 	git commit -m super-first super-file &&

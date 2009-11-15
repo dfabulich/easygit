@@ -309,7 +309,7 @@ test_expect_success 'Check ambiguous head and tag refs (strict)' '
 	git checkout -b newtag &&
 	echo "Using $datestamp" > one &&
 	git add one &&
-	git commit -m "Branch" &&
+	git commit -b -m "Branch" &&
 	setdate_and_increment &&
 	git tag -m "Tagging at $datestamp" master &&
 	git for-each-ref --format "%(refname:short)" refs/heads/master refs/tags/master >actual &&

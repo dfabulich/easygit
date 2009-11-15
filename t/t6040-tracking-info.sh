@@ -31,6 +31,7 @@ test_expect_success setup '
 		advance f
 	) &&
 	git checkout -b follower --track master &&
+	git ls-files --others --directory > .git/info/ignored-unknown &&
 	advance g
 '
 

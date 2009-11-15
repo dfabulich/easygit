@@ -51,7 +51,7 @@ test_expect_success 'check result' '
 	git diff --exit-code master &&
 	git diff --exit-code --cached master &&
 	test_tick &&
-	git commit -m replay &&
+	git commit -b -m replay &&
 	T1=$(git rev-parse "master^{tree}") &&
 	T2=$(git rev-parse "HEAD^{tree}") &&
 	test "z$T1" = "z$T2"

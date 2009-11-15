@@ -28,7 +28,7 @@ chmod +x hexdump
 test_expect_success 'setup binary file with history' '
 	printf "\\0\\n" >file &&
 	git add file &&
-	git commit -m one &&
+	git commit -b -m one &&
 	printf "\\01\\n" >>file &&
 	git add file &&
 	git commit -m two
@@ -117,7 +117,7 @@ test_expect_success 'textconv does not act on symlinks' '
 	git add file &&
 	git ls-files -s | sed -e s/100644/120000/ |
 		git update-index --index-info &&
-	git commit -m typechange &&
+	git commit --staged -m typechange &&
 	git show >diff &&
 	find_diff <diff >actual &&
 	test_cmp expect.typechange actual

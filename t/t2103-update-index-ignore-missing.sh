@@ -38,7 +38,7 @@ test_expect_success basics '
 	git add xyzzy &&
 
 	test_tick &&
-	git commit -m initial &&
+	git commit -b -m initial &&
 	git tag initial
 '
 

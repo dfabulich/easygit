@@ -66,7 +66,7 @@ test_expect_success "create tag T on A, create C on branch cat" '
 	git checkout -b cat &&
 	echo C >file &&
 	git add file &&
-	git commit -m C &&
+	git commit -b -m C &&
 	C=$(git rev-parse --verify HEAD) &&
 	git checkout master
 '

@@ -54,7 +54,7 @@ test_expect_success 'SVN-side change inside of .git' '
 	(
 		cd s &&
 		git add a &&
-		git commit -m "add a inside an SVN repo" &&
+		git commit -b -m "add a inside an SVN repo" &&
 		git log &&
 		svn_cmd add --force .git &&
 		svn_cmd commit -m "SVN-side change inside of .git" &&

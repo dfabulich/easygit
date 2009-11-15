@@ -115,7 +115,7 @@ test_expect_success 'git ls-files (relative #3)' '
 '
 
 test_expect_success 'commit using absolute path names' '
-	git commit -m "foo" &&
+	git commit -b -m "foo" &&
 	echo aa >>a/b/c/d &&
 	git commit -m "aa" "$(pwd)/a/b/c/d"
 '

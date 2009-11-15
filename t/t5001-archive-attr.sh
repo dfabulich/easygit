@@ -33,7 +33,7 @@ test_expect_success 'setup' '
 	echo "substfile?" export-subst >>.git/info/attributes &&
 	git add nosubstfile substfile1 substfile2 &&
 
-	git commit -m. &&
+	git commit --staged -m. &&
 
 	git clone --bare . bare &&
 	cp .git/info/attributes bare/info/attributes

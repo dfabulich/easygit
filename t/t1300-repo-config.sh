@@ -780,7 +780,7 @@ test_expect_success 'check split_cmdline return' "
 	test_must_fail git split-cmdline-fix &&
 	echo foo > foo &&
 	git add foo &&
-	git commit -m 'initial commit' &&
+	git commit -b -m 'initial commit' &&
 	git config branch.master.mergeoptions 'echo \"' &&
 	test_must_fail git merge master
 	"

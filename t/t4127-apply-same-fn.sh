@@ -76,7 +76,7 @@ test_expect_success 'apply A->B (rename), C->A (rename), A->A -- should pass.' '
 	modify "s/^d/z/" new_fn &&
 	git add new_fn &&
 	git diff -M --cached > patch1 &&
-	git commit -m "a rename" &&
+	git commit -b -m "a rename" &&
 	git mv other_fn same_fn
 	modify "s/^e/y/" same_fn &&
 	git add same_fn &&

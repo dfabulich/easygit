@@ -12,7 +12,7 @@ test_expect_success 'initialize repo' '
 	cd .. &&
 	echo initial > file &&
 	git update-index --add file &&
-	git commit -a -m "initial"
+	git commit -b -a -m "initial"
 	'
 test_expect_success 'commit change from svn side' '
 	svn_cmd co "$svnrepo" t.svn &&

@@ -30,7 +30,7 @@ test_expect_success 'with no hook (editor)' '
 	echo "more foo" >> file &&
 	git add file &&
 	echo "more foo" > FAKE_MSG &&
-	GIT_EDITOR="\"\$FAKE_EDITOR\"" git commit
+	GIT_EDITOR="\"\$FAKE_EDITOR\"" git commit -b
 
 '
 

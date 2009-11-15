@@ -41,7 +41,7 @@ test_expect_success 'revert works (initial)' '
 test_expect_success 'setup (commit)' '
 	echo baseline >file &&
 	git add file &&
-	git commit -m commit &&
+	git commit -b -m commit &&
 	echo content >>file &&
 	git add file &&
 	echo more >>file &&

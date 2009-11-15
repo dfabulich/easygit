@@ -10,7 +10,7 @@ test_expect_success setup '
 	git add m &&
 	git ls-files -s | sed -e "s/ 0	/ 1	/" >E1 &&
 	test_tick &&
-	git commit -m "initial" &&
+	git commit -b -m "initial" &&
 
 	git branch side &&
 	echo frotz >a &&
@@ -20,14 +20,14 @@ test_expect_success setup '
 	git ls-files -s a >E0 &&
 	git ls-files -s m | sed -e "s/ 0	/ 3	/" >E3 &&
 	test_tick &&
-	git commit -m "master adds some" &&
+	git commit -b -m "master adds some" &&
 
 	git checkout side &&
 	echo rezrov >>m &&
 	git add m &&
 	git ls-files -s m | sed -e "s/ 0	/ 2	/" >E2 &&
 	test_tick &&
-	git commit -m "side modifies" &&
+	git commit -b -m "side modifies" &&
 
 	git tag anchor &&
 

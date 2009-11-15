@@ -49,7 +49,7 @@ test_expect_success 'setup for merge-preserving rebase' \
 
 	echo Fifth > B &&
 	git add B &&
-	git commit -m "Add different B" &&
+	git commit -b -m "Add different B" &&
 
 	git clone ./. clone2 &&
 	cd clone2 &&
@@ -62,7 +62,7 @@ test_expect_success 'setup for merge-preserving rebase' \
 
 	git checkout topic &&
 	echo Fourth >> B &&
-	git commit -a -m "Modify B2"
+	git commit -b -a -m "Modify B2"
 '
 
 test_expect_success 'rebase -p fakes interactive rebase' '

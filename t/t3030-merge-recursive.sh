@@ -69,7 +69,7 @@ test_expect_success 'setup 2' '
 	git add a &&
 
 	test_tick &&
-	git commit -m "side modifies a" &&
+	git commit --staged -m "side modifies a" &&
 	c2=$(git rev-parse --verify HEAD) &&
 	( git ls-tree -r HEAD ; git ls-files -s ) >actual &&
 	(
@@ -106,7 +106,7 @@ test_expect_success 'setup 3' '
 	o3=$(git hash-object b/c) &&
 
 	test_tick &&
-	git commit -m "df-1 makes b/c" &&
+	git commit --staged -m "df-1 makes b/c" &&
 	c3=$(git rev-parse --verify HEAD) &&
 	( git ls-tree -r HEAD ; git ls-files -s ) >actual &&
 	(
@@ -143,7 +143,7 @@ test_expect_success 'setup 4' '
 	o4=$(git hash-object a/c) &&
 
 	test_tick &&
-	git commit -m "df-2 makes a/c" &&
+	git commit --staged -m "df-2 makes a/c" &&
 	c4=$(git rev-parse --verify HEAD) &&
 	( git ls-tree -r HEAD ; git ls-files -s ) >actual &&
 	(
@@ -184,7 +184,7 @@ test_expect_success 'setup 5' '
 	o5=$(git hash-object a) &&
 
 	test_tick &&
-	git commit -m "remove removes b and modifies a" &&
+	git commit --staged -m "remove removes b and modifies a" &&
 	c5=$(git rev-parse --verify HEAD) &&
 	( git ls-tree -r HEAD ; git ls-files -s ) >actual &&
 	(
@@ -220,7 +220,7 @@ test_expect_success 'setup 6' '
 	o6=$(git hash-object d) &&
 
 	test_tick &&
-	git commit -m "df-3 makes d" &&
+	git commit --staged -m "df-3 makes d" &&
 	c6=$(git rev-parse --verify HEAD) &&
 	( git ls-tree -r HEAD ; git ls-files -s ) >actual &&
 	(
@@ -543,7 +543,7 @@ test_expect_success 'merge removes empty directories' '
 	git reset --hard master &&
 	git checkout -b rm &&
 	git rm d/e &&
-	git commit -mremoved-d/e &&
+	git commit -b -mremoved-d/e &&
 	git checkout master &&
 	git merge -s recursive rm &&
 	test_must_fail test -d d

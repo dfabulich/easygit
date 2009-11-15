@@ -20,7 +20,7 @@ test_expect_success 'setup repository and import' '
 	git svn fetch &&
 	git reset --hard trunk &&
 	echo bye >> README &&
-	git commit -a -m bye &&
+	git commit -b -a -m bye &&
 	git svn dcommit &&
 	git reset --hard a &&
 	echo why >> FEEDME &&

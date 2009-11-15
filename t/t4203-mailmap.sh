@@ -131,7 +131,7 @@ test_expect_success 'Shortlog output (complex mapping)' '
 	echo three >>one &&
 	git add one &&
 	test_tick &&
-	git commit --author "nick2 <bugs@company.xx>" -m third &&
+	git commit -b --author "nick2 <bugs@company.xx>" -m third &&
 
 	echo four >>one &&
 	git add one &&

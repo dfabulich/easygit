@@ -162,7 +162,7 @@ test_expect_success 'check mixed tabs and spaces in indent' '
 
 test_expect_success 'check with no whitespace errors' '
 
-	git commit -m "snapshot" &&
+	git commit --staged -m "snapshot" &&
 	echo "foo();" > x &&
 	git diff --check
 

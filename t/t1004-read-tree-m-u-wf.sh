@@ -121,7 +121,7 @@ test_expect_success '3-way not overwriting local changes (setup)' '
 	git reset --hard &&
 	git checkout -b side-a branch-point &&
 	echo >>file1 "new line to be kept in the merge result" &&
-	git commit -a -m "side-a changes file1" &&
+	git commit -b -a -m "side-a changes file1" &&
 	git checkout -b side-b branch-point &&
 	echo >>file2 "new line to be kept in the merge result" &&
 	git commit -a -m "side-b changes file2" &&

@@ -17,6 +17,7 @@ test_expect_success 'prepare repository' '
 	test_commit 2 A &&
 	git symbolic-ref HEAD refs/heads/other &&
 	rm .git/index &&
+	echo A > .git/info/ignored-unknown &&
 	test_commit 3 B &&
 	test_commit 1b A 1 &&
 	test_commit 4 B
@@ -99,6 +100,7 @@ test_expect_success 'pre-rebase got correct input (5)' '
 test_expect_success 'set up merge history' '
 	git checkout other^ &&
 	git checkout -b side &&
+	git ls-files --others > .git/info/ignored-unknown &&
 	test_commit 5 C &&
 	git checkout other &&
 	git merge side
@@ -130,6 +132,7 @@ test_expect_success 'set up second root and merge' '
 	git symbolic-ref HEAD refs/heads/third &&
 	rm .git/index &&
 	rm A B C &&
+	git ls-files --others > .git/info/ignored-unknown &&
 	test_commit 6 D &&
 	git checkout other &&
 	git merge third
@@ -192,7 +195,7 @@ test_expect_success 'set up a conflict' '
 	git checkout master &&
 	echo conflict > B &&
 	git add B &&
-	git commit -m conflict
+	git commit -b -m conflict
 '
 
 test_expect_success 'rebase --root with conflict (first part)' '

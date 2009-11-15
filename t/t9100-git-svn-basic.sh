@@ -48,7 +48,7 @@ test_expect_success "$name" '
 	mv dir/a/b/c/d/e/file dir/file &&
 	cp dir/file file &&
 	git update-index --add --remove dir/a/b/c/d/e/file dir/file file &&
-	git commit -m "$name" &&
+	git commit -b -m "$name" &&
 	git svn set-tree --find-copies-harder --rmdir \
 		${remotes_git_svn}..mybranch &&
 	svn_cmd up "$SVN_TREE" &&
@@ -163,7 +163,7 @@ test_expect_success "$name" '
 	rm exec-2.sh &&
 	cp help exec-2.sh &&
 	git update-index exec-2.sh &&
-	git commit -m "$name" &&
+	git commit -b -m "$name" &&
 	git svn set-tree --find-copies-harder --rmdir \
 		${remotes_git_svn}..mybranch5 &&
 	svn_cmd up "$SVN_TREE" &&
@@ -255,7 +255,7 @@ test_expect_success 'able to dcommit to a subdirectory' "
 	git checkout -b my-bar refs/remotes/bar &&
 	echo abc > d &&
 	git update-index --add d &&
-	git commit -m '/bar/d should be in the log' &&
+	git commit -b -m '/bar/d should be in the log' &&
 	git svn dcommit -i bar &&
 	test -z \"\`git diff refs/heads/my-bar refs/remotes/bar\`\" &&
 	mkdir newdir &&

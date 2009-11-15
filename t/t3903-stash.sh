@@ -47,7 +47,7 @@ test_expect_success 'apply needs clean working directory' '
 test_expect_success 'apply stashed changes' '
 	git add other-file &&
 	test_tick &&
-	git commit -m other-file &&
+	git commit -b -m other-file &&
 	git stash apply &&
 	test 3 = $(cat file) &&
 	test 1 = $(git show :file) &&
@@ -171,7 +171,7 @@ test_expect_success 'stash branch' '
 	git diff > output &&
 	test_cmp output expect1 &&
 	git add file &&
-	git commit -m alternate\ second &&
+	git commit -b -m alternate\ second &&
 	git diff master..stashbranch > output &&
 	test_cmp output expect2 &&
 	test 0 = $(git stash list | wc -l)

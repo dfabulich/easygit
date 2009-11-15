@@ -719,7 +719,7 @@ test_expect_success '--compose adds MIME for utf8 subject' '
 test_expect_success 'detects ambiguous reference/file conflict' '
 	echo master > master &&
 	git add master &&
-	git commit -m"add master" &&
+	git commit -b -m"add master" &&
 	test_must_fail git send-email --dry-run master 2>errors &&
 	grep disambiguate errors
 '

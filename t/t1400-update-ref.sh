@@ -246,13 +246,13 @@ test_expect_success \
     'echo TEST >F &&
      git add F &&
 	 GIT_AUTHOR_DATE="2005-05-26 23:30" \
-	 GIT_COMMITTER_DATE="2005-05-26 23:30" git commit -m add -a &&
+	 GIT_COMMITTER_DATE="2005-05-26 23:30" git commit -b -m add -a &&
 	 h_TEST=$(git rev-parse --verify HEAD)
 	 echo The other day this did not work. >M &&
 	 echo And then Bob told me how to fix it. >>M &&
 	 echo OTHER >F &&
 	 GIT_AUTHOR_DATE="2005-05-26 23:41" \
-	 GIT_COMMITTER_DATE="2005-05-26 23:41" git commit -F M -a &&
+	 GIT_COMMITTER_DATE="2005-05-26 23:41" git commit -b -F M -a &&
 	 h_OTHER=$(git rev-parse --verify HEAD) &&
 	 GIT_AUTHOR_DATE="2005-05-26 23:44" \
 	 GIT_COMMITTER_DATE="2005-05-26 23:44" git commit --amend &&

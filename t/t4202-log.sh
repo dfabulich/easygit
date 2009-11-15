@@ -173,7 +173,7 @@ test_expect_success 'setup case sensitivity tests' '
 	echo case >one &&
 	test_tick &&
 	git add one
-	git commit -a -m Second
+	git commit -b -a -m Second
 '
 
 test_expect_success 'log --grep' '

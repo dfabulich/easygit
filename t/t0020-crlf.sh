@@ -89,7 +89,7 @@ test_expect_success 'safecrlf: print warning only once' '
 
 	for w in I am all LF; do echo $w; done >doublewarn &&
 	git add doublewarn &&
-	git commit -m "nowarn" &&
+	git commit -b -m "nowarn" &&
 	for w in Oh here is CRLFQ in text; do echo $w; done | q_to_cr >doublewarn &&
 	test $(git add doublewarn 2>&1 | grep "CRLF will be replaced by LF" | wc -l) = 1
 '
@@ -352,7 +352,7 @@ test_expect_success 'in-tree .gitattributes (1)' '
 
 	echo "one -crlf" >>.gitattributes &&
 	git add .gitattributes &&
-	git commit -m "Add .gitattributes" &&
+	git commit --staged -m "Add .gitattributes" &&
 
 	rm -rf tmp one dir .gitattributes patch.file three &&
 	git read-tree --reset -u HEAD &&

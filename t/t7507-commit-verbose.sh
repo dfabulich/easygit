@@ -19,7 +19,7 @@ EOF
 test_expect_success 'setup' '
 	echo content >file &&
 	git add file &&
-	git commit -F message
+	git commit -b -F message
 '
 
 test_expect_success 'initial commit shows verbose diff' '
@@ -38,13 +38,13 @@ check_message() {
 }
 
 test_expect_success 'verbose diff is stripped out' '
-	git commit --amend -v &&
+	git commit -b --amend -v &&
 	check_message message
 '
 
 test_expect_success 'verbose diff is stripped out (mnemonicprefix)' '
 	git config diff.mnemonicprefix true &&
-	git commit --amend -v &&
+	git commit -b --amend -v &&
 	check_message message
 '
 
@@ -61,7 +61,7 @@ index 0000000..f95c11d
 EOF
 
 test_expect_success 'diff in message is retained without -v' '
-	git commit --amend -F diff &&
+	git commit -b --amend -F diff &&
 	check_message diff
 '
 

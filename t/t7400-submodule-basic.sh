@@ -247,7 +247,7 @@ test_expect_success 'apply submodule diff' '
 		git commit -m "change subproject"
 	) &&
 	git update-index --add init &&
-	git commit -m "change init" &&
+	git commit -b -m "change init" &&
 	git format-patch -1 --stdout >P.diff &&
 	git checkout second &&
 	git apply --index P.diff &&

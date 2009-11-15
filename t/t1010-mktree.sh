@@ -21,11 +21,11 @@ test_expect_success setup '
 	git ls-tree $(cat tree) >top &&
 	git ls-tree -r $(cat tree) >all &&
 	test_tick &&
-	git commit -q -m one &&
+	git commit -b -q -m one &&
 	H=$(git rev-parse HEAD) &&
 	git update-index --add --cacheinfo 160000 $H sub &&
 	test_tick &&
-	git commit -q -m two &&
+	git commit -q --staged -m two &&
 	git rev-parse HEAD^{tree} >tree.withsub &&
 	git ls-tree HEAD >top.withsub &&
 	git ls-tree -r HEAD >all.withsub

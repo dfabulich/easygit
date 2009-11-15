@@ -306,7 +306,7 @@ test_expect_success 'log grep setup' '
 	test_tick &&
 	GIT_AUTHOR_NAME="With * Asterisk" \
 	GIT_AUTHOR_EMAIL="xyzzy@frotz.com" \
-	git commit -a -m "second" &&
+	git commit -b -a -m "second" &&
 
 	echo a >>file &&
 	test_tick &&

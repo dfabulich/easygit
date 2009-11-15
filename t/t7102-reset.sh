@@ -96,7 +96,7 @@ test_expect_success \
 
 	git checkout branch1 &&
 	echo "3rd line in branch1" >>secondfile &&
-	git commit -a -m "change in branch1" &&
+	git commit -b -a -m "change in branch1" &&
 
 	git checkout branch2 &&
 	echo "3rd line in branch2" >>secondfile &&
@@ -106,7 +106,8 @@ test_expect_success \
 	test_must_fail git reset --soft &&
 
 	printf "1st line 2nd file\n2nd line 2nd file\n3rd line" >secondfile &&
-	git commit -a -m "the change in branch2" &&
+	git add secondfile &&
+	git commit -m "the change in branch2" &&
 
 	git checkout master &&
 	git branch -D branch1 branch2 &&
@@ -129,7 +130,8 @@ test_expect_success \
 	test_must_fail git reset --soft &&
 
 	printf "1st line 2nd file\n2nd line 2nd file\n3rd line" >secondfile &&
-	git commit -a -m "the line in branch3" &&
+	git add secondfile &&
+	git commit -m "the line in branch3" &&
 
 	git checkout master &&
 	git branch -D branch3 branch4 &&
@@ -382,7 +384,7 @@ test_expect_success 'test --mixed <paths>' '
 	echo 2 > file2 &&
 	git add file1 file2 &&
 	test_tick &&
-	git commit -m files &&
+	git commit -b -m files &&
 	git rm file2 &&
 	echo 3 > file3 &&
 	echo 4 > file4 &&

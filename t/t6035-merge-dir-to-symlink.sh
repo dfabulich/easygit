@@ -27,7 +27,7 @@ test_expect_success 'keep a/b-2/c/d across checkout' '
 	git checkout HEAD^0 &&
 	git reset --hard master &&
 	git rm --cached a/b &&
-	git commit -m "untracked symlink remains" &&
+	git commit -b -m "untracked symlink remains" &&
 	 git checkout start^0 &&
 	 test -f a/b-2/c/d
 '

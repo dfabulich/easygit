@@ -29,7 +29,7 @@ cvs init &&
 cvs -Q co -d "$CVSWORK" . &&
 echo >empty &&
 git add empty &&
-git commit -q -a -m "Initial" 2>/dev/null ||
+git commit -q -b -a -m "Initial" 2>/dev/null ||
 exit 1
 
 check_entries () {
@@ -313,7 +313,7 @@ test_expect_success 'commit a file with leading spaces in the name' '
 
 	echo space > " space" &&
 	git add " space" &&
-	git commit -m "Add a file with a leading space" &&
+	git commit -b -m "Add a file with a leading space" &&
 	id=$(git rev-parse HEAD) &&
 	git cvsexportcommit -w "$CVSWORK" -c $id &&
 	check_entries "$CVSWORK" " space/1.1/|DS/1.1/|attic_gremlin/1.3/|release-notes/1.2/" &&
@@ -329,7 +329,7 @@ test_expect_success 'use the same checkout for Git and CVS' '
 	 cvs co . &&
 	 git init &&
 	 git add " space" &&
-	 git commit -m "fake initial commit" &&
+	 git commit -b -m "fake initial commit" &&
 	 echo Hello >> " space" &&
 	 git commit -m "Another change" " space" &&
 	 git cvsexportcommit -W -p -u -c HEAD &&

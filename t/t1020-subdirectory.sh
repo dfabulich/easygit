@@ -108,7 +108,7 @@ test_expect_success 'read-tree' '
 
 test_expect_success 'no file/rev ambiguity check inside .git' '
 	cd "$HERE" &&
-	git commit -a -m 1 &&
+	git commit -b -a -m 1 &&
 	cd "$HERE"/.git &&
 	git show -s HEAD
 '

@@ -48,7 +48,7 @@ test_expect_success 'custom mergetool' '
     test "$(cat file1)" = "master updated" &&
     test "$(cat file2)" = "master new" &&
     test "$(cat subdir/file3)" = "master new sub" &&
-    git commit -m "branch1 resolved with mergetool"
+    git commit -b -m "branch1 resolved with mergetool"
 '
 
 test_expect_success 'mergetool crlf' '

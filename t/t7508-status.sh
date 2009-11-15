@@ -21,7 +21,7 @@ test_expect_success 'setup' '
 	git status >output &&
 
 	test_tick &&
-	git commit -m initial &&
+	git commit -b -m initial &&
 	: > untracked &&
 	: > dir1/untracked &&
 	: > dir2/untracked &&
@@ -356,7 +356,7 @@ cat >expect <<EOF
 no changes added to commit (use "git add" and/or "git commit -a")
 EOF
 test_expect_success 'status submodule summary (clean submodule)' '
-	git commit -m "commit submodule" &&
+	git commit --staged -m "commit submodule" &&
 	git config status.submodulesummary 10 &&
 	test_must_fail git status >output &&
 	test_cmp expect output

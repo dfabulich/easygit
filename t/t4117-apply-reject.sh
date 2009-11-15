@@ -16,7 +16,7 @@ test_expect_success setup '
 	done >file1 &&
 	cat file1 >saved.file1 &&
 	git update-index --add file1 &&
-	git commit -m initial &&
+	git commit -b -m initial &&
 
 	for i in 1 2 A B 4 5 6 7 8 9 10 11 12 C 13 14 15 16 17 18 19 20 D 21
 	do

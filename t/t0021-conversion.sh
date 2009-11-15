@@ -78,7 +78,7 @@ test_expect_success expanded_in_repo '
 	} > expected-output &&
 
 	git add expanded-keywords &&
-	git commit -m "File with keywords expanded" &&
+	git commit -b --staged -m "File with keywords expanded" &&
 
 	echo "expanded-keywords ident" >> .gitattributes &&
 

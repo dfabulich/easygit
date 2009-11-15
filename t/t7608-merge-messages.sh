@@ -21,6 +21,7 @@ test_expect_success 'merge local branch' '
 
 test_expect_success 'merge octopus branches' '
 	git checkout -b octopus-a master &&
+	git ls-files --others > .git/info/ignored-unknown
 	test_commit octopus-1 &&
 	git checkout -b octopus-b master &&
 	test_commit octopus-2 &&

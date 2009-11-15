@@ -67,7 +67,7 @@ test_expect_success \
 test_expect_success 'favour same basenames over different ones' '
 	cp path1 another-path &&
 	git add another-path &&
-	git commit -m 1 &&
+	git commit -b -m 1 &&
 	git rm path1 &&
 	mkdir subdir &&
 	git mv another-path subdir/path1 &&

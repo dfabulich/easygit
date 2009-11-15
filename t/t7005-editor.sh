@@ -22,7 +22,7 @@ test_expect_success setup '
 	echo "$msg" >expect &&
 	git add vi &&
 	test_tick &&
-	git commit -m "$msg" &&
+	git commit -b -m "$msg" &&
 	git show -s --pretty=oneline |
 	sed -e "s/^[0-9a-f]* //" >actual &&
 	diff actual expect
@@ -44,6 +44,7 @@ test_expect_success 'dumb should error out when falling back on vi' '
 
 TERM=vt100
 export TERM
+echo actual >> .git/info/ignored-unknown
 for i in vi EDITOR VISUAL core_editor GIT_EDITOR
 do
 	echo "Edited by $i" >expect
@@ -97,7 +98,7 @@ fi
 test_expect_success 'editor with a space' '
 
 	chmod a+x "e space.sh" &&
-	GIT_EDITOR="./e\ space.sh" git commit --amend &&
+	GIT_EDITOR="./e\ space.sh" git commit -b --amend &&
 	test space = "$(git show -s --pretty=format:%s)"
 
 '

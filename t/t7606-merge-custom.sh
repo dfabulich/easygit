@@ -17,7 +17,7 @@ export PATH
 test_expect_success 'setup' '
 	echo c0 >c0.c &&
 	git add c0.c &&
-	git commit -m c0 &&
+	git commit -b -m c0 &&
 	git tag c0 &&
 	echo c1 >c1.c &&
 	git add c1.c &&

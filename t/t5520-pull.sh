@@ -47,7 +47,7 @@ test_expect_success 'test . as a remote' '
 	git config branch.copy.remote . &&
 	git config branch.copy.merge refs/heads/master &&
 	echo updated >file &&
-	git commit -a -m updated &&
+	git commit -b -a -m updated &&
 	git checkout copy &&
 	test `cat file` = file &&
 	git pull &&

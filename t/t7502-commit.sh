@@ -61,7 +61,7 @@ test_expect_success 'sign off' '
 
 	>positive &&
 	git add positive &&
-	git commit -s -m "thank you" &&
+	git commit -b -s -m "thank you" &&
 	actual=$(git cat-file commit HEAD | sed -ne "s/Signed-off-by: //p") &&
 	expected=$(git var GIT_COMMITTER_IDENT | sed -e "s/>.*/>/") &&
 	test "z$actual" = "z$expected"
@@ -101,7 +101,7 @@ test_expect_success 'cleanup commit messages (verbatim,-t)' '
 
 	echo >>negative &&
 	{ echo;echo "# text";echo; } >expect &&
-	git commit --cleanup=verbatim -t expect -a &&
+	git commit -b --cleanup=verbatim -t expect -a &&
 	git cat-file -p HEAD |sed -e "1,/^\$/d" |head -n 3 >actual &&
 	test_cmp expect actual
 
@@ -110,7 +110,7 @@ test_expect_success 'cleanup commit messages (verbatim,-t)' '
 test_expect_success 'cleanup commit messages (verbatim,-F)' '
 
 	echo >>negative &&
-	git commit --cleanup=verbatim -F expect -a &&
+	git commit -b --cleanup=verbatim -F expect -a &&
 	git cat-file -p HEAD |sed -e "1,/^\$/d">actual &&
 	test_cmp expect actual
 
@@ -130,7 +130,7 @@ test_expect_success 'cleanup commit messages (whitespace,-F)' '
 	echo >>negative &&
 	{ echo;echo "# text";echo; } >text &&
 	echo "# text" >expect &&
-	git commit --cleanup=whitespace -F text -a &&
+	git commit -b --cleanup=whitespace -F text -a &&
 	git cat-file -p HEAD |sed -e "1,/^\$/d">actual &&
 	test_cmp expect actual
 
@@ -175,21 +175,22 @@ test_expect_success 'author different from committer' '
 '
 
 mv expect expect.tmp
-sed '$d' < expect.tmp > expect
+sed '$d' < expect.tmp | tail -n 5 > expect
 rm -f expect.tmp
 echo "# Committer:
 #" >> expect
 
 test_expect_success 'committer is automatic' '
 
-	echo >>negative &&
 	(
 		unset GIT_COMMITTER_EMAIL
 		unset GIT_COMMITTER_NAME
 		# must fail because there is no change
-		test_must_fail git commit -e -m "sample"
+		export GIT_EDITOR=/bin/true
+		test_must_fail git commit --allow-empty
+		unset GIT_EDITOR
 	) &&
-	head -n 8 .git/COMMIT_EDITMSG |	\
+	head -n 7 .git/COMMIT_EDITMSG |	\
 	sed "s/^# Committer: .*/# Committer:/" >actual &&
 	test_cmp expect actual
 '

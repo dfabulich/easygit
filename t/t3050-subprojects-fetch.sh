@@ -36,7 +36,7 @@ test_expect_success advance '
 	git add sub/subfile mainfile &&
 	mv sub/.git-disabled sub/.git &&
 	test_tick &&
-	git commit -m "superproject commit #2"
+	git commit -b -m "superproject commit #2"
 '
 
 test_expect_success fetch '

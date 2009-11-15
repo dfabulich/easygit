@@ -49,7 +49,7 @@ test_expect_success "clone and setup child repos" '
 test_expect_success "fetch test" '
 	cd "$D" &&
 	echo >file updated by origin &&
-	git commit -a -m "updated by origin" &&
+	git commit -b -a -m "updated by origin" &&
 	cd two &&
 	git fetch &&
 	test -f .git/refs/heads/one &&
@@ -318,7 +318,7 @@ test_expect_success 'auto tag following fetches minimum' '
 		for i in 1 2 3 4 5 6 7
 		do
 			echo $i >>file &&
-			git commit -m $i -a &&
+			git commit -b -m $i -a &&
 			git tag -a -m $i excess-$i || exit 1
 		done
 	) &&

@@ -121,12 +121,12 @@ cat > expect << EOF
 a1
 EOF
 
-git rerere status > out
+git rerere status > out && git add a1
 
 test_expect_success 'rerere status' 'test_cmp expect out'
 
 test_expect_success 'commit succeeds' \
-	"git commit -q -a -m 'prefer first over second'"
+	"git commit -q -b -a -m 'prefer first over second'"
 
 test_expect_success 'recorded postimage' "test -f $rr/postimage"
 

@@ -39,7 +39,7 @@ test_expect_success 'add files matching auto-props' '
 	echo "hello" >hello.txt &&
 	echo bar >bar &&
 	git add exec1.sh hello.txt bar &&
-	git commit -m "files for enabled auto-props" &&
+	git commit -b -m "files for enabled auto-props" &&
 	git svn dcommit --config-dir=user
 '
 
@@ -85,7 +85,7 @@ test_expect_success 'check renamed file' '
 	test -d user &&
 	generate_auto_props yes > user/config &&
 	git mv foo foo.sh &&
-	git commit -m "foo => foo.sh" &&
+	git commit -b -m "foo => foo.sh" &&
 	git svn dcommit --config-dir=user &&
 	(
 		cd work/svnrepo &&

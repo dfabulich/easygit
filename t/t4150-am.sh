@@ -69,7 +69,7 @@ test_expect_success setup '
 	echo hello >file &&
 	git add file &&
 	test_tick &&
-	git commit -m first &&
+	git commit -b -m first &&
 	git tag first &&
 	echo world >>file &&
 	git add file &&
@@ -86,13 +86,13 @@ test_expect_success setup '
 	sed -n -e "3,\$p" msg >file &&
 	git add file &&
 	test_tick &&
-	git commit -m third &&
+	git commit -b -m third &&
 	git format-patch --stdout first >patch2	&&
 	git checkout -b lorem &&
 	sed -n -e "11,\$p" msg >file &&
 	head -n 9 msg >>file &&
 	test_tick &&
-	git commit -a -m "moved stuff" &&
+	git commit -b -a -m "moved stuff" &&
 	echo goodbye >another &&
 	git add another &&
 	test_tick &&
@@ -189,7 +189,7 @@ test_expect_success 'am -3 falls back to 3-way merge' '
 	head -n 9 msg >>file &&
 	git add file &&
 	test_tick &&
-	git commit -m "copied stuff" &&
+	git commit -b -m "copied stuff" &&
 	git am -3 lorem-move.patch &&
 	! test -d .git/rebase-apply &&
 	test -z "$(git diff lorem)"

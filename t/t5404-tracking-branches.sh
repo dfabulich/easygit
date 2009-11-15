@@ -14,7 +14,7 @@ test_expect_success 'setup' '
 	git clone . aa &&
 	git checkout b1 &&
 	echo b1 >>file &&
-	git commit -a -m b1 &&
+	git commit -b -a -m b1 &&
 	git checkout b2 &&
 	echo b2 >>file &&
 	git commit -a -m b2

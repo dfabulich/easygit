@@ -157,7 +157,7 @@ test_expect_success 'setup submodule' '
 	git commit -m sub_initial &&
 	cd .. &&
 	git submodule add "`pwd`/sub" sub &&
-	git commit -m initial &&
+	git commit -b -m initial &&
 	test_tick &&
 	cd sub &&
 	echo more data >> file &&
@@ -196,7 +196,7 @@ test_expect_success 'setup copies' '
 	git config --unset i18n.commitencoding &&
 	git checkout -b copy rein &&
 	git mv file file3 &&
-	git commit -m move1 &&
+	git commit -b -m move1 &&
 	test_tick &&
 	cp file2 file4 &&
 	git add file4 &&

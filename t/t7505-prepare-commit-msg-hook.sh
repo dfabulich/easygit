@@ -52,7 +52,7 @@ test_expect_success 'with hook (-m)' '
 
 	echo "more" >> file &&
 	git add file &&
-	git commit -m "more" &&
+	git commit -b -m "more" &&
 	test "`git log -1 --pretty=format:%s`" = "message (no editor)"
 
 '

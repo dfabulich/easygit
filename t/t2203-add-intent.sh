@@ -34,14 +34,14 @@ test_expect_success 'intent to add does not clobber existing paths' '
 
 test_expect_success 'cannot commit with i-t-a entry' '
 	test_tick &&
-	git commit -a -m initial &&
+	git commit -b -a -m initial &&
 	git reset --hard &&
 
 	echo xyzzy >rezrov &&
 	echo frotz >nitfol &&
 	git add rezrov &&
 	git add -N nitfol &&
-	test_must_fail git commit
+	test_must_fail git commit --staged
 '
 
 test_expect_success 'can commit with an unrelated i-t-a entry in index' '

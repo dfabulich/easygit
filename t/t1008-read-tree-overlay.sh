@@ -17,7 +17,7 @@ test_expect_success setup '
 	mkdir b &&
 	echo four >b/c &&
 	git add b/c &&
-	git commit -m third
+	git commit --staged -m third
 '
 
 test_expect_success 'multi-read' '

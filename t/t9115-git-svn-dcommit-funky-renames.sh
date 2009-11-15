@@ -22,7 +22,7 @@ test_expect_success 'create file in existing ugly and empty dir' '
 	mkdir "#{bad_directory_name}" &&
 	echo hi > "#{bad_directory_name}/ foo" &&
 	git update-index --add "#{bad_directory_name}/ foo" &&
-	git commit -m "new file in ugly parent" &&
+	git commit -b -m "new file in ugly parent" &&
 	git svn dcommit
 	'
 
@@ -71,7 +71,7 @@ test_expect_success 'clone the repository to test rebase' '
 test_expect_success 'make a commit to test rebase' '
 		echo test-rebase-main > test-rebase-main &&
 		git add test-rebase-main &&
-		git commit -m test-rebase-main &&
+		git commit -b -m test-rebase-main &&
 		git svn dcommit
 	'
 

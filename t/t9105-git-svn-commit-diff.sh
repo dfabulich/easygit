@@ -12,7 +12,7 @@ test_expect_success 'initialize repo' '
 	cd .. &&
 	echo hello > readme &&
 	git update-index --add readme &&
-	git commit -a -m "initial" &&
+	git commit -b -a -m "initial" &&
 	echo world >> readme &&
 	git commit -a -m "another"
 	'

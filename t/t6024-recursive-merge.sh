@@ -87,7 +87,7 @@ test_expect_success 'refuse to merge binary files' '
 	git reset --hard &&
 	printf "\0" > binary-file &&
 	git add binary-file &&
-	git commit -m binary &&
+	git commit -b -m binary &&
 	git checkout G &&
 	printf "\0\0" > binary-file &&
 	git add binary-file &&
@@ -102,7 +102,7 @@ test_expect_success 'mark rename/delete as unmerged' '
 	git checkout -b delete &&
 	git rm a1 &&
 	test_tick &&
-	git commit -m delete &&
+	git commit -b -m delete &&
 	git checkout -b rename HEAD^ &&
 	git mv a1 a2
 	test_tick &&

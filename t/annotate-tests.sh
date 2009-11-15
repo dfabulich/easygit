@@ -49,7 +49,7 @@ test_expect_success \
     'Setup new lines blamed on B' \
     'echo "2A quick brown fox jumps over the" >>file &&
      echo "lazy dog" >> file &&
-     GIT_AUTHOR_NAME="B" git commit -a -m "Second."'
+     GIT_AUTHOR_NAME="B" git commit -b -a -m "Second."'
 
 test_expect_success \
     'Two lines blamed on A, two on B' \
@@ -119,7 +119,7 @@ test_expect_success \
 	echo
     } | sed -e "s/^3A/99/" -e "/^1A/d" -e "/^incomplete/d" > file &&
     echo "incomplete" | tr -d "\\012" >>file &&
-    GIT_AUTHOR_NAME="D" git commit -a -m "edit"'
+    GIT_AUTHOR_NAME="D" git commit -b -a -m "edit"'
 
 test_expect_success \
     'some edit' \

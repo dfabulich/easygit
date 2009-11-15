@@ -79,7 +79,7 @@ test_expect_success setup '
 	test-chmtime +1 dir3/sub &&
 
 	git config log.showroot false &&
-	git commit --amend &&
+	git commit -b --amend &&
 	git show-branch
 '
 

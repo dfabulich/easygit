@@ -154,7 +154,8 @@ test_expect_success 'nonexistent commit' "
 EOF
 "
 
-commit_file
+test_tick &&
+git commit --staged -m "Commit" >/dev/null
 test_expect_success 'typechanged submodule(blob->submodule)' "
     git submodule summary >actual &&
     diff actual - <<-EOF

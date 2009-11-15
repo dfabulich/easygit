@@ -32,7 +32,7 @@ test_expect_success '(supposedly) non-conflicting change from SVN' '
 test_expect_success 'some unrelated changes to git' "
 	echo hi > life &&
 	git update-index --add life &&
-	git commit -m hi-life &&
+	git commit -b -m hi-life &&
 	echo bye >> life &&
 	git commit -m bye-life life
 	"

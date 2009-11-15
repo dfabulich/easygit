@@ -21,6 +21,7 @@ set_fake_editor
 #        -- C1 --
 
 test_expect_success 'setup' '
+	echo fake-editor.sh > .git/info/ignored-unknown &&
 	test_commit A1 &&
 	test_commit B1 &&
 	test_commit C1 &&

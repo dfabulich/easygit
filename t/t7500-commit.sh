@@ -85,7 +85,7 @@ test_expect_success 'config-specified template should commit' '
 	git add foo &&
 	(
 		test_set_editor "$TEST_DIRECTORY"/t7500/add-content &&
-		git commit
+		git commit -b
 	) &&
 	git config --unset commit.template &&
 	commit_msg_is "new templatecommit message"
@@ -118,7 +118,7 @@ test_expect_success 'using alternate GIT_INDEX_FILE (1)' '
 	        GIT_INDEX_FILE=.git/another_index &&
 		export GIT_INDEX_FILE &&
 		git add file &&
-		git commit -m "commit using another index" &&
+		git commit -b -m "commit using another index" &&
 		git diff-index --exit-code HEAD &&
 		git diff-files --exit-code
 	) &&
@@ -133,7 +133,7 @@ test_expect_success 'using alternate GIT_INDEX_FILE (2)' '
 		rm -f .git/no-such-index &&
 		GIT_INDEX_FILE=.git/no-such-index &&
 		export GIT_INDEX_FILE &&
-		git commit -m "commit using nonexistent index" &&
+		git commit -b -m "commit using nonexistent index" &&
 		test -z "$(git ls-files)" &&
 		test -z "$(git ls-tree HEAD)"
 
@@ -160,7 +160,7 @@ test_expect_success 'commit message from file (1)' '
 	echo "Log in sub directory" >subdir/log &&
 	(
 		cd subdir &&
-		git commit --allow-empty -F log
+		git commit -b --allow-empty -F log
 	) &&
 	commit_msg_is "Log in sub directory"
 '
@@ -170,7 +170,7 @@ test_expect_success 'commit message from file (2)' '
 	echo "Log in sub directory" >subdir/log &&
 	(
 		cd subdir &&
-		git commit --allow-empty -F log
+		git commit -b --allow-empty -F log
 	) &&
 	commit_msg_is "Log in sub directory"
 '
@@ -178,7 +178,7 @@ test_expect_success 'commit message from file (2)' '
 test_expect_success 'commit message from stdin' '
 	(
 		cd subdir &&
-		echo "Log with foo word" | git commit --allow-empty -F -
+		echo "Log with foo word" | git commit -b --allow-empty -F -
 	) &&
 	commit_msg_is "Log with foo word"
 '
