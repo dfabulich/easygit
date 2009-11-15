@@ -79,7 +79,7 @@ test_expect_success 'revert a non-merge with -m should fail' '
 
 	git reset --hard &&
 	git checkout c^0 &&
-	test_must_fail git revert -m 1 b &&
+	test_must_fail git cherry-pick -R -m 1 b &&
 	git diff --exit-code c
 
 '
@@ -88,7 +88,7 @@ test_expect_success 'revert a merge without -m should fail' '
 
 	git reset --hard &&
 	git checkout c^0 &&
-	test_must_fail git revert c &&
+	test_must_fail git cherry-pick -R c &&
 	git diff --exit-code c
 
 '
@@ -97,7 +97,7 @@ test_expect_success 'revert a merge (1)' '
 
 	git reset --hard &&
 	git checkout c^0 &&
-	git revert -m 1 c &&
+	git cherry-pick -R -m 1 c &&
 	git diff --exit-code a --
 
 '
@@ -106,7 +106,7 @@ test_expect_success 'revert a merge (2)' '
 
 	git reset --hard &&
 	git checkout c^0 &&
-	git revert -m 2 c &&
+	git cherry-pick -R -m 2 c &&
 	git diff --exit-code b --
 
 '
@@ -115,7 +115,7 @@ test_expect_success 'revert a merge relative to nonexistent parent should fail' 
 
 	git reset --hard &&
 	git checkout c^0 &&
-	test_must_fail git revert -m 3 c &&
+	test_must_fail git cherry-pick -R -m 3 c &&
 	git diff --exit-code c
 
 '
