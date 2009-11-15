@@ -15,7 +15,7 @@ test_expect_success \
 	"initial status" \
 	"echo 'bongo bongo' >file &&
 	 git add file && \
-	 git status | grep 'Initial commit'"
+	 git status | grep 'no commits yet'"
 
 test_expect_success \
 	"fail initial amend" \

@@ -93,14 +93,14 @@ EOF
 
 git config core.excludesFile excludes-file
 
-git status | grep "^#	" > output
+git status | grep "^	" > output
 
 cat > expect << EOF
-#	.gitignore
-#	a.6
-#	one/
-#	output
-#	three/
+	.gitignore
+	a.6
+	one/
+	output
+	three/
 EOF
 
 test_expect_success 'git status honors core.excludesfile' \

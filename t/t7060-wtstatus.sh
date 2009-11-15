@@ -29,14 +29,11 @@ test_expect_success 'Report new path with conflict' '
 '
 
 cat >expect <<EOF
-# On branch side
-# Unmerged paths:
-#   (use "git reset HEAD <file>..." to unstage)
-#   (use "git add <file>..." to mark resolution)
-#
-#	deleted by us:      foo
-#
-no changes added to commit (use "git add" and/or "git commit -a")
+(On branch side)
+(YOU ARE IN THE MIDDLE OF A MERGE; RUN 'eg help topic middle-of-merge' FOR MORE INFO.)
+Unmerged paths (files with conflicts):
+	deleted by us:      foo
+(YOU ARE IN THE MIDDLE OF A MERGE; RUN 'eg help topic middle-of-merge' FOR MORE INFO.)
 EOF
 
 test_expect_success 'M/D conflict does not segfault' '
