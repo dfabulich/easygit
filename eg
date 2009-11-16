@@ -6131,7 +6131,7 @@ sub postprocess {
     } else {
       die "ERROR: Cannot parse git status output.\n" .
           "$workaround_msg\n" .
-          "Remaining unparsed lines:\n$line\n@lines";
+          "Remaining unparsed lines:\n$line\n" . join("\n", @lines) . "\n";
     }
 
     # If we're inside a section type, parse it
@@ -6149,8 +6149,8 @@ sub postprocess {
       die("Bug parsing git status output.\n$workaround_msg\n") if $line ne '#';
       $line = shift @lines; # Get rid of blank line
 
-      while (defined $line && $line =~ m/^#.+$/) {
-        if ($line =~ m/^#(\s+)(.*)/) {
+      while (defined $line && $line =~ m/^(?:\e\[.*?m)?#.+$/) {
+        if ($line =~ m/^(?:\e\[.*?m)?#(\s+)(.*)/) {
           my $space = $1;
           my $file = $2;
 
@@ -6165,7 +6165,7 @@ sub postprocess {
           push @section_files, "$space$file";
         }
         $line = shift @lines;
-        unshift(@lines, $line) if $line =~ m#^(?:\e\[.*?m)?diff --git a/#;
+        unshift(@lines, $line) if $line && $line =~ m#^(?:\e\[.*?m)?diff --git a/#;
       }
 
       if (defined($files{$section})) {
