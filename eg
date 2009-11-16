@@ -4750,7 +4750,7 @@ sub run {
 
   # Determine which files are actually unmerged
   my ($ret, $output) =
-    ExecUtil::execute_captured("git ls-files -u --error-unmatch @ARGV",
+    ExecUtil::execute_captured("$git_cmd ls-files -u --error-unmatch @ARGV",
       ignore_ret => 1);
   chomp($output);
   my @lines = split('\n', $output);
