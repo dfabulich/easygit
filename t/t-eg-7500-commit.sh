@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 # Copyright (c) 2007 Steven Grimm
+# Modified 2009 Elijah Newren
 #
 
 test_description='eg commit
@@ -49,7 +50,6 @@ test_expect_success 'unmerged files present prevents commit' '
 '
 
 test_expect_success 'unmerged files present prevents commit even with -a' '
-	cat unmerge-info | git update-index --index-info &&
 	test_must_fail git commit -a > actual 2>&1 &&
 	test_cmp expect actual
 '
