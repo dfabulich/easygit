@@ -233,9 +233,9 @@ test_expect_success 'remote.foo.mirror adds and removes branches' '
 		echo one >foo && git add foo && git commit -m one &&
 		git branch keep master &&
 		git branch remove master &&
-		git push --matching-branches up &&
+		git push up &&
 		git branch -D remove
-		git push --matching-branches up
+		git push up
 	) &&
 	(
 		cd mirror &&

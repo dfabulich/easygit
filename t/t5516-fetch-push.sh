@@ -577,7 +577,8 @@ test_expect_success 'push with branches' '
 	mk_empty &&
 	git checkout second &&
 	echo "testrepo" > .git/branches/branch1 &&
-	git push --matching-branches branch1 &&
+	git config push.default matching &&
+	git push branch1 &&
 	(cd testrepo &&
 		r=$(git show-ref -s --verify refs/heads/master) &&
 		test "z$r" = "z$the_first_commit" &&
@@ -588,7 +589,8 @@ test_expect_success 'push with branches' '
 test_expect_success 'push with branches containing #' '
 	mk_empty &&
 	echo "testrepo#branch3" > .git/branches/branch2 &&
-	git push --matching-branches branch2 &&
+	git config push.default matching &&
+	git push branch2 &&
 	(cd testrepo &&
 		r=$(git show-ref -s --verify refs/heads/branch3) &&
 		test "z$r" = "z$the_first_commit" &&

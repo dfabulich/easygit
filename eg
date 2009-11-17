@@ -3925,33 +3925,45 @@ Options
     the remote repository.
 ";
   $self->{'differences'} = "
-  eg push tries to simplify git, but is essentially the same other than (1)
-  defaulting to pushing only the current branch instead of matching
-  branches, and (2) trying to avoid pushing into a bare repository.  There
-  are two other minor changes, namely providing extra --tag and --branch
-  flags to make command lines more self-documenting and to avoid
-  introducing refspecs (a very confusing topic for new users) too early.
-  However, refspecs still work with eg push, and users can learn about them
-  by running 'eg help topic refspecs'.
+  eg push is largely the same as git push, despite attempts to simplify in
+  a number of areas:
 
-  Pushing just the current branch to its tracking branch is a change mostly
-  made with the idea that new git users coming from the cvs/svn world will
-  probably be using central repositories that many developers push to.
-  However, given the recent push.default config option introduced in
-  git-1.6.3 (which can be set to 'tracking' to get the eg behavior or
-  'matching' to get the old git default behavior), this change in eg may be
-  obsolete and reverted in the future.
+    (1) push.default=tracking is the default if push.default is unset (git
+        uses push.default=matching if push.default is unset).  This seems
+        to match the intuition of most former cvs/svn users, though it is
+        my one dangerous default change for existing git users.  Tough
+        call, since the 'safe' defaults for each group are unsafe and/or
+        confusing for the other.  A new --matching-branches flag is added
+        to get the old behavior (the plain ':' refspec from git does the
+        same, but --matching-branches is more self-documenting and also
+        predates the ':' refspec).
 
-  The method eg push uses to avoid pushing into a non-bare repository is a
-  push-side check rather than a receive-side check.  In cases it can detect
-  that the remote repository is bare (pushing to a directory on a locally
-  mounted filesystem or pushing over ssh), it will disable such pushes
-  unless the user specifies both source and destination references
-  explicitly (which can be done by running, for example, 'eg push origin
-  master:master').  However, given the new receive-side check introduced in
-  git-1.6.x to avoid pushing into bare repositories unless they have
-  configured to allow it, this change in eg may be obsolete and reverted in
-  the future.
+    (2) eg prevents pushing into a bare repository as a push-side check
+        rather than a receive-side check (when it can determine that the
+        remote repository is bare -- i.e. if the repository url is for a
+        locally mounted filesystem or uses ssh).  eg also allows the check
+        to be overridden on the push-side (by specifying a refspec
+        containing a ':' character).  This means it can work for users of
+        existing repositories (created with git < 1.7), and it provides a
+        solution that both avoids working copy inconsistency for new users
+        while allowing more advanced users to do what they need on the same
+        repository, and without forcing users to twiddle with the
+        configuration of the remote repository.  However, this method
+        doesn't work for repositories accessed via git://, and only works
+        for ssh-accessed repositories if users have ssh setup to not need a
+        password (kerberos, ssh-keys, etc.).
+
+    (3) eg performs checks for uncommitted changes and newly created
+        unknown files and warns/aborts if such exist when the user pushes
+        (most former cvs/svn users are not yet familiar with the fact that
+        only committed stuff gets pushed/pulled).  As with eg commit, such
+        checks can be overridden with the -b flag.
+
+    (4) eg provides extra --tag and --branch flags to make command lines
+        more self-documenting and to avoid excessively early introduction
+        of refspecs (a very confusing topic for new users).  However,
+        refspecs still work with eg push, and users can learn about them by
+        running 'eg help topic refspecs'.
 ";
   return $self;
 }
@@ -4082,7 +4094,6 @@ sub preprocess {
 
   my $default_specified = 0;
   $default_specified = 1  if $all_branches;
-  $default_specified = 1  if $matching_branches;
   $default_specified = 1  if $all_tags;
   $default_specified = 1  if $mirror;
 
@@ -4100,7 +4111,7 @@ sub preprocess {
     push(@{$self->{args}}, $repository);
     $remote = $repository;
   } else {
-    # Just drop through to the git pull defaults.
+    # Just drop through to the git push defaults.
   }
 
   #
@@ -4108,6 +4119,7 @@ sub preprocess {
   # ssh; I don't know how to detect other cases)...unless user explicitly
   # specifies both source and destination references explicitly
   #
+  my $remote_chk = $remote || $repository;
   $repository = _get_push_repository($repository);
   my $push_to_non_bare_repo;
   if ($repository) {
@@ -4153,17 +4165,22 @@ EOF
   #
   # Get the default branch to push to, if needed
   #
+  push(@{$self->{args}}, ":") if $matching_branches;
+  $default_specified = 1  if $matching_branches;
+
   if (!@branches && !@tags && !@git_refspecs && !$default_specified) {
     # User hasn't specified what to push; default choices:
     # 1 - remote.$remote.(push|mirror) options
     my $default_known = 0;
-    if (defined($remote)) {
-      if (defined(RepoUtil::get_config("remote.$remote.push")) ||
-          defined(RepoUtil::get_config("remote.$remote.mirror"))) {
-        $default_known = 1;
-      }
+    if (defined(RepoUtil::get_config("remote.$remote_chk.push")) ||
+        defined(RepoUtil::get_config("remote.$remote_chk.mirror"))) {
+      $default_known = 1;
     }
-    # 2 - branch.$branch.merge option
+    # 2 - push.default option
+    if (defined(RepoUtil::get_config("push.default"))) {
+      $default_known = 1;
+    }
+    # 3 - branch.$branch.merge option
     if (!$default_known) {
       my $branch = RepoUtil::current_branch();
       $push_branch = RepoUtil::get_config("branch.$branch.merge");
@@ -4173,7 +4190,7 @@ EOF
         $default_known = 1;
       }
     }
-    # 3 - the only branch that exists at the remote end
+    # 4 - the only branch that exists at the remote end
     if (!$default_known && defined $repository) {
       my $only_branch = RepoUtil::get_only_branch($repository, "push");
       push(@{$self->{args}}, $only_branch);
