@@ -1,0 +1,50 @@
+A couple basic rules about the maintainence of eg:
+
+  0) I'm a bloody horrible maintainer, sometimes going for months without
+     responding to inquiries/patches.  Yeah, I know, I deserve to be
+     replaced.  Sorry.  Also, I turn down some good ideas.  And some good
+     ideas that I turn down I suddenly change my mind on a year later.
+
+  1) At any given time, all the tests should pass *if* running with
+     corresponding git and eg versions (run 'eg --version' to check).  To
+     run the tests:
+
+     # See t/README for more details; note that the tests
+     cd t/
+     make -j2
+
+  2) Version numbers (appearing on or near lines 4 & 27 of eg)
+     a) For a release, the version number of eg should match the version of
+        git it was tested against, see below for more details.  (New rule
+        since v1.6.5.2)
+     b) After a release of eg, the version string should have ".dev"
+        appended to it.
+
+  3) Having eg be tested against a certain version of git means both that
+     the given version of git was in the path, but also that the tests were
+     merged with the given version of git.git's t/ subdirectory (and
+     updated as needed for eg-specific changes).  To merge with git.git's
+     changes to t/:
+
+       # Preliminaries
+       tempdir=~/temp       # or whatever
+       testversion=v1.6.5.2
+
+       # Make a "filtered" clone of git.git's tests (all tagged releases anyway)
+       git init --bare $tempdir
+       cd /path/to/git.git/clone
+       git fast-export $(git tag | grep -e $'^v[0-9\.]*$')             \
+         --signed-tags=strip --tag-of-filtered-object=rewrite -- t/    \
+         | (cd $tempdir && git fast-import --quiet --force)
+
+       # Fetch this test history into the local eg project
+       cd /path/to/eg
+       eg remote add testing $tempdir
+       eg config remote.testing.fetch +refs/tags/*:refs/remotes/git/*
+       eg fetch --no-tags testing
+
+       # Merge any new changes from the relevant version
+       eg merge git/$testversion
+
+       # Then, fix up any tests (particularly the needed -b flag to commit)
+       # as needed and test and commit.
