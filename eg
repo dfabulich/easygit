@@ -5923,7 +5923,7 @@ sub run {
 
     my @lines = split('\n', $output);
     my $regex = 
-      qr#(stash\@{[^}]+}): (?:WIP )?[Oo]n [^ ]*: (?:[0-9a-f]+\.\.\. )?#;
+      qr#(stash\@{[^}]+}): (?:WIP )?[Oo]n [^:]*: (?:[0-9a-f]+\.\.\. )?#;
     foreach my $line (@lines) {
       if ($self->{show_details}) {
         print "$line\n";

@@ -1,9 +1,10 @@
 #!/bin/sh
 #
 # Copyright (c) 2007 Johannes E Schindelin
+# Modified 2009 Elijah Newren
 #
 
-test_description='Test git stash'
+test_description='Test eg stash (mainly stash descriptions)'
 
 . ./test-lib.sh
 
@@ -217,6 +218,56 @@ test_expect_success 'stash --invalid-option' '
 	test bar5,bar6 = $(cat file),$(cat file2) &&
 	git stash -- -message-starting-with-dash &&
 	test bar,bar2 = $(cat file),$(cat file2)
+'
+
+cat > expect << EOF
+same old stash with no branch
+same old stash on foobar
+-message-starting-with-dash
+b3d634c alternate second
+number 6
+EOF
+
+test_expect_success 'output for stash list' '
+	git checkout -b foobar &&
+	git stash apply alternate second &&
+	git stash save same old stash on foobar &&
+	git checkout HEAD~0 &&
+	git stash apply alternate second &&
+	git stash save same old stash with no branch &&
+	git stash list > actual 2>&1 &&
+	test_cmp expect actual
+'
+
+cat > expect << EOF
+stash@{0}: On (no branch): same old stash with no branch
+stash@{1}: On foobar: same old stash on foobar
+stash@{2}: On stashbranch: -message-starting-with-dash
+stash@{3}: WIP on stashbranch: b3d634c alternate second
+stash@{4}: On stashbranch: number 6
+EOF
+
+test_expect_success 'output for stash list --details' '
+	git stash list --details > actual 2>&1 &&
+	test_cmp expect actual
+'
+
+cat > expect << EOF
+same old stash with no branch
+stash@{0}
+same old stash on foobar
+stash@{1}
+-message-starting-with-dash
+stash@{2}
+b3d634c alternate second
+stash@{3}
+number 6
+stash@{4}
+EOF
+
+test_expect_success 'output for stash list --refs' '
+	git stash list --refs > actual 2>&1 &&
+	test_cmp expect actual
 '
 
 test_done
