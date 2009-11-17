@@ -1521,11 +1521,11 @@ Options:
     
     Meanings of git commands, as a reminder (A and B are revisions):
       git diff A..B  <=> git diff A B                      # Endpoint difference
-      git diff A...B <=> git diff $(git merge-base A B) B
+      git diff A...B <=> git diff $(git merge-base A B) B  # Changes from base
     
     Why this is confusing (compare to above):
-      git log A..B  <=> git log $(git merge-base A B) B
-      git log A...B <=> git log ^$(git merge-base A B) A B # Endpoint difference
+      git log A..B  <=> git log ^$(git merge-base A B) B   # Changes from base
+      git log A...B <=> git log A B ^$(git merge-base A B) # Endpoint difference
     
     So, my translation:
       eg diff A B   <=>  git diff A B    <=> git diff A..B
