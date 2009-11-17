@@ -1611,6 +1611,14 @@ where FILE is any file in your working copy and BRANCH is one of
 EOF
       exit 1;
     }
+    if (RepoUtil::initial_commit()) {
+      print STDERR <<EOF;
+Aborting: Cannot show the changes since the last commit, since you do not
+yet have any commits on the current branch.  Try passing --unstaged to diff,
+or making a commit first.
+EOF
+      exit 1;
+    }
     push(@$revs, "HEAD")
   }
 
