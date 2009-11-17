@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 ## Easy GIT (eg), a frontend for git designed for former cvs and svn users
-## Version 1.6.5.3
+## Version 1.6.5.3.dev
 ## Copyright 2008, 2009 by Elijah Newren, and others
 ## Licensed under GNU GPL, version 2.
 
@@ -24,7 +24,7 @@ my $debug=0;
 
 # globals :-(
 my $outfh;
-my $version = "1.6.5.3";
+my $version = "1.6.5.3.dev";
 my $eg_exec = abs_path($0);
 my $git_cmd = "git";  # Includes any global args, thus "git --exec-path=..."
 my $use_pager = -1;
