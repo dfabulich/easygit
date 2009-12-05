@@ -1058,6 +1058,7 @@ sub preprocess {
   my $result = main::GetOptions(
     "help"             => sub { $self->help() },
     "bare"             => sub { $self->{bare} = 1 },
+    "mirror"           => sub { $self->{bare} = 1 },
     "branch|b=s",
     "depth=i",
     "origin|o=s",
@@ -1088,7 +1089,6 @@ sub run {
   my $ret = ExecUtil::execute("$git_cmd clone @ARGV", ignore_ret => 1);
   return $ret if $self->{bare};
   if ($debug == 2) {
-    return if $self->{bare};
     print "    >>Running: 'cd $self->{directory}'<<\n";
     print "    >>Running: '$git_cmd branch -r'<<\n";
     print "    --- Setting up extra branches by default ---\n";
