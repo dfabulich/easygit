@@ -6,14 +6,6 @@ test_description="tests of eg's pushing behavior"
 
 D=`pwd`
 
-invert () {
-	if "$@"; then
-		return 1
-	else
-		return 0
-	fi
-}
-
 mk_repo_pair () {
 	rm -rf pushfrom pushto &&
 	mkdir pushto &&
