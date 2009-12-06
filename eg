@@ -3697,12 +3697,14 @@ Options
     history so that your recent local commits become commits on top of the
     changes downloaded from the remote repository.
 
-    NOTE: This is a potentially _dangerous_ operation.  Rewriting history
-    that has been pushed or pulled into another repository can break
-    subsequent pushes and pulls with those repositories.  (Such breaks can
-    be fixed, at the cost of having to modify the commit history of each
-    affected repository.)  Do not use this option without thoroughly
-    understanding 'eg help rebase'.
+    NOTE: This is a potentially dangerous operation if you have local
+    commits not found in the repository you are pulling from but which are
+    found in some other repository (e.g. your local commits have been
+    directly pulled from your copy by another developer, or to your copy
+    from another developer).  In such a case, unless the other copy of
+    these commits are also rebased (or discarded), you will probably get
+    into trouble and need to thoroughly understand 'eg help rebase' before
+    using this option.
 ";
   $self->{'differences'} = "
   eg pull and git pull are nearly identical.  eg provides a slightly more
