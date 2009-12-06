@@ -173,7 +173,7 @@ sub help {
   if ($git_equiv) {
     print OUTPUT "\nSee also\n";
     print OUTPUT <<EOF;
-  Run 'man git-$git_equiv' for a comprehensive list of options available.
+  Run 'git help $git_equiv' for a comprehensive list of options available.
   eg $package_name is designed to accept the same options as git $git_equiv, and
   with the same meanings unless specified otherwise in the above
   "Differences" section.
@@ -1392,7 +1392,7 @@ Usage:
 Description:
   Gets or sets configuration options.
 
-  See the 'Configuration File' section of 'man git-config' for a fairly
+  See the 'Configuration File' section of 'git help config' for a fairly
   comprehensive list of special options used by eg (and git).
 
 Examples:
@@ -1662,7 +1662,7 @@ Description:
   You can configure the default external tool with 'eg config'.  You can
   specify the default tool by setting 'diff.tool'; you can configure the
   tool by setting 'difftool.<tool>.cmd'.  See the 'Configuration File'
-  section of 'man git-config' for more details.
+  section of 'git help config' for more details.
 
 Example:
   Show local unrecorded changes in vimdiff
@@ -2124,7 +2124,7 @@ used by git are as follows:
   100644  --  Normal, non-executable file
   100755  --  File with the executable bit set
   120000  --  symlink
-  160000  --  A git submodule (run 'man git-submodule' for more info)
+  160000  --  A git submodule (run 'git help submodule' for more info)
 
 ******************** Tell git to continue the operation ********************
 $opts->{continue_text}
@@ -2157,7 +2157,7 @@ OR
 
   eg bisect reset
 
-See 'man git-bisect' for more details."
+See 'git help bisect' for more details."
 }
 
 sub refspecs {
@@ -2521,7 +2521,7 @@ Staging changes and working with staged changes
     eg stage -p
   (You will be asked whether to stage each change, listed in diff format;
   the main options to know are \"y\" for yes, \"n\" for no, and \"s\" for
-  splitting the selected change into smaller changes; see 'man git-add' for
+  splitting the selected change into smaller changes; see 'git help add' for
   more details).
 
   Get all unstaged changes to bar.C and foo.pl
@@ -3545,7 +3545,7 @@ EOF
   #
   ExecUtil::execute("$git_cmd config core.bare $is_bare");
   # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
-  # the files that 'man git-update-server-info' says it creates.
+  # the files that 'git help update-server-info' says it creates.
 
   #
   # Set up the published repository as the default ("origin"), if origin
