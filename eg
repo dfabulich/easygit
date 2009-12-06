@@ -3765,7 +3765,7 @@ sub preprocess {
     );
   die "Cannot specify both --all-tags and --no-tags!\n"
     if $all_tags && $no_tags;
-  die "Cannot specify request tags along with --all-tags or --no-tags!\n"
+  die "Cannot specify individual tags along with --all-tags or --no-tags!\n"
     if @tags && ($all_tags || $no_tags);
   my $repository = shift @ARGV;
   my @git_refspecs = @ARGV;
@@ -3777,13 +3777,18 @@ sub preprocess {
   #
   # Get the repository to pull from
   #
+  my $repo_is_a_remote = 1;
+  my $repo_specified = defined($repository);
   if ($repository) {
     push(@{$self->{args}}, $repository);
-  } elsif (!$repository && @branches) {
-    $repository = RepoUtil::get_default_push_pull_repository();
-    push(@{$self->{args}}, $repository);
+    $repo_is_a_remote = 0 if !RepoUtil::get_config("remote.$repository.url");
   } else {
-    # Just drop through to the git pull defaults.
+    $repository = RepoUtil::get_default_push_pull_repository();
+    if (!$repository) {
+      # This line should never be reached
+      die "Don't know what to pull!"
+    }
+    push(@{$self->{args}}, $repository) if (!$repo_specified && @branches);
   }
 
   #
@@ -3791,19 +3796,53 @@ sub preprocess {
   #
   push(@branches, @git_refspecs);
 
-  if (!@branches && !@tags) {
+  # If we were given explicit branches or tags to pull, then we know what
+  # to pull.  Also, for compatibility with git, if the repository specified
+  # is a url rather than a remotename, then we should pull from HEAD if
+  # no other refspecs are specified.
+  #
+  # In all other cases...
+  if ($repo_is_a_remote && !@branches && !@tags) {
+    my $dont_know_what_to_pull = 0;
+
+    # If we don't have a current branch, we can't tell what branch to merge
     my $branch = RepoUtil::current_branch();
-    if ($branch) {
-      my ($merge_branch, $url);
-      $url = RepoUtil::get_config("branch.$branch.remote");
-      if ($url && (!$repository || $url eq $repository)) {
-        $merge_branch = RepoUtil::get_config("branch.$branch.merge");
-      }
-      if (!$merge_branch && ($repository || $url)) {
-        my $only_branch = RepoUtil::get_only_branch($repository || $url);
-        push(@{$self->{args}}, $url) if !$repository;
-        push(@branches, $only_branch);
-      }
+    if (!$branch) {
+      $dont_know_what_to_pull = 1;
+      goto PULL_CHECK;
+    }
+
+    # If there's no default remote, we must ignore branch.$branch.merge so
+    # we don't know what branch to merge
+    my ($merge_branch, $default_remote);
+    $default_remote = RepoUtil::get_config("branch.$branch.remote");
+    if (!$default_remote) {
+      $dont_know_what_to_pull = 1;
+      goto PULL_CHECK;
+    }
+
+    # If the default remote doesn't match the specified repository, we must
+    # ignore branch.$branch.remote so we don't know what branch to merge
+    if ($repo_specified and $repository ne $default_remote) {
+      $dont_know_what_to_pull = 1;
+      goto PULL_CHECK;
+    }
+
+    # If branch.$branch.merge is not set we don't know what branch to merge
+    $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+    if (!$merge_branch) {
+      $dont_know_what_to_pull = 1;
+      goto PULL_CHECK;
+    }
+
+    PULL_CHECK:
+    # Even if we don't know what to pull, if the remote repository has exactly
+    # one branch, then we can just pull from that.
+    if ($dont_know_what_to_pull) {
+      my $location = $repository || $default_remote;
+      my $only_branch = RepoUtil::get_only_branch($location, "pull");
+      push(@{$self->{args}}, $location) if !$repo_specified;
+      push(@branches, $only_branch);
     }
   }
 
@@ -7201,8 +7240,8 @@ sub get_only_branch {
   my ($ret, $output) =
     ExecUtil::execute_captured("$git_cmd ls-remote -h $quoted_repo",
                                capture_stdout_only => 1, ignore_ret => 1);
-  die "Could not determine remote branches from repository '$repository'\n"
-    if $ret != 0;
+  die "Aborting: Could not determine remote branches " .
+      "from repository '$repository'\n" if $ret != 0;
   my @remote_refs = split('\n', $output);
 
   die "'$repository' has no branches to $check_type!\n" if @remote_refs == 0;
@@ -7234,12 +7273,13 @@ EOF
 
 sub get_default_push_pull_repository {
   my $branch = current_branch();
-  return undef if !$branch;
 
-  my $default_remote = `$git_cmd config --get branch.$branch.remote`;
-  if ($default_remote) {
-    chomp($default_remote);
-    return $default_remote;
+  if ($branch) {
+    my $default_remote = `$git_cmd config --get branch.$branch.remote`;
+    if ($default_remote) {
+      chomp($default_remote);
+      return $default_remote;
+    }
   }
 
   my @output = `$git_cmd config --get-regexp remote\.origin\.*`;
@@ -7251,6 +7291,7 @@ Aborting: No repository specified, and "origin" is not set up as a remote
 repository.  Please specify a repository or setup "origin" by running
   eg remote add origin URL
 EOF
+    exit 1;
   }
 }
 
