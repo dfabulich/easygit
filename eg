@@ -1153,7 +1153,7 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg commit [-a|--all-known] [-b|--bypass-unknown-check]
-            [--staged|-d|--dirty] [-F FILE | -m MSG | --amend] [--]
+            [--staged|-d|--dirty] [-F FILE | -m MSG] |--amend] [--]
             [FILE...]
 
 Description:
