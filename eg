@@ -4086,6 +4086,9 @@ sub _check_if_bare {
   chomp($output);
   my @lines = split('\n', $output);
   my $result = $lines[-1];
+  # If ssh or git itself failed, $ret could still be 0 but $result could be
+  # something other than "true" or "false"
+  return undef if (! grep {$_ eq $result} ["true", "false"]);
   return $result;
 }
 
