@@ -7939,8 +7939,9 @@ sub main {
   #
   Getopt::Long::Configure("no_bundling", "no_permute",
                           "pass_through", "no_auto_abbrev", "no_ignore_case");
-  my $record_arg   = sub { $git_cmd .= " --$_[0]"; };
-  my $record_args  = sub { $git_cmd .= " --$_[0]=$_[1]"; };
+  my @global_args  = ();
+  my $record_arg   = sub { push(@global_args, "--$_[0]"); };
+  my $record_args  = sub { push(@global_args, "--$_[0]=$_[1]"); };
   my $result=GetOptions(
                "--debug"     => sub { $debug = 1 },
                "--help"      => sub { help()     },
@@ -7954,7 +7955,9 @@ sub main {
                "work-tree=s" => sub { &$record_args(@_) },
                         );
   # Make sure all global args are passed to eg subprocesses as well...
-  $eg_exec .= substr($git_cmd, index($git_cmd, ' ')) if $git_cmd ne "git";
+  @global_args = Util::quote_args(@global_args);
+  $git_cmd .= " @global_args";
+  $eg_exec .= " @global_args" if @global_args;
 
   # Sanity check the arguments
   die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
