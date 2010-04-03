@@ -6231,11 +6231,11 @@ sub postprocess {
           my $space = $1;
           my $file = $2;
 
-	  # Remove leading space character for submodule changes
+          # Remove leading space character for submodule changes
           # (There's no real reason to do this other than laziness in
           # updating test file results; output looks fine either way.)
-	  $space =~ s/^[ ]//;
-	  # Workaround the file not have proper terminating color escape sequence
+          $space =~ s/^[ ]//;
+          # Workaround the file not have proper terminating color escape sequence
           if ($file =~ /^\s*\e\[.*?m/ && $file !~ /\e\[m$/) {
             $file .= "\e[m";
           }
