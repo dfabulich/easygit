@@ -1283,8 +1283,8 @@ sub preprocess {
   my $record_arg   = sub { push(@{$self->{args}}, "$_[0]$_[1]"); };
   my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
                            push(@{$self->{args}}, splice(@_, 2)); };
-  my ($all_known, $bypass_unknown, $staged, $amend, $allow_empty) =
-     (0, 0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged, $amend, $allow_empty, $include) =
+     (0, 0, 0, 0, 0, 0);
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
@@ -1301,26 +1301,29 @@ sub preprocess {
     "m=s"                         => sub { &$record_args("-", @_) },
     "amend"                       => sub { $amend = 1; &$record_arg("--", @_) },
     "allow-empty"                 => sub { $allow_empty = 1;
-					   &$record_arg("--", @_) },
+                                           &$record_arg("--", @_) },
     "interactive"                 => sub { $allow_empty = 1;
-					   &$record_arg("--", @_) },
+                                           &$record_arg("--", @_) },
     "no-verify"                   => sub { &$record_arg("--", @_) },
     "e"                           => sub { &$record_arg("-", @_) },
     "author=s"                    => sub { &$record_args("--", @_) },
     "cleanup=s"                   => sub { &$record_args("--", @_) },
+    "include|i=s"                 => sub { $include = 1;
+                                           &$record_args("--", @_) },
     );
   my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
 
   #
   # Set up flags based on options, do sanity checking of options
   #
-  my ($check_unknown, $check_mixed, $check_no_branch);
+  my ($check_unknown, $check_mixed, $check_unmerged);
   $self->{'commit_flags'} = [];
   die "Cannot specify both --all-known (-a) and --staged (-d)!\n" if
     $all_known && $staged;
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
-  $check_unknown   = !$bypass_unknown && !$staged && !@$files;
-  $check_mixed     = !$all_known      && !$staged && !@$files;
+  $check_unknown   = !$bypass_unknown && !$staged && !@$files && !$include;
+  $check_mixed     = !$all_known      && !$staged && !@$files && !$include;
+  $check_unmerged  = !$include;
   push(@{$self->{'commit_flags'}}, "-a") if $all_known;
 
   #
@@ -1330,7 +1333,8 @@ sub preprocess {
     RepoUtil::commit_push_checks($package_name,
                                  {no_changes       => !$amend && !$allow_empty,
                                   unknown          => $check_unknown,
-                                  partially_staged => $check_mixed});
+                                  partially_staged => $check_mixed,
+                                  unmerged_changes => $check_unmerged});
 
   if ($amend && !$all_known && !$staged && !@$files &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
@@ -1347,7 +1351,7 @@ EOF
   die "No staged changes, but --staged given.\n"
       if (!$status->{has_staged_changes} && $staged && !$amend);
 
-  if (!$all_known && !$staged &&
+  if (!$all_known && !$include && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes} &&
       !@$files) {
     push(@{$self->{'commit_flags'}}, "-a");
@@ -3484,7 +3488,9 @@ sub preprocess {
 
   if (!$bypass_modification_check) {
     my $status = RepoUtil::commit_push_checks($package_name,
-                                              {unknown => 1, changes => 1});
+                                              {unknown => 1,
+                                               changes => 1,
+                                               unmerged_changes => 1});
   } else {
     # Record the set of unknown files we ignored with -b, so the -b flag
     # isn't needed next time.
@@ -4133,7 +4139,9 @@ sub preprocess {
 
   if (!$bypass_modification_check) {
     my $status = RepoUtil::commit_push_checks($package_name,
-                                              {unknown => 1, changes => 1});
+                                              {unknown => 1,
+                                               changes => 1,
+                                               unmerged_changes => 1});
   } else {
     # Record the set of unknown files we ignored with -b, so the -b flag
     # isn't needed next time.
@@ -7321,7 +7329,7 @@ sub print_new_unknowns {
 sub commit_error_message_checks {
   my ($commit_type, $check_for, $status, $new_unknown) = @_;
 
-  if ($status->{has_unmerged_changes}) {
+  if ($check_for->{unmerged_changes} && $status->{has_unmerged_changes}) {
     print STDERR <<EOF;
 Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
 the list of files with conflicts).  You must first resolve any conflicts and
@@ -7374,7 +7382,7 @@ EOF
 sub push_error_message_checks {
   my ($clean_check_type, $check_for, $status, $new_unknown) = @_;
 
-  if ($status->{has_unmerged_changes}) {
+  if ($check_for->{unmerged_changes} && $status->{has_unmerged_changes}) {
     print STDERR <<EOF;
 Aborting: You have unresolved conflicts from your merge (run 'eg status' to get
 the list of files with conflicts).  You should first resolve any conflicts
