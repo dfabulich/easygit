@@ -7947,7 +7947,8 @@ sub main {
                "--help"      => sub { help()     },
                "--translate" => sub { $debug = 2 },
                "--version"   => sub { version()  },
-               "exec-path=s" => sub { &$record_args(@_) },
+               "exec-path:s" => sub { $_[1] ? &$record_args(@_)
+                                            : &$record_arg(@_); },
                "paginate|p"  => sub { $use_pager = 1; &$record_arg(@_)  },
                "no-pager"    => sub { $use_pager = 0; &$record_arg(@_)  },
                "bare"        => sub { &$record_arg(@_)  },
@@ -7959,12 +7960,6 @@ sub main {
   $git_cmd .= " @global_args";
   $eg_exec .= " @global_args" if @global_args;
 
-  # Sanity check the arguments
-  die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
-  die "eg: No subcommand specified. (Try 'eg help')\n" if @ARGV < 1;
-  die "eg: Invalid argument '$ARGV[0]'. (Try 'eg help')\n"
-    if ($ARGV[0] !~ m#^[a-z]#);
-
   #
   # Fix the environment, if needed (eg testsuite invokes eg via 'git', but
   # eg needs to be able to call the real git).
@@ -7975,6 +7970,13 @@ sub main {
     my @newpaths = grep {$_ ne $baddir} split(/:/, $ENV{PATH});
     $ENV{PATH} = join(':', @newpaths);
   }
+
+  # Sanity check the arguments
+  exit ExecUtil::execute($git_cmd) if $git_cmd =~ m#--exec-path$#;
+  die "eg: Error parsing arguments. (Try 'eg help')\n" if !$result;
+  die "eg: No subcommand specified. (Try 'eg help')\n" if @ARGV < 1;
+  die "eg: Invalid argument '$ARGV[0]'. (Try 'eg help')\n"
+    if ($ARGV[0] !~ m#^[a-z]#);
 
   #
   # Now execute the action
