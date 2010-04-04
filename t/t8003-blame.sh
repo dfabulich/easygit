@@ -144,4 +144,27 @@ test_expect_success 'blame path that used to be a directory' '
 	git blame HEAD^.. -- path
 '
 
+test_expect_success 'blame to a commit with no author name' '
+  TREE=`git rev-parse HEAD:`
+  cat >badcommit <<EOF
+tree $TREE
+author <noname> 1234567890 +0000
+committer David Reiss <dreiss@facebook.com> 1234567890 +0000
+
+some message
+EOF
+  COMMIT=`git hash-object -t commit -w badcommit`
+  git --no-pager blame $COMMIT -- uno >/dev/null
+'
+
+test_expect_success 'blame -L with invalid start' '
+	test_must_fail git blame -L5 tres 2>errors &&
+	grep "has only 2 lines" errors
+'
+
+test_expect_success 'blame -L with invalid end' '
+	test_must_fail git blame -L1,5 tres 2>errors &&
+	grep "has only 2 lines" errors
+'
+
 test_done

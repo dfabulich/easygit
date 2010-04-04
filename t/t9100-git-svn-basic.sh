@@ -236,7 +236,7 @@ test_expect_success 'dcommit $rev does not clobber current branch' '
 	git checkout -b my-bar refs/remotes/bar &&
 	echo 1 > foo &&
 	git add foo &&
-	git commit -m "change 1" &&
+	git commit -b -m "change 1" &&
 	echo 2 > foo &&
 	git add foo &&
 	git commit -m "change 2" &&

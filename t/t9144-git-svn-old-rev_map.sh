@@ -22,7 +22,7 @@ test_expect_success 'old layout continues to work' '
 	git svn rebase &&
 	echo a >> b/a &&
 	git add b/a &&
-	git commit -m- -a &&
+	git commit -b -m- -a &&
 	git svn dcommit &&
 	! test -d .git/svn/refs/ &&
 	test -e .git/svn/git-svn/
