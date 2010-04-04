@@ -74,11 +74,12 @@ verify_pulled () {
 	remote_b=$1 &&
 	num_branches=$2 &&
 	t_master=$(git $tgit rev-parse refs/heads/master) &&
-	test_must_fail git $tgit show-ref -s --verify refs/heads/newbranch &&
-	test_must_fail git $tgit show-ref -s --verify refs/heads/bugfix &&
+	test_must_fail git $tgit show-ref -q -s --verify refs/heads/newbranch &&
+	test_must_fail git $tgit show-ref -q -s --verify refs/heads/bugfix &&
+	echo git $fgit show-ref -s --verify refs/heads/$remote_b &&
 	f_remote=$(git $fgit show-ref -s --verify refs/heads/$remote_b) &&
 	test "$t_master" = "$f_remote" &&
-	test $(git $tgit show-ref -h | wc -l) = "$num_branches"
+	test $(git $tgit show-ref --head | wc -l) = "$num_branches"
 }
 
 test_expect_success 'pulling with direct URL' '
