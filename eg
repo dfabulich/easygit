@@ -7954,6 +7954,7 @@ sub main {
                "bare"        => sub { &$record_arg(@_)  },
                "git-dir=s"   => sub { &$record_args(@_) },
                "work-tree=s" => sub { &$record_args(@_) },
+               "no-replace-objects" => sub { &$record_arg(@_) },
                         );
   # Make sure all global args are passed to eg subprocesses as well...
   @global_args = Util::quote_args(@global_args);
