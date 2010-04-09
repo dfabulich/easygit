@@ -3404,34 +3404,37 @@ sub new {
   bless($self, $class);
   $self->{'help'} = "
 Usage:
-  eg publish [--bypass-modification-check] REMOTE_DIRECTORY
+  eg publish [-b|--bypass-modification-check] [-g|--group GROUP]
+             [REMOTE_ALIAS] SSH_URL
 
 Description:
   Publishes a copy of the current repository on a remote machine.  Note
   that local changes will be ignored; only committed changes will be
   published.  You must have ssh access to the remote machine and must have
-  both rsync and ssh installed on your local machine (every modern distro
-  or OS installs both by default).
+  both git and ssh installed on both local and remote machines.
 
-  The remote directory should be specified using rsync syntax, even if the
-  remote repository will be accessed by some other protocol.  Typical rsync
-  syntax for a (usually remote) directory is
-     [[USER@]MACHINE:]PATH
-  If PATH is not absolute and MACHINE is specified, it is taken as relative
-  to the user's home directory on MACHINE.  See the examples below for more
-  detail, or the rsync(1) manpage.  If any files or directories exist below
-  the specified remote directory, they will be removed or replaced.
+  After publishing the repository, it is accessible via the remote
+  REMOTE_ALIAS, thus allowing you to use REMOTE_ALIAS to push and pull
+  commands.  If REMOTE_ALIAS is not specified, it defaults to 'origin'.
 
-  Note that if git is not installed on the remote machine, you will be
-  unable to push updates to the remote repository (however, you can
-  republish over the top of the previous copy).
+  If the --group (or -g) option is specified, the given GROUP must be a
+  valid unix group on the remote machine, and the user must be a member of
+  that group.  When this option is passed, eg publish will ensure that all
+  files are readable and writable by members of that group.
+
+  Note that the remote location is specified using a ssh url; see 'eg help
+  topic remote_urls' for a full list of valid possibilities, but the
+  general case is to use scp(1) syntax: [[USER@]MACHINE]:REMOTE_PATH.  Note
+  that if any files or directories exist below the specified remote
+  directory, publish will abort.
 
 Examples:
   Publish a copy of the current repository on the machine myserver.com in
-  the directory /var/scratch/git-stuff/my-repo.git.  Then immediately
-  make a clone of the remote repository
-      \$ eg publish myserver.com:/var/scratch/git-stuff/my-repo.git
-      \$ cd
+  the directory /var/scratch/git-stuff/my-repo.git, and make it readable
+  and writable by the unix group 'gitters'.  Then immediately make a clone
+  of the remote repository
+      \$ eg publish -g gitters myserver.com:/var/scratch/git-stuff/my-repo.git
+      \$ cd ..
       \$ eg clone myserver.com:/var/scratch/git-stuff/my-repo.git
 
   Publish a copy of the current repository on the machine www.gnome.org, in
@@ -3439,7 +3442,7 @@ Examples:
   user fake, then immediately clone it again into a separate directory
   named another-myproj.
       \$ eg publish fake\@www.gnome.org:public_html/myproj
-      \$ cd 
+      \$ cd ..
       \$ eg clone http://www.gnome.org/~fake/myproj another-myproj
 
 Options
@@ -3450,25 +3453,41 @@ Options
     option.
 ";
   $self->{'differences'} = '
-  eg publish is unique to eg; git makes publishing repositories annoyingly
-  painful.  The steps that eg publish performs are (assuming one is in the
-  toplevel directory and that GIT_DIR=.git):
-      touch .git/git-daemon-export-ok
-      git gc
-      cd .git
-      git --bare update-server-info
-      mv .git/hooks/post-update.sample .git/hooks/post-update
-      chmod u+x hooks/post-update
-      cd ..
-      rsync -e ssh -az --delete .git REMOTE_DIRECTORY
-  Since this does make some minor changes to the local repository that are
-  unnecessary after the rsync command has completed, I might add some code
-  to try to clean the .git directory back up.  I doubt any of it will hurt
-  if I do not get around to it, though.
+  eg publish is unique to eg, designed to condense the multiple necessary
+  steps with git into one (or a few) commands.  The steps that eg publish
+  performs are essentially:
+      if ( git config --get remote.REMOTE_ALIAS.url > /dev/null); then
+        echo "REMOTE_ALIAS already defined"; false;
+      fi &&
+      ssh [USER@]MACHINE "
+        test -d REMOTE_PATH && echo "REMOTE_PATH already exists!" && exit 1;
+        if (! groups | grep "\bGROUP\b" > /dev/null); then
+          echo "Cannot change to group GROUP";  exit 1;
+        fi;
+        if (! type -p git>/dev/null);then echo "Cannot find git"; exit 1; fi &&
+        newgrp GROUP;
+        mkdir -p REMOTE_PATH &&
+        cd REMOTE_PATH &&
+        git init [--shared] --bare &&
+        touch git-daemon-export-ok &&
+        (mv hooks/post-update.sample hooks/post-update || true) &&
+        chmod u+x hooks/post-update" &&
+      git remote add REMOTE_ALIAS [USER@]MACHINE:REMOTE_PATH &&
+      git push
+  Note that the command involving git-daemon-export-ok is only needed if
+  you will be cloning/pulling from the repository via the git:// protocol
+  (in which case you are responsible for running git-daemon on the remote
+  machine), and the post-update hook related stuff is only necessary if you
+  are trying to clone/pull via the http:// protocol (in which case you are
+  responsible for running a webserver such as httpd on the remote machine);
+  neither of these steps are needed if you are cloning/pulling via ssh, but
+  they do not cause problems either.
 
-  eg publish also will setup the published repository as the new origin (if
-  a remote named origin does not already exist), so that future pushes and
-  pulls use the published repository.
+  MULTI-USER NOTE: If you want multiple people to be able to push to the
+  resulting repository, you will need to ensure that they all have ssh
+  access to the machine, that they are all part of the same unix group, and
+  that you use the --group option to ensure that the repository is set up
+  to be shared by the relevant group.
 ';
   return $self;
 }
@@ -3478,13 +3497,22 @@ sub preprocess {
   my $package_name = ref($self);
 
   my $bypass_modification_check = 0;
+  my $group;
   my $result = main::GetOptions(
     "--help"           => sub { $self->help() },
     "bypass-modification-check|b" => \$bypass_modification_check,
+    "group|g=s"                   => \$group,
     );
 
-  die "Invalid/insufficient args to eg publish: @ARGV\n" if @ARGV != 1;
-  $self->{remote_dir} = shift @ARGV;
+  die "Aborting: Need a URL to push to!\n" if @ARGV < 1;
+  die "Aborting: Too many args to eg publish: @ARGV\n" if @ARGV > 2;
+  my $extra_info = (@ARGV == 2) ? "" : ", please specify a REMOTE_ALIAS";
+  $self->{remote} = (@ARGV == 2) ? shift @ARGV : "origin";
+  $self->{repository} = shift @ARGV;
+  $self->{group} = $group;
+
+  die "Aborting: remote '$self->{remote}' already exists$extra_info!\n"
+    if RepoUtil::get_config("remote.$self->{remote}.url");
 
   if (!$bypass_modification_check) {
     my $status = RepoUtil::commit_push_checks($package_name,
@@ -3501,93 +3529,73 @@ sub preprocess {
 sub run {
   my $self = shift;
 
-  my $orig_dir = main::getcwd();
-  chdir($self->{git_dir});
-  print "    >>Running: 'cd $self->{git_dir}'<<\n" if $debug;
-
-  #
-  # Warn the user if they have files that may have too restrictive permissions
-  #
-  my @non_readable_files = `find . ! -perm -004`;
-  if (scalar @non_readable_files > 0) {
-    print STDERR <<EOF;
-WARNING: Some files under $self->{git_dir} are not world readable (see the
-chmod(1) manpage).  These permissions will be preserved in the published
-copy, so you will need to manually change the permissions of the published
-repository if you want them to be world readable (alternatively, you could
-modify the permissions of files under $self->{git_dir} and re-run eg publish.)
-
-EOF
-  }
-
-  #
-  # Setup the repository for rsyncing
-  #
-  ExecUtil::execute("touch git-daemon-export-ok");
-  print "Optimizing local repository and compressing it...\n" if $debug < 2;
-  ExecUtil::execute("$git_cmd gc");
-  ExecUtil::execute("$git_cmd --bare update-server-info");
-  if (-f "hooks/post-update.sample") {
-    ExecUtil::execute("mv hooks/post-update.sample hooks/post-update");
-  }
-  ExecUtil::execute("chmod u+x hooks/post-update");
-  my $is_bare = ExecUtil::output("$git_cmd config --get core.bare");
-  ExecUtil::execute("$git_cmd config core.bare true");
-
-  #
-  # rsync .git to the publish location
-  #
-  print "Copy local repository to remote location...\n" if $debug < 2;
-  my $ret = ExecUtil::execute(
-    "rsync -e ssh -az --delete --exclude=refs/remotes " .
-    "--exclude=COMMIT_EDITMSG --exclude=index --exclude=logs " .
-    "--exclude=info/ignored-unknown " .
-    "--exclude=ORIG_HEAD --exclude=FETCH_HEAD --exclude=MERGE_HEAD " .
-    "./ \"$self->{remote_dir}\"");
-  exit $ret if $ret;
-
-  #
-  # Undo any temporary changes we did for publishing
-  #
-  ExecUtil::execute("$git_cmd config core.bare $is_bare");
-  # FIXME: I should clean up git-daemon-export-ok, hooks/post-update, and
-  # the files that 'git help update-server-info' says it creates.
-
-  #
-  # Set up the published repository as the default ("origin"), if origin
-  # is not already setup.  Otherwise, tell the user how to simplify
-  # future pushes/pulls.
-  #
-  my @output = `$git_cmd config --get-regexp remote.origin.*`;
-  if (@output) { 
-    print <<EOF;
-NOTE: Not setting up $self->{remote_dir} as your default push/pull location,
-since you already have one.  To set up easy pushes and pulls to this location,
-run
-  eg remote add NICKNAME $self->{remote_dir}
-and then do future pushes and pulls with
-  eg push NICKNAME
-  eg pull NICKNAME
-EOF
-  } else {
-    ExecUtil::execute("$git_cmd remote add origin $self->{remote_dir}");
-
-    #
-    # Set up the configuration variables branch.BRANCH.(remote|merge)
-    # for each BRANCH (used later as default push/pull locations)
-    #
-    my @branches = `$git_cmd branch`;
-    print "    >>Running: '$git_cmd branch'<<\n" if $debug;
-    foreach my $branch (@branches) {
-      chomp($branch);
-      $branch =~ s#..##;
-      next if $branch eq "HEAD";
-      RepoUtil::set_config("branch.$branch.remote", "origin");
-      RepoUtil::set_config("branch.$branch.merge",  "refs/heads/$branch");
+  my ($user, $machine, $port, $path) =
+    Util::split_ssh_repository($self->{repository});
+  if (!defined $path) {
+    # It may be a local path rather than an ssh path...
+    if ($self->{repository} =~ m#^/[^:]*#) {
+      $path = $self->{repository};
+    } else {
+      die "Aborting: Could not parse remote repository URL " .
+          "'$self->{repository}'.\n";
     }
   }
 
-  chdir($orig_dir);
+  my ($sg, $sge, $check_group, $shared) = ("", "", "", "");
+  if (defined $self->{group}) {
+    $check_group = "
+        if (! groups | grep '\\b$self->{group}\\b' > /dev/null); then
+          echo 'Cannot change to group $self->{group}!'; exit 1;
+        fi;";
+    $sg = "sg $self->{group} -c '";
+    $sge = "'";
+    $shared = "--shared ";
+  }
+
+  my $ret;
+  if (defined $machine) {
+    print "Setting up remote repository via ssh...\n";
+    $ret = ExecUtil::execute("
+      ssh $port -q $user$machine \"
+        test -d $path && echo '$path already exists!' && exit 1; $check_group
+        if (! type -p git>/dev/null);then echo 'Cannot find git'; exit 1; fi;
+        ${sg}mkdir -p $path${sge} &&
+        cd $path &&
+        ${sg}git init ${shared}--bare${sge} &&
+        touch git-daemon-export-ok &&
+        (mv hooks/post-update.sample hooks/post-update || true) &&
+        chmod u+x hooks/post-update\"",
+      ignore_ret => 1);
+  } else {
+    print "Setting up not-so-remote repository...\n";
+    $ret = ExecUtil::execute("
+        test -d $path && echo '$path already exists!' && exit 1; $check_group
+        if (! type -p git>/dev/null);then echo 'Cannot find git'; exit 1; fi;
+        ${sg}mkdir -p $path${sge} &&
+        cd $path &&
+        ${sg}$git_cmd init ${shared}--bare${sge} &&
+        touch git-daemon-export-ok &&
+        (mv hooks/post-update.sample hooks/post-update || true) &&
+        chmod u+x hooks/post-update",
+      ignore_ret => 1);
+  }
+  die "Remote repository setup failed!\n" if $ret != 0;
+
+  print "Creating new remote $self->{remote}...\n";
+  #if ($self->{remote} ne "origin") {
+  #  print "If $self->{remote} should be a default push/pull location, run:\n" .
+  #        "   eg track [LOCAL_BRANCH] $self->{remote}/REMOTE_BRANCH\n";
+  #}
+  ExecUtil::execute("$git_cmd remote add $self->{remote} $self->{repository}");
+  print "Pushing to new remote $self->{remote}...\n";
+  $ret = ExecUtil::execute("$git_cmd push --mirror $self->{remote}");
+  if ($ret) {
+    ExecUtil::execute("$git_cmd remote rm $self->{remote}");
+    return $ret;
+  }
+
+  print "Done.\n";
+
   return 0;
 }
 
@@ -4069,19 +4077,7 @@ sub _check_if_bare {
   #
   # Check ssh systems
   #
-  my ($user, $machine, $port, $path);
-  if ($repository =~ m#^ssh://((?:.*?@)?)([^/:]*)(?::(\d+))?(.*)$#) {
-    $user = $1;
-    $machine = $2;
-    $port = defined $3 ? "-p $3" : "";
-    $path = $4;
-    $path =~ s#^/~#~#;  # Change leading /~ into plain ~
-  } elsif ($repository =~ m#^((?:.*?@)?)([^:]*):(.*)$#) {
-    $user = $1;
-    $machine = $2;
-    $port = "";
-    $path = $3;
-  }
+  my ($user, $machine, $port, $path) = Util::split_ssh_repository($repository);
   return undef if !defined $machine || !defined $path;
 
   my ($ret, $output) = 
@@ -7722,6 +7718,24 @@ sub uniquify_list {
   my %unique;
   @unique{@list} = @list;
   return keys %unique;
+}
+
+sub split_ssh_repository {
+  my ($repository) = @_;
+  my ($user, $machine, $port, $path);
+  if ($repository =~ m#^ssh://((?:.*?@)?)([^/:]*)(?::(\d+))?(.*)$#) {
+    $user = $1;
+    $machine = $2;
+    $port = defined $3 ? "-p $3" : "";
+    $path = $4;
+    $path =~ s#^/~#~#;  # Change leading /~ into plain ~
+  } elsif ($repository =~ m#^((?:.*?@)?)([^:]*):(.*)$#) {
+    $user = $1;
+    $machine = $2;
+    $port = "";
+    $path = $3;
+  }
+  return ($user, $machine, $port, $path);
 }
 
 sub quote_args {
