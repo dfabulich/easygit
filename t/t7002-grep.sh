@@ -291,6 +291,14 @@ y:y yy
 z:zzz
 EOF
 
+test_expect_success 'grep -q, silently report matches' '
+	>empty &&
+	git grep -q mmap >actual &&
+	test_cmp empty actual &&
+	test_must_fail git grep -q qfwfq >actual &&
+	test_cmp empty actual
+'
+
 # Create 1024 file names that sort between "y" and "z" to make sure
 # the two files are handled by different calls to an external grep.
 # This depends on MAXARGS in builtin-grep.c being 1024 or less.
@@ -302,8 +310,8 @@ test_expect_success 'grep -C1, hunk mark between files' '
 	test_cmp expected actual
 '
 
-test_expect_success 'grep -C1 --no-ext-grep, hunk mark between files' '
-	git grep -C1 --no-ext-grep "^[yz]" >actual &&
+test_expect_success 'grep -C1 hunk mark between files' '
+	git grep -C1 "^[yz]" >actual &&
 	test_cmp expected actual
 '
 
@@ -345,7 +353,7 @@ test_expect_success 'log grep (4)' '
 '
 
 test_expect_success 'log grep (5)' '
-	git log --author=Thor -F --grep=Thu --pretty=tformat:%s >actual &&
+	git log --author=Thor -F --pretty=tformat:%s >actual &&
 	( echo third ; echo initial ) >expect &&
 	test_cmp expect actual
 '
@@ -356,10 +364,18 @@ test_expect_success 'log grep (6)' '
 	test_cmp expect actual
 '
 
+test_expect_success 'log --grep --author implicitly uses all-match' '
+	# grep matches initial and second but not third
+	# author matches only initial and third
+	git log --author="A U Thor" --grep=s --grep=l --format=%s >actual &&
+	echo initial >expect &&
+	test_cmp expect actual
+'
+
 test_expect_success 'grep with CE_VALID file' '
 	git update-index --assume-unchanged t/t &&
 	rm t/t &&
-	test "$(git grep --no-ext-grep test)" = "t/t:test" &&
+	test "$(git grep test)" = "t/t:test" &&
 	git update-index --no-assume-unchanged t/t &&
 	git checkout t/t
 '
@@ -423,6 +439,39 @@ EOF
 
 test_expect_success 'grep -Fi' '
 	git grep -Fi "CHAR *" >actual &&
+	test_cmp expected actual
+'
+
+test_expect_success 'setup double-dash tests' '
+cat >double-dash <<EOF &&
+--
+->
+other
+EOF
+git add double-dash
+'
+
+cat >expected <<EOF
+double-dash:->
+EOF
+test_expect_success 'grep -- pattern' '
+	git grep -- "->" >actual &&
+	test_cmp expected actual
+'
+test_expect_success 'grep -- pattern -- pathspec' '
+	git grep -- "->" -- double-dash >actual &&
+	test_cmp expected actual
+'
+test_expect_success 'grep -e pattern -- path' '
+	git grep -e "->" -- double-dash >actual &&
+	test_cmp expected actual
+'
+
+cat >expected <<EOF
+double-dash:--
+EOF
+test_expect_success 'grep -e -- -- path' '
+	git grep -e -- -- double-dash >actual &&
 	test_cmp expected actual
 '
 

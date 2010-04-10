@@ -72,6 +72,8 @@ GIT_TEST_CMP=${GIT_TEST_CMP:-diff -u}
 # CDPATH into the environment
 unset CDPATH
 
+unset GREP_OPTIONS
+
 case $(echo $GIT_TRACE |tr "[A-Z]" "[a-z]") in
 	1|2|true)
 		echo "* warning: Some tests will not work if GIT_TRACE" \
@@ -80,6 +82,12 @@ case $(echo $GIT_TRACE |tr "[A-Z]" "[a-z]") in
 			"other than 1, 2 or true ! *"
 		;;
 esac
+
+# Convenience
+#
+# A regexp to match 5 and 40 hexdigits
+_x05='[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'
+_x40="$_x05$_x05$_x05$_x05$_x05$_x05$_x05$_x05"
 
 # Each test should start with something like this, after copyright notices:
 #
@@ -112,6 +120,8 @@ do
 		verbose=t; shift ;;
 	-q|--q|--qu|--qui|--quie|--quiet)
 		quiet=t; shift ;;
+	--with-dashes)
+		with_dashes=t; shift ;;
 	--no-color)
 		color=; shift ;;
 	--no-python)
@@ -216,6 +226,33 @@ test_set_editor () {
 	export FAKE_EDITOR
 	EDITOR='"$FAKE_EDITOR"'
 	export EDITOR
+}
+
+test_decode_color () {
+	sed	-e 's/.\[1m/<WHITE>/g' \
+		-e 's/.\[31m/<RED>/g' \
+		-e 's/.\[32m/<GREEN>/g' \
+		-e 's/.\[33m/<YELLOW>/g' \
+		-e 's/.\[34m/<BLUE>/g' \
+		-e 's/.\[35m/<MAGENTA>/g' \
+		-e 's/.\[36m/<CYAN>/g' \
+		-e 's/.\[m/<RESET>/g'
+}
+
+q_to_nul () {
+	perl -pe 'y/Q/\000/'
+}
+
+q_to_cr () {
+	tr Q '\015'
+}
+
+append_cr () {
+	sed -e 's/$/Q/' | tr Q '\015'
+}
+
+remove_cr () {
+	tr '\015' Q | sed -e 's/Q$//'
 }
 
 test_tick () {
@@ -648,6 +685,7 @@ case $(uname -s) in
 esac
 
 test -z "$NO_PERL" && test_set_prereq PERL
+test -z "$NO_PYTHON" && test_set_prereq PYTHON
 
 # test whether the filesystem supports symbolic links
 ln -s x y 2>/dev/null && test -h y 2>/dev/null && test_set_prereq SYMLINKS

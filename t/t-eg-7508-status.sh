@@ -1,7 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2007 Johannes E. Schindelin
-# Modified 2009 Elijah Newren
+# Copyright (c) 2009,2010 Elijah Newren
 #
 
 test_description='eg status'
@@ -29,173 +28,8 @@ test_expect_success 'setup' '
 	echo 1 > dir1/modified &&
 	echo 2 > dir2/modified &&
 	echo 3 > dir2/added &&
-	git add dir2/added
-'
+	git add dir2/added &&
 
-cat > expect << \EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-
-test_expect_success 'status (2)' '
-
-	git status > output 2>&1 &&
-	test_cmp expect output
-
-'
-
-cat >expect <<EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-EOF
-test_expect_success 'status -uno' '
-	mkdir dir3 &&
-	: > dir3/untracked1 &&
-	: > dir3/untracked2 &&
-	git status -uno >output 2>&1 &&
-	test_cmp expect output
-'
-
-test_expect_success 'status (status.showUntrackedFiles no)' '
-	git config status.showuntrackedfiles no
-	git status >output 2>&1 &&
-	test_cmp expect output
-'
-
-cat >expect <<EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	dir3/
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status -unormal' '
-	git status -unormal >output 2>&1 &&
-	test_cmp expect output
-'
-
-test_expect_success 'status (status.showUntrackedFiles normal)' '
-	git config status.showuntrackedfiles normal
-	git status >output 2>&1 &&
-	test_cmp expect output
-'
-
-cat >expect <<EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	dir3/untracked1
-	dir3/untracked2
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status -uall' '
-	git status -uall >output 2>&1 &&
-	test_cmp expect output
-'
-test_expect_success 'status (status.showUntrackedFiles all)' '
-	git config status.showuntrackedfiles all
-	git status >output 2>&1 &&
-	rm -rf dir3 &&
-	git config --unset status.showuntrackedfiles &&
-	test_cmp expect output
-'
-
-cat > expect << \EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   ../dir2/added
-Changed but not updated ("unstaged"):
-	modified:   modified
-Newly created unknown files:
-	untracked
-	../dir2/modified
-	../dir2/untracked
-	../expect
-	../untracked
-Unknown files:
-	../output
-EOF
-
-test_expect_success 'status with relative paths' '
-
-	(cd dir1 && git status) > output 2>&1 &&
-	test_cmp expect output
-
-'
-
-cat > expect << \EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	expect
-	output
-	untracked
-EOF
-
-test_expect_success 'status without relative paths' '
-
-	git config status.relativePaths false
-	(cd dir1 && git status) > output 2>&1 &&
-	test_cmp expect output
-
-'
-
-cat <<EOF >expect
-(On branch master)
-Changes ready to be committed ("staged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status of partial commit excluding new file in index' '
-	git status dir1/modified >output 2>&1 &&
-	test_cmp expect output
-'
-
-test_expect_success 'setup status submodule summary' '
 	test_create_repo sm && (
 		cd sm &&
 		>foo &&
@@ -205,35 +39,7 @@ test_expect_success 'setup status submodule summary' '
 	git add sm
 '
 
-cat >expect <<EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	new file:   dir2/added
-	new file:   sm
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status submodule summary is disabled by default' '
-	git status >output 2>&1 &&
-	test_cmp expect output
-'
-
-# we expect the same as the previous test
-test_expect_success 'status --untracked-files=all does not show submodule' '
-	git status --untracked-files=all >output 2>&1 &&
-	test_cmp expect output
-'
-
 head=$(cd sm && git rev-parse --short=7 --verify HEAD)
-
 cat >expect <<EOF
 (On branch master)
 Changes ready to be committed ("staged"):
@@ -241,7 +47,7 @@ Changes ready to be committed ("staged"):
 	new file:   sm
 Changed but not updated ("unstaged"):
 	modified:   dir1/modified
-Modified submodules:
+Submodule changes to be committed:
 * sm 0000000...$head (1):
   > Add foo
 Newly created unknown files:
@@ -259,61 +65,19 @@ test_expect_success 'status submodule summary' '
 	test_cmp expect output
 '
 
-
-cat >expect <<EOF
-(On branch master)
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status submodule summary (clean submodule)' '
-	git commit --staged -m "commit submodule" &&
-	git config status.submodulesummary 10 &&
-	test_must_fail git status >output 2>&1 &&
-	test_cmp expect output
-'
-
 cat >expect <<EOF
 (On branch master)
 Changes ready to be committed ("staged"):
-	new file:   dir2/added
-	new file:   sm
-Changed but not updated ("unstaged"):
-	modified:   dir1/modified
-Modified submodules:
-* sm 0000000...$head (1):
-  > Add foo
-Newly created unknown files:
-	dir1/untracked
-	dir2/modified
-	dir2/untracked
-	expect
-	untracked
-Unknown files:
-	output
-EOF
-test_expect_success 'status submodule summary (--amend)' '
-	git config status.submodulesummary 10 &&
-	git status --amend >output 2>&1 &&
-	test_cmp expect output
-'
-
-cat >expect <<EOF
-(On branch master)
-Changes ready to be committed ("staged"):
-	[32mmodified:   dir2/added[m
+	[32mnew file:   dir2/added[m
+	[32mnew file:   sm[m
 Unmerged paths (files with conflicts):
 	[31mboth modified:      file[m
 	[31mdeleted by us:      file2[m
 Changed but not updated ("unstaged"):
 	[31mmodified:   dir1/modified[m
+Submodule changes to be committed:
+* sm 0000000...$head (1):
+  > Add foo
 Newly created unknown files:
 	[31mactual[m
 	[31mdir1/untracked[m

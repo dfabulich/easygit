@@ -36,6 +36,16 @@ Unmerged paths (files with conflicts):
 (YOU ARE IN THE MIDDLE OF A MERGE; RUN 'eg help topic middle-of-merge' FOR MORE INFO.)
 EOF
 
+cat >expect2 <<EOF
+# On branch side
+# Unmerged paths:
+#   (use "git add/rm <file>..." as appropriate to mark resolution)
+#
+#	deleted by us:      foo
+#
+no changes added to commit (use "git add" and/or "git commit -a")
+EOF
+
 test_expect_success 'M/D conflict does not segfault' '
 	mkdir mdconflict &&
 	(
@@ -47,9 +57,11 @@ test_expect_success 'M/D conflict does not segfault' '
 		git rm foo &&
 		git commit -m delete &&
 		test_must_fail git merge master &&
-		test_must_fail git status > ../actual
-	) &&
-	test_cmp expect actual
+		test_must_fail git commit --dry-run >../actual &&
+		test_cmp ../expect2 ../actual &&
+		git status >../actual &&
+		test_cmp ../expect ../actual
+	)
 '
 
 test_done
