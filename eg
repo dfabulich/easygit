@@ -7772,7 +7772,7 @@ sub quote_args {
   my @newargs;
   foreach my $arg (@args) {
     my $quotes_needed = 0;
-    if (!$arg || $arg =~ /[;'"<>()\[\]|`* 	\n\$\\]/) {
+    if (!$arg || $arg =~ /[;'"<>()\[\]|`* 	\n\$\\~]/) {
       $quotes_needed = 1;
     }
 
