@@ -1283,14 +1283,16 @@ sub preprocess {
   my $record_arg   = sub { push(@{$self->{args}}, "$_[0]$_[1]"); };
   my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
                            push(@{$self->{args}}, splice(@_, 2)); };
-  my ($all_known, $bypass_unknown, $staged, $amend, $allow_empty, $include) =
-     (0, 0, 0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged, $amend,
+      $dry_run, $allow_empty, $include) = (0, 0, 0, 0, 0, 0, 0);
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
     "all-known|a"                 => \$all_known,
     "bypass-unknown-check|b"      => \$bypass_unknown,
     "staged|dirty|d"              => \$staged,
+    "dry-run"                     => sub { $dry_run = 1,
+                                           &$record_arg("--", @_) },
     "s"                           => sub { &$record_arg("-", @_) },
     "v"                           => sub { &$record_arg("-", @_) },
     "u"                           => sub { &$record_arg("-", @_) },
@@ -1316,14 +1318,16 @@ sub preprocess {
   #
   # Set up flags based on options, do sanity checking of options
   #
-  my ($check_unknown, $check_mixed, $check_unmerged);
+  my ($check_no_changes, $check_unknown, $check_mixed, $check_unmerged);
+  my $skip_all = $include || $dry_run;
   $self->{'commit_flags'} = [];
   die "Cannot specify both --all-known (-a) and --staged (-d)!\n" if
     $all_known && $staged;
   die "Cannot specify --staged when specifying files!\n" if @$files && $staged;
-  $check_unknown   = !$bypass_unknown && !$staged && !@$files && !$include;
-  $check_mixed     = !$all_known      && !$staged && !@$files && !$include;
-  $check_unmerged  = !$include;
+  $check_no_changes = !$amend && !$allow_empty && !$skip_all;
+  $check_unknown   = !$bypass_unknown && !$staged && !@$files && !$skip_all;
+  $check_mixed     = !$all_known      && !$staged && !@$files && !$skip_all;
+  $check_unmerged  = !$skip_all;
   push(@{$self->{'commit_flags'}}, "-a") if $all_known;
 
   #
@@ -1331,12 +1335,12 @@ sub preprocess {
   #
   my $status =
     RepoUtil::commit_push_checks($package_name,
-                                 {no_changes       => !$amend && !$allow_empty,
+                                 {no_changes       => $check_no_changes,
                                   unknown          => $check_unknown,
                                   partially_staged => $check_mixed,
                                   unmerged_changes => $check_unmerged});
 
-  if ($amend && !$all_known && !$staged && !@$files &&
+  if ($amend && !$all_known && !$staged && !$skip_all && !@$files &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes}) {
     print STDERR <<EOF;
 Aborting: It is not clear whether you want to simply amend the commit
@@ -1349,7 +1353,7 @@ EOF
   }
 
   die "No staged changes, but --staged given.\n"
-      if (!$status->{has_staged_changes} && $staged && !$amend);
+      if (!$status->{has_staged_changes} && $staged && !$amend && !$dry_run);
 
   if (!$all_known && !$include && !$staged &&
       $status->{has_unstaged_changes} && !$status->{has_staged_changes} &&
@@ -6126,20 +6130,29 @@ Description:
 sub preprocess {
   my $self = shift;
 
+  my @old_argv = @ARGV;
+  my $no_filter = 0;
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
-    "--help" => sub { $self->help() },
+    "help"      => sub { $self->help() },
+    "short|s"   => sub { $no_filter = 1 },
+    "porcelain" => sub { $no_filter = 1 },
+    "z"         => sub { $no_filter = 1 },
     );
+  @ARGV = @old_argv;
+  $self->{no_filter} = $no_filter;
 }
 
 sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
+  return $self->SUPER::run() if $self->{no_filter};
+
   $self->{special_state} = RepoUtil::get_special_state($self->{git_dir});
 
   @ARGV = Util::quote_args(@ARGV);
-  -t STDOUT and $ENV{"GIT_PAGER_IN_USE"}=1;
   return ExecUtil::execute("$git_cmd status @ARGV", ignore_ret => 1);
 }
 
@@ -6153,6 +6166,11 @@ sub postprocess {
 
   if ($debug == 2) {
     print "    >>(No commands to run, just data to print)<<\n";
+    return;
+  }
+
+  if ($self->{no_filter}) {
+    print $output;
     return;
   }
 
