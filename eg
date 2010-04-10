@@ -4131,6 +4131,7 @@ sub preprocess {
     "thin"                => sub { &$record_arg(@_) },
     "no-thin"             => sub { &$record_arg(@_) },
     "verbose|v"           => sub { &$record_arg(@_) },
+    "set-upstream|u"      => sub { &$record_arg(@_) },
     "bypass-modification-check|b" => \$bypass_modification_check,
     );
   die "Cannot specify individual branches and request all branches too!\n"
