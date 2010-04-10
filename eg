@@ -1313,7 +1313,7 @@ sub preprocess {
     "include|i=s"                 => sub { $include = 1;
                                            &$record_args("--", @_) },
     );
-  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+  my ($opts, $revs, $files) = RepoUtil::parse_args([], @ARGV);
 
   #
   # Set up flags based on options, do sanity checking of options
@@ -1566,7 +1566,7 @@ sub preprocess {
   # Avoid Util::git_rev_parse because it fails on t2010-checkout-ambiguous by
   # treating "--quiet" as a revision rather than an option; use our own
   # parse_args implementation instead.
-  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+  my ($opts, $revs, $files) = RepoUtil::parse_args(["--extcmd", "-x"], @ARGV);
 
   # Replace '..' with '...' in revision specifiers.  Use backslash escaping to
   # get actual dots and not just any character.  Use negative lookbehind and
@@ -1580,17 +1580,20 @@ sub preprocess {
   $self->{'opts'} = "";
   @ARGV = @$opts;
   my ($staged, $unstaged, $no_index) = (0, 0, 0);
+  my $extcmd;
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"         => sub { $self->help() },
     "staged|cached"  => \$staged,
     "unstaged"       => \$unstaged,
     "no-index"       => \$no_index,
+    "extcmd=s"       => \$extcmd,
     );
   die "Cannot specify both --staged and --unstaged!\n" if $staged && $unstaged;
   my @args;
   push(@args, "--cached") if $staged;
   push(@args, "--no-index") if $no_index;
+  push(@args, "--extcmd", $extcmd) if $extcmd;
   push(@args, @ARGV);
 
   #
@@ -5082,7 +5085,7 @@ sub preprocess {
     );
 
   # Parsing revs and files
-  my ($opts, $revs, $files) = RepoUtil::parse_args(@ARGV);
+  my ($opts, $revs, $files) = RepoUtil::parse_args([], @ARGV);
   unshift(@$revs, $rev) if defined($rev);
 
   #
@@ -7527,6 +7530,7 @@ sub record_ignored_unknowns {
 }
 
 sub parse_args {
+  my $multi_args = shift;
   my (@args) = @_;
 
   Util::push_debug(new_value => 0);
@@ -7544,6 +7548,7 @@ sub parse_args {
 
     if ($arg =~ /^-/) {
       push(@opts, $arg);
+      push(@opts, shift @args) if (grep {$arg eq $_} @$multi_args);
     } else {
       unshift(@args, $arg);
       last;
