@@ -1,8 +1,8 @@
 #
-# bash completion support for easy GIT.
+# bash completion support for easy Git.
 #
 # Copyright (C) 2006,2007 Shawn O. Pearce <spearce@spearce.org>
-# Copyright (C) 2008 Elijah Newren <newren gmail com>
+# Copyright (C) 2008-2010 Elijah Newren <newren@gmail.com>
 # *Heavily* based on git-completion.sh
 # Distributed under the GNU General Public License, version 2.0.
 #
@@ -89,17 +89,36 @@ __eg_topiclist="$(__eg_topics 2>/dev/null)"
 
 _eg_commit ()
 {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "$cur" in
-  --*)
-    __gitcomp "
-      --all-tracked --bypass-untracked-check --staged --dirty
-      --author= --signoff --verify --no-verify
-      --edit --amend --include --only
-      "
-    return
-  esac
-  COMPREPLY=()
+	__git_has_doubledash && return
+
+	local cur="${COMP_WORDS[COMP_CWORD]}"
+	case "$cur" in
+	--cleanup=*)
+		__gitcomp "default strip verbatim whitespace
+			" "" "${cur##--cleanup=}"
+		return
+		;;
+	--reuse-message=*)
+		__gitcomp "$(__git_refs)" "" "${cur##--reuse-message=}"
+		return
+		;;
+	--reedit-message=*)
+		__gitcomp "$(__git_refs)" "" "${cur##--reedit-message=}"
+		return
+		;;
+	--untracked-files=*)
+		__gitcomp "all no normal" "" "${cur##--untracked-files=}"
+		return
+		;;
+	--*)
+		__gitcomp "
+			--all-tracked --bypass-untracked-check --staged --dirty
+			--author= --signoff --verify --no-verify
+			--edit --amend --include --only
+			"
+		return
+	esac
+	COMPREPLY=()
 }
 
 _eg_diff ()
@@ -149,14 +168,16 @@ _eg_help ()
 
 _eg_reset ()
 {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "$cur" in
-  --*)
-    __gitcomp "--working-copy --no-unstaging --mixed --hard --soft"
-    return
-    ;;
-  esac
-  __gitcomp "$(__git_refs)"
+	__git_has_doubledash && return
+
+	local cur="${COMP_WORDS[COMP_CWORD]}"
+	case "$cur" in
+	--*)
+		__gitcomp "--working-copy --no-unstaging --merge --mixed --hard --soft --patch"
+		return
+		;;
+	esac
+	__gitcomp "$(__git_refs)"
 }
 
 _eg_revert ()
@@ -200,17 +221,19 @@ _eg ()
     c=$((++c))
   done
 
-  if [ $c -eq $COMP_CWORD -a -z "$command" ]; then
+  if [ -z "$command" ]; then
     case "${COMP_WORDS[COMP_CWORD]}" in
-    --*=*) COMPREPLY=() ;;
     --*)   __gitcomp "
       --debug
       --translate
+      --paginate
       --no-pager
       --git-dir=
       --bare
       --version
       --exec-path
+      --work-tree=
+      --help
       "
       ;;
     *)     __gitcomp "$(__eg_commands) $(__git_aliases)" ;;
@@ -277,4 +300,5 @@ _eg ()
   esac
 }
 
-complete -o default -o nospace -F _eg eg
+complete -o bashdefault -o default -o nospace -F _eg eg 2> /dev/null \
+	|| complete -o default -o nospace -F _eg eg
