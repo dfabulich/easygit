@@ -6643,14 +6643,14 @@ sub preprocess {
   if (!$local_branch && $mode ne "show-all") {
     $local_branch = RepoUtil::current_branch();
   }
-  if ($local_branch) {
-    # Make sure $local_branch is defined and has a valid value
-    Util::push_debug(new_value => 0);
-    if (!$local_branch || !RepoUtil::valid_ref("refs/heads/$local_branch")) {
-      die "Error: The branch '$local_branch' is not (yet) a valid local branch.\n";
-    }
-    Util::pop_debug();
+  # Make sure $local_branch is defined and has a valid value
+  Util::push_debug(new_value => 0);
+  if (!$local_branch) {
+    die "Error: There is no active branch, so it cannot track anything.\n";
+  } elsif (!RepoUtil::valid_ref("refs/heads/$local_branch")) {
+    die "Error: The branch '$local_branch' is not (yet) a valid local branch.\n";
   }
+  Util::pop_debug();
 
   $self->{mode} = $mode;
   $self->{branch} = $local_branch;
