@@ -5959,8 +5959,10 @@ EOF
   if ((grep {$_ eq $self->{subcommand}} @commands_accepting_existing_stash) &&
       scalar @ARGV > 0) {
     my $stash_description = "@ARGV";
+    my $single_word_desc = (scalar(@ARGV) == 1);
     @ARGV = ();
-    if ($stash_description =~ m#^stash\@{[^{]+}$#) {
+    if ($stash_description =~ m#^stash\@{[^{]+}$# ||
+        ($single_word_desc && RepoUtil::valid_ref($stash_description))) {
       push(@args, $stash_description)
     } else {
       # Will need to compare arguments to existing stash descriptions...
