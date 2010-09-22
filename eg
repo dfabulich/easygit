@@ -6220,6 +6220,9 @@ sub postprocess {
     exit 128;
   }
 
+  my $status_hints = RepoUtil::get_config("advice.statusHints");
+  $status_hints = (!defined($status_hints) || $status_hints eq "true");
+
   # Parse the output
   my @lines = split('\n', $output);
   my $cur_state = -1;
@@ -6259,12 +6262,14 @@ sub postprocess {
 
       # Parse the hints first
       $line = shift @lines;
-      while ($line =~ m/^#\s+\(use ".*/) {
-        $hints .= $line;
-        $line = shift @lines;
+      if ($status_hints) {
+        while ($line =~ m/^#\s+\((?:use "|commit).*/) {
+          $hints .= $line;
+          $line = shift @lines;
+        }
+        die("Bug parsing git status output.\n$workaround_msg\n") if $line ne '#';
+        $line = shift @lines; # Get rid of blank line
       }
-      die("Bug parsing git status output.\n$workaround_msg\n") if $line ne '#';
-      $line = shift @lines; # Get rid of blank line
 
       while (defined $line && $line =~ m/^(?:\e\[.*?m)?#.+$/) {
         if ($line =~ m/^(?:\e\[.*?m)?#(\s+)(.*)/) {
