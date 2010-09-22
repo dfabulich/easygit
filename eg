@@ -8014,6 +8014,7 @@ sub main {
                "--version"   => sub { version()  },
                "exec-path:s" => sub { $_[1] ? &$record_args(@_)
                                             : &$record_arg(@_); },
+               "c:s"         => sub { push(@global_args, "-c", $_[1]); },
                "paginate|p"  => sub { $use_pager = 1; &$record_arg(@_)  },
                "no-pager"    => sub { $use_pager = 0; &$record_arg(@_)  },
                "bare"        => sub { &$record_arg(@_)  },
