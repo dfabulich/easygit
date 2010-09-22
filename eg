@@ -1597,7 +1597,7 @@ sub preprocess {
   #
   $self->{'opts'} = "";
   @ARGV = @$opts;
-  my ($staged, $unstaged, $no_index) = (0, 0, 0);
+  my ($staged, $unstaged, $no_index, $ours, $theirs) = (0, 0, 0, 0, 0);
   my $extcmd;
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
@@ -1606,12 +1606,16 @@ sub preprocess {
     "unstaged"       => \$unstaged,
     "no-index"       => \$no_index,
     "extcmd=s"       => \$extcmd,
+    "ours"           => \$ours,
+    "theirs"         => \$theirs,
     );
   die "Cannot specify both --staged and --unstaged!\n" if $staged && $unstaged;
   my @args;
   push(@args, "--cached") if $staged;
   push(@args, "--no-index") if $no_index;
   push(@args, "--extcmd", $extcmd) if $extcmd;
+  push(@args, "--theirs") if $theirs;
+  push(@args, "--ours") if $ours;
   push(@args, @ARGV);
 
   #
@@ -1623,7 +1627,7 @@ sub preprocess {
     if ($unstaged && scalar @$revs > 0);
   # 'eg diff' (without arguments) should act like 'git diff HEAD', unless
   # we are in an aborted merge state 
-  if (!@$revs && !$unstaged && !$staged && !$no_index) {
+  if (!@$revs && !$unstaged && !$staged && !$no_index && !$ours && !$theirs) {
     if (-f "$self->{git_dir}/MERGE_HEAD") {
       my @merge_branches = RepoUtil::merge_branches();
       my $list = join(", ", @merge_branches);
