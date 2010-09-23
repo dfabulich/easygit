@@ -15,24 +15,25 @@ case "$GIT_SVN_LC_ALL" in
 	test_set_prereq UTF8
 	;;
 *)
-	say "UTF-8 locale not set, some tests skipped ($GIT_SVN_LC_ALL)"
+	say "# UTF-8 locale not set, some tests skipped ($GIT_SVN_LC_ALL)"
 	;;
 esac
 
 test_expect_success \
     'initialize git svn' '
 	mkdir import &&
-	cd import &&
-	echo foo > foo &&
-	ln -s foo foo.link
-	mkdir -p dir/a/b/c/d/e &&
-	echo "deep dir" > dir/a/b/c/d/e/file &&
-	mkdir bar &&
-	echo "zzz" > bar/zzz &&
-	echo "#!/bin/sh" > exec.sh &&
-	chmod +x exec.sh &&
-	svn_cmd import -m "import for git svn" . "$svnrepo" >/dev/null &&
-	cd .. &&
+	(
+		cd import &&
+		echo foo >foo &&
+		ln -s foo foo.link
+		mkdir -p dir/a/b/c/d/e &&
+		echo "deep dir" >dir/a/b/c/d/e/file &&
+		mkdir bar &&
+		echo "zzz" >bar/zzz &&
+		echo "#!/bin/sh" >exec.sh &&
+		chmod +x exec.sh &&
+		svn_cmd import -m "import for git svn" . "$svnrepo" >/dev/null
+	) &&
 	rm -rf import &&
 	git svn init "$svnrepo"'
 
@@ -270,6 +271,17 @@ test_expect_success 'able to dcommit to a subdirectory' "
 	git svn dcommit -i bar &&
 	test -z \"\`git diff refs/heads/my-bar refs/remotes/bar\`\"
 	"
+
+test_expect_success 'dcommit should not fail with a touched file' '
+	test_commit "commit-new-file-foo2" foo2 &&
+	test-chmtime =-60 foo &&
+	git svn dcommit
+'
+
+test_expect_success 'rebase should not fail with a touched file' '
+	test-chmtime =-60 foo &&
+	git svn rebase
+'
 
 test_expect_success 'able to set-tree to a subdirectory' "
 	echo cba > d &&

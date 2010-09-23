@@ -60,12 +60,12 @@ do
 			echo ${HC}file:5:foo_mmap bar mmap baz
 		} >expected &&
 		git grep -n -w -e mmap $H >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep -w $L (w)" '
 		: >expected &&
-		! git grep -n -w -e "^w" >actual &&
+		test_must_fail git grep -n -w -e "^w" >actual &&
 		test_cmp expected actual
 	'
 
@@ -74,7 +74,7 @@ do
 			echo ${HC}x:1:x x xx x
 		} >expected &&
 		git grep -n -w -e "x xx* x" $H >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep -w $L (y-1)" '
@@ -82,7 +82,7 @@ do
 			echo ${HC}y:1:y yy
 		} >expected &&
 		git grep -n -w -e "^y" $H >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep -w $L (y-2)" '
@@ -93,7 +93,7 @@ do
 			cat actual
 			false
 		else
-			diff expected actual
+			test_cmp expected actual
 		fi
 	'
 
@@ -105,14 +105,14 @@ do
 			cat actual
 			false
 		else
-			diff expected actual
+			test_cmp expected actual
 		fi
 	'
 
 	test_expect_success "grep $L (t-1)" '
 		echo "${HC}t/t:1:test" >expected &&
 		git grep -n -e test $H >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep $L (t-2)" '
@@ -121,7 +121,7 @@ do
 			cd t &&
 			git grep -n -e test $H
 		) >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep $L (t-3)" '
@@ -130,7 +130,7 @@ do
 			cd t &&
 			git grep --full-name -n -e test $H
 		) >actual &&
-		diff expected actual
+		test_cmp expected actual
 	'
 
 	test_expect_success "grep -c $L (no /dev/null)" '
@@ -440,6 +440,58 @@ EOF
 test_expect_success 'grep -Fi' '
 	git grep -Fi "CHAR *" >actual &&
 	test_cmp expected actual
+'
+
+test_expect_success 'outside of git repository' '
+	rm -fr non &&
+	mkdir -p non/git/sub &&
+	echo hello >non/git/file1 &&
+	echo world >non/git/sub/file2 &&
+	echo ".*o*" >non/git/.gitignore &&
+	{
+		echo file1:hello &&
+		echo sub/file2:world
+	} >non/expect.full &&
+	echo file2:world >non/expect.sub
+	(
+		GIT_CEILING_DIRECTORIES="$(pwd)/non/git" &&
+		export GIT_CEILING_DIRECTORIES &&
+		cd non/git &&
+		test_must_fail git grep o &&
+		git grep --no-index o >../actual.full &&
+		test_cmp ../expect.full ../actual.full
+		cd sub &&
+		test_must_fail git grep o &&
+		git grep --no-index o >../../actual.sub &&
+		test_cmp ../../expect.sub ../../actual.sub
+	)
+'
+
+test_expect_success 'inside git repository but with --no-index' '
+	rm -fr is &&
+	mkdir -p is/git/sub &&
+	echo hello >is/git/file1 &&
+	echo world >is/git/sub/file2 &&
+	echo ".*o*" >is/git/.gitignore &&
+	{
+		echo file1:hello &&
+		echo sub/file2:world
+	} >is/expect.full &&
+	: >is/expect.empty &&
+	echo file2:world >is/expect.sub
+	(
+		cd is/git &&
+		git init &&
+		test_must_fail git grep o >../actual.full &&
+		test_cmp ../expect.empty ../actual.full &&
+		git grep --no-index o >../actual.full &&
+		test_cmp ../expect.full ../actual.full &&
+		cd sub &&
+		test_must_fail git grep o >../../actual.sub &&
+		test_cmp ../../expect.empty ../../actual.sub &&
+		git grep --no-index o >../../actual.sub &&
+		test_cmp ../../expect.sub ../../actual.sub
+	)
 '
 
 test_expect_success 'setup double-dash tests' '

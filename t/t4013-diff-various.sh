@@ -105,10 +105,13 @@ do
 	expect="$TEST_DIRECTORY/t4013/diff.$test"
 	actual="$pfx-diff.$test"
 
+	cleanup="cat"
+	test "log "="${cmd:0:4}" && [[ ! $cmd =~ decorate ]] && cleanup="log_cleanup"
+
 	test_expect_success "git $cmd" '
 		{
 			echo "\$ git $cmd"
-			git $cmd |
+			git $cmd | $cleanup |
 			sed -e "s/^\\(-*\\)$V\\(-*\\)\$/\\1g-i-t--v-e-r-s-i-o-n\2/" \
 			    -e "s/^\\(.*mixed; boundary=\"-*\\)$V\\(-*\\)\"\$/\\1g-i-t--v-e-r-s-i-o-n\2\"/"
 			echo "\$"
@@ -204,7 +207,11 @@ log --root --patch-with-stat --summary master
 log --root -c --patch-with-stat --summary master
 # improved by Timo's patch
 log --root --cc --patch-with-stat --summary master
+log -p --first-parent master
+log -m -p --first-parent master
+log -m -p master
 log -SF master
+log -S F master
 log -SF -p master
 log --decorate --all
 log --decorate=full --all
@@ -235,6 +242,9 @@ show initial
 show --root initial
 show side
 show master
+show -c master
+show -m master
+show --first-parent master
 show --stat side
 show --stat --summary side
 show --patch-with-stat side
@@ -275,5 +285,9 @@ diff --no-index dir dir3
 diff master master^ side
 diff --dirstat master~1 master~2
 EOF
+
+test_expect_success 'log -S requires an argument' '
+	test_must_fail git log -S
+'
 
 test_done

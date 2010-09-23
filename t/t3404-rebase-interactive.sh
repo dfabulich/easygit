@@ -22,12 +22,18 @@ set_fake_editor
 # | \
 # |   F - G - H                (branch1)
 # |     \
-#  \      I                    (branch2)
-#   \
-#     J - K - L - M            (no-conflict-branch)
+# |\      I                    (branch2)
+# | \
+# |   J - K - L - M            (no-conflict-branch)
+#  \
+#    N - O - P                 (no-ff-branch)
 #
 # where A, B, D and G all touch file1, and one, two, three, four all
 # touch file "conflict".
+#
+# WARNING: Modifications to the initial repository can change the SHA ID used
+# in the expect2 file for the 'stop on conflicting pick' test.
+
 
 test_expect_success 'setup' '
 	git ls-files -o --exclude-standard > .git/info/ignored-unknown &&
@@ -51,7 +57,73 @@ test_expect_success 'setup' '
 	for n in J K L M
 	do
 		test_commit $n file$n
+	done &&
+	git checkout -b no-ff-branch A &&
+	for n in N O P
+	do
+		test_commit $n file$n
 	done
+'
+
+# "exec" commands are ran with the user shell by default, but this may
+# be non-POSIX. For example, if SHELL=zsh then ">file" doesn't work
+# to create a file. Unseting SHELL avoids such non-portable behavior
+# in tests.
+SHELL=
+
+test_expect_success 'rebase -i with the exec command' '
+	git checkout master &&
+	(
+	FAKE_LINES="1 exec_>touch-one
+		2 exec_>touch-two exec_false exec_>touch-three
+		3 4 exec_>\"touch-file__name_with_spaces\";_>touch-after-semicolon 5" &&
+	export FAKE_LINES &&
+	test_must_fail git rebase -i A
+	) &&
+	test_path_is_file touch-one &&
+	test_path_is_file touch-two &&
+	test_path_is_missing touch-three " (should have stopped before)" &&
+	test $(git rev-parse C) = $(git rev-parse HEAD) || {
+		echo "Stopped at wrong revision:"
+		echo "($(git describe --tags HEAD) instead of C)"
+		false
+	} &&
+	git rebase --continue &&
+	test_path_is_file touch-three &&
+	test_path_is_file "touch-file  name with spaces" &&
+	test_path_is_file touch-after-semicolon &&
+	test $(git rev-parse master) = $(git rev-parse HEAD) || {
+		echo "Stopped at wrong revision:"
+		echo "($(git describe --tags HEAD) instead of master)"
+		false
+	} &&
+	rm -f touch-*
+'
+
+test_expect_success 'rebase -i with the exec command runs from tree root' '
+	git checkout master &&
+	mkdir subdir && (cd subdir &&
+	FAKE_LINES="1 exec_>touch-subdir" \
+		git rebase -i HEAD^
+	) &&
+	test_path_is_file touch-subdir &&
+	rm -fr subdir
+'
+
+test_expect_success 'rebase -i with the exec command checks tree cleanness' '
+	git checkout master &&
+	(
+	FAKE_LINES="exec_echo_foo_>file1 1" &&
+	export FAKE_LINES &&
+	test_must_fail git rebase -i HEAD^
+	) &&
+	test $(git rev-parse master^) = $(git rev-parse HEAD) || {
+		echo "Stopped at wrong revision:"
+		echo "($(git describe --tags HEAD) instead of master^)"
+		false
+	} &&
+	git reset --hard &&
+	git rebase --continue
 '
 
 test_expect_success 'no changes are a nop' '
@@ -64,7 +136,7 @@ test_expect_success 'no changes are a nop' '
 test_expect_success 'test the [branch] option' '
 	git checkout -b dead-end &&
 	git rm file6 &&
-	git commit -m "stop here" &&
+	git commit -b -m "stop here" &&
 	git rebase -i F branch2 &&
 	test "$(git symbolic-ref -q HEAD)" = "refs/heads/branch2" &&
 	test $(git rev-parse I) = $(git rev-parse branch2) &&
@@ -114,7 +186,7 @@ cat > expect2 << EOF
 D
 =======
 G
->>>>>>> 51047de... G
+>>>>>>> 5d18e54... G
 EOF
 
 test_expect_success 'stop on conflicting pick' '
@@ -133,7 +205,18 @@ test_expect_success 'abort' '
 	git rebase --abort &&
 	test $(git rev-parse new-branch1) = $(git rev-parse HEAD) &&
 	test "$(git symbolic-ref -q HEAD)" = "refs/heads/branch1" &&
-	! test -d .git/rebase-merge
+	test_path_is_missing .git/rebase-merge
+'
+
+test_expect_success 'abort with error when new base cannot be checked out' '
+	git rm --cached file1 &&
+	git commit -b -m "remove file in base" &&
+	test_must_fail git rebase -i master > output 2>&1 &&
+	grep "The following untracked working tree files would be overwritten by checkout:" \
+		output &&
+	grep "file1" output &&
+	test_path_is_missing .git/rebase-merge &&
+	git reset --hard HEAD^
 '
 
 test_expect_success 'retain authorship' '
@@ -169,6 +252,12 @@ test_expect_success '-p handles "no changes" gracefully' '
 	git diff-files --quiet &&
 	git diff-index --quiet --cached HEAD -- &&
 	test $HEAD = $(git rev-parse HEAD)
+'
+
+test_expect_failure 'exchange two commits with -p' '
+	FAKE_LINES="2 1" git rebase -i -p HEAD~2 &&
+	test H = $(git cat-file commit HEAD^ | sed -ne \$p) &&
+	test G = $(git cat-file commit HEAD | sed -ne \$p)
 '
 
 test_expect_success 'preserve merges with -p' '
@@ -552,6 +641,81 @@ test_expect_success 'reword' '
 	git show HEAD~3 | grep "B changed" &&
 	FAKE_LINES="1 reword 2 3 4" FAKE_COMMIT_MESSAGE="C changed" git rebase -i A &&
 	git show HEAD~2 | grep "C changed"
+'
+
+test_expect_success 'rebase -i can copy notes' '
+	git config notes.rewrite.rebase true &&
+	git config notes.rewriteRef "refs/notes/*" &&
+	git ls-files -o --exclude-standard > .git/info/ignored-unknown &&
+	test_commit n1 &&
+	test_commit n2 &&
+	test_commit n3 &&
+	git notes add -m"a note" n3 &&
+	git rebase --onto n1 n2 &&
+	test "a note" = "$(git notes show HEAD)"
+'
+
+cat >expect <<EOF
+an earlier note
+a note
+EOF
+
+test_expect_success 'rebase -i can copy notes over a fixup' '
+	git reset --hard n3 &&
+	git notes add -m"an earlier note" n2 &&
+	GIT_NOTES_REWRITE_MODE=concatenate FAKE_LINES="1 fixup 2" git rebase -i n1 &&
+	git notes show > output &&
+	test_cmp expect output
+'
+
+test_expect_success 'rebase while detaching HEAD' '
+	git symbolic-ref HEAD &&
+	grandparent=$(git rev-parse HEAD~2) &&
+	test_tick &&
+	FAKE_LINES="2 1" git rebase -i HEAD~2 HEAD^0 &&
+	test $grandparent = $(git rev-parse HEAD~2) &&
+	test_must_fail git symbolic-ref HEAD
+'
+
+test_tick # Ensure that the rebased commits get a different timestamp.
+test_expect_success 'always cherry-pick with --no-ff' '
+	git checkout no-ff-branch &&
+	git tag original-no-ff-branch &&
+	git rebase -i --no-ff A &&
+	touch empty &&
+	for p in 0 1 2
+	do
+		test ! $(git rev-parse HEAD~$p) = $(git rev-parse original-no-ff-branch~$p) &&
+		git diff HEAD~$p original-no-ff-branch~$p > out &&
+		test_cmp empty out
+	done &&
+	test $(git rev-parse HEAD~3) = $(git rev-parse original-no-ff-branch~3) &&
+	git diff HEAD~3 original-no-ff-branch~3 > out &&
+	test_cmp empty out
+'
+
+test_expect_success 'set up commits with funny messages' '
+	git checkout -b funny A &&
+	echo >>file1 &&
+	test_tick &&
+	git commit -b -a -m "end with slash\\" &&
+	echo >>file1 &&
+	test_tick &&
+	git commit -a -m "something (\000) that looks like octal" &&
+	echo >>file1 &&
+	test_tick &&
+	git commit -a -m "something (\n) that looks like a newline" &&
+	echo >>file1 &&
+	test_tick &&
+	git commit -a -m "another commit"
+'
+
+test_expect_success 'rebase-i history with funny messages' '
+	git rev-list A..funny >expect &&
+	test_tick &&
+	FAKE_LINES="1 2 3 4" git rebase -i A &&
+	git rev-list A.. >actual &&
+	test_cmp expect actual
 '
 
 test_done

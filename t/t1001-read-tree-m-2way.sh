@@ -359,7 +359,7 @@ test_expect_success \
 
 test_expect_success \
     'a/b (untracked) vs a, plus c/d case test.' \
-    '! git read-tree -u -m "$treeH" "$treeM" &&
+    'test_must_fail git read-tree -u -m "$treeH" "$treeM" &&
      git ls-files --stage &&
      test -f a/b'
 
@@ -389,5 +389,21 @@ test_expect_success \
     'git read-tree -u -m "$treeH" "$treeM" &&
      git ls-files --stage | tee >treeMcheck.out &&
      test_cmp treeM.out treeMcheck.out'
+
+test_expect_success '-m references the correct modified tree' '
+	echo >file-a &&
+	echo >file-b &&
+	git add file-a file-b &&
+	git commit -b -a -m "test for correct modified tree"
+	git branch initial-mod &&
+	echo b >file-b &&
+	git commit -a -m "B" &&
+	echo a >file-a &&
+	git add file-a &&
+	git ls-tree $(git write-tree) file-a >expect &&
+	git read-tree -m HEAD initial-mod &&
+	git ls-tree $(git write-tree) file-a >actual &&
+	test_cmp expect actual
+'
 
 test_done

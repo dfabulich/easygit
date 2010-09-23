@@ -42,23 +42,24 @@ test_expect_success 'setup for merge-preserving rebase' \
 	git commit -a -m "Modify A2" &&
 
 	git clone ./. clone1 &&
-	cd clone1 &&
-	git switch topic &&
-	git merge origin/master &&
-	cd .. &&
+	(cd clone1 &&
+	git checkout topic &&
+	git merge origin/master
+	) &&
 
 	echo Fifth > B &&
 	git add B &&
 	git commit -b -m "Add different B" &&
 
 	git clone ./. clone2 &&
-	cd clone2 &&
-	git switch topic &&
-	test_must_fail git merge origin/master &&
-	echo Resolved > B &&
-	git add B &&
-	git commit -m "Merge origin/master into topic" &&
-	cd .. &&
+	(
+		cd clone2 &&
+		git checkout -B topic origin/topic &&
+		test_must_fail git merge origin/master &&
+		echo Resolved >B &&
+		git add B &&
+		git commit -m "Merge origin/master into topic"
+	) &&
 
 	git checkout topic &&
 	echo Fourth >> B &&

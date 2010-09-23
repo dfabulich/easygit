@@ -55,6 +55,33 @@ test_expect_success 'status (2)' '
 '
 
 cat >expect <<\EOF
+(On branch master)
+Changes ready to be committed ("staged"):
+	new file:   dir2/added
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+Newly created unknown files:
+	dir1/untracked
+	dir2/modified
+	dir2/untracked
+	expect
+	untracked
+Unknown files:
+	output
+EOF
+
+git config advice.statusHints false
+
+test_expect_success 'status (advice.statusHints false)' '
+
+	git status >output &&
+	test_cmp expect output
+
+'
+
+git config --unset advice.statusHints
+
+cat >expect <<\EOF
  M dir1/modified
 A  dir2/added
 ?? dir1/untracked
@@ -65,9 +92,28 @@ A  dir2/added
 ?? untracked
 EOF
 
-test_expect_success 'status -s (2)' '
+test_expect_success 'status -s' '
 
 	git status -s >output &&
+	test_cmp expect output
+
+'
+
+cat >expect <<\EOF
+## master
+ M dir1/modified
+A  dir2/added
+?? dir1/untracked
+?? dir2/modified
+?? dir2/untracked
+?? expect
+?? output
+?? untracked
+EOF
+
+test_expect_success 'status -s -b' '
+
+	git status -s -b >output &&
 	test_cmp expect output
 
 '
@@ -92,6 +138,20 @@ test_expect_success 'status (status.showUntrackedFiles no)' '
 	git status >output &&
 	test_cmp expect output
 '
+
+cat >expect <<EOF
+(On branch master)
+Changes ready to be committed ("staged"):
+	new file:   dir2/added
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+EOF
+git config advice.statusHints false
+test_expect_success 'status -uno (advice.statusHints false)' '
+	git status -uno >output &&
+	test_cmp expect output
+'
+git config --unset advice.statusHints
 
 cat >expect << EOF
  M dir1/modified
@@ -338,6 +398,25 @@ test_expect_success 'status -s with color.status' '
 '
 
 cat >expect <<\EOF
+## <GREEN>master<RESET>
+ <RED>M<RESET> dir1/modified
+<GREEN>A<RESET>  dir2/added
+<BLUE>??<RESET> dir1/untracked
+<BLUE>??<RESET> dir2/modified
+<BLUE>??<RESET> dir2/untracked
+<BLUE>??<RESET> expect
+<BLUE>??<RESET> output
+<BLUE>??<RESET> untracked
+EOF
+
+test_expect_success 'status -s -b with color.status' '
+
+	git status -s -b | test_decode_color >output &&
+	test_cmp expect output
+
+'
+
+cat >expect <<\EOF
  M dir1/modified
 A  dir2/added
 ?? dir1/untracked
@@ -369,6 +448,13 @@ test_expect_success 'status --porcelain ignores color.status' '
 # recover unconditionally from color tests
 git config --unset color.status
 git config --unset color.ui
+
+test_expect_success 'status --porcelain ignores -b' '
+
+	git status --porcelain -b >output &&
+	test_cmp expect output
+
+'
 
 cat >expect <<\EOF
 (On branch master)
@@ -430,6 +516,16 @@ cat <<EOF >expect
 EOF
 test_expect_success 'dry-run of partial commit excluding new file in index' '
 	git commit --dry-run dir1/modified >output &&
+	test_cmp expect output
+'
+
+cat >expect <<EOF
+:100644 100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 0000000000000000000000000000000000000000 M	dir1/modified
+EOF
+test_expect_success 'status refreshes the index' '
+	touch dir2/added &&
+	git status &&
+	git diff-files >output &&
 	test_cmp expect output
 '
 
@@ -626,6 +722,284 @@ test_expect_success 'commit --dry-run submodule summary (--amend)' '
 	git config status.submodulesummary 10 &&
 	git commit --dry-run --staged --amend >output &&
 	test_cmp expect output
+'
+
+test_expect_success POSIXPERM,SANITY 'status succeeds in a read-only repository' '
+	(
+		chmod a-w .git &&
+		# make dir1/tracked stat-dirty
+		>dir1/tracked1 && mv -f dir1/tracked1 dir1/tracked &&
+		git status -s >output &&
+		! grep dir1/tracked output &&
+		# make sure "status" succeeded without writing index out
+		git diff-files | grep dir1/tracked
+	)
+	status=$?
+	chmod 775 .git
+	(exit $status)
+'
+
+(cd sm && echo > bar && git add bar && git commit -q -m 'Add bar') && git add sm
+new_head=$(cd sm && git rev-parse --short=7 --verify HEAD)
+touch .gitmodules
+
+cat > expect << EOF
+(On branch master)
+Changes ready to be committed ("staged"):
+	modified:   sm
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+Submodule changes to be committed:
+* sm 4c2ba33...2fb508f (1):
+  > Add bar
+Newly created unknown files:
+	.gitmodules
+	dir1/untracked
+	dir2/modified
+	dir2/untracked
+	expect
+	untracked
+Unknown files:
+	output
+EOF
+
+test_expect_success '--ignore-submodules=untracked suppresses submodules with untracked content' '
+	echo modified > sm/untracked &&
+	git status --ignore-submodules=untracked > output &&
+	test_cmp expect output
+'
+
+test_expect_success '.gitmodules ignore=untracked suppresses submodules with untracked content' '
+	git config diff.ignoreSubmodules dirty &&
+	git status >output &&
+	test_cmp expect output &&
+	git config --add -f .gitmodules submodule.subname.ignore untracked &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname &&
+	git config --unset diff.ignoreSubmodules
+'
+
+test_expect_success '.git/config ignore=untracked suppresses submodules with untracked content' '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore untracked &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config --remove-section -f .gitmodules submodule.subname
+'
+
+test_expect_success '--ignore-submodules=dirty suppresses submodules with untracked content' '
+	git status --ignore-submodules=dirty > output &&
+	test_cmp expect output
+'
+
+test_expect_success '.gitmodules ignore=dirty suppresses submodules with untracked content' '
+	git config diff.ignoreSubmodules dirty &&
+	git status >output &&
+	! test -s actual &&
+	git config --add -f .gitmodules submodule.subname.ignore dirty &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname &&
+	git config --unset diff.ignoreSubmodules
+'
+
+test_expect_success '.git/config ignore=dirty suppresses submodules with untracked content' '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore dirty &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success '--ignore-submodules=dirty suppresses submodules with modified content' '
+	echo modified > sm/foo &&
+	git status --ignore-submodules=dirty > output &&
+	test_cmp expect output
+'
+
+test_expect_success '.gitmodules ignore=dirty suppresses submodules with modified content' '
+	git config --add -f .gitmodules submodule.subname.ignore dirty &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success '.git/config ignore=dirty suppresses submodules with modified content' '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore dirty &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+cat > expect << EOF
+(On branch master)
+Changes ready to be committed ("staged"):
+	modified:   sm
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+	modified:   sm (modified content)
+Submodule changes to be committed:
+* sm 4c2ba33...2fb508f (1):
+  > Add bar
+Newly created unknown files:
+	.gitmodules
+	dir1/untracked
+	dir2/modified
+	dir2/untracked
+	expect
+	untracked
+Unknown files:
+	output
+EOF
+
+test_expect_success "--ignore-submodules=untracked doesn't suppress submodules with modified content" '
+	git status --ignore-submodules=untracked > output &&
+	test_cmp expect output
+'
+
+test_expect_success ".gitmodules ignore=untracked doesn't suppress submodules with modified content" '
+	git config --add -f .gitmodules submodule.subname.ignore untracked &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success ".git/config ignore=untracked doesn't suppress submodules with modified content" '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore untracked &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+head2=$(cd sm && git commit -q -m "2nd commit" foo && git rev-parse --short=7 --verify HEAD)
+
+cat > expect << EOF
+(On branch master)
+Changes ready to be committed ("staged"):
+	modified:   sm
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+	modified:   sm (new commits)
+Submodule changes to be committed:
+* sm 4c2ba33...2fb508f (1):
+  > Add bar
+Submodules changed but not updated:
+* sm 2fb508f...2897915 (1):
+  > 2nd commit
+Newly created unknown files:
+	.gitmodules
+	dir1/untracked
+	dir2/modified
+	dir2/untracked
+	expect
+	untracked
+Unknown files:
+	output
+EOF
+
+test_expect_success "--ignore-submodules=untracked doesn't suppress submodule summary" '
+	git status --ignore-submodules=untracked > output &&
+	test_cmp expect output
+'
+
+test_expect_success ".gitmodules ignore=untracked doesn't suppress submodule summary" '
+	git config --add -f .gitmodules submodule.subname.ignore untracked &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success ".git/config ignore=untracked doesn't suppress submodule summary" '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore untracked &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success "--ignore-submodules=dirty doesn't suppress submodule summary" '
+	git status --ignore-submodules=dirty > output &&
+	test_cmp expect output
+'
+test_expect_success ".gitmodules ignore=dirty doesn't suppress submodule summary" '
+	git config --add -f .gitmodules submodule.subname.ignore dirty &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_success ".git/config ignore=dirty doesn't suppress submodule summary" '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore dirty &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+cat > expect << EOF
+(On branch master)
+Changed but not updated ("unstaged"):
+	modified:   dir1/modified
+Newly created unknown files:
+	.gitmodules
+	dir1/untracked
+	dir2/modified
+	dir2/untracked
+	expect
+	untracked
+Unknown files:
+	output
+EOF
+
+test_expect_success "--ignore-submodules=all suppresses submodule summary" '
+	git status --ignore-submodules=all > output &&
+	test_cmp expect output
+'
+
+test_expect_failure '.gitmodules ignore=all suppresses submodule summary' '
+	git config --add -f .gitmodules submodule.subname.ignore all &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config -f .gitmodules  --remove-section submodule.subname
+'
+
+test_expect_failure '.git/config ignore=all suppresses submodule summary' '
+	git config --add -f .gitmodules submodule.subname.ignore none &&
+	git config --add -f .gitmodules submodule.subname.path sm &&
+	git config --add submodule.subname.ignore all &&
+	git config --add submodule.subname.path sm &&
+	git status > output &&
+	test_cmp expect output &&
+	git config --remove-section submodule.subname &&
+	git config -f .gitmodules  --remove-section submodule.subname
 '
 
 test_done

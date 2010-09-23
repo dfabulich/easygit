@@ -5,23 +5,22 @@ git_svn_id=git""-svn-id
 
 if test -n "$NO_SVN_TESTS"
 then
-	say 'skipping git svn tests, NO_SVN_TESTS defined'
+	skip_all='skipping git svn tests, NO_SVN_TESTS defined'
 	test_done
 fi
 if ! test_have_prereq PERL; then
-	say 'skipping git svn tests, perl not available'
+	skip_all='skipping git svn tests, perl not available'
 	test_done
 fi
 
 GIT_DIR=$PWD/.git
 GIT_SVN_DIR=$GIT_DIR/svn/refs/remotes/git-svn
 SVN_TREE=$GIT_SVN_DIR/svn-tree
-PERL=${PERL:-perl}
 
 svn >/dev/null 2>&1
 if test $? -ne 1
 then
-    say 'skipping git svn tests, svn not found'
+    skip_all='skipping git svn tests, svn not found'
     test_done
 fi
 
@@ -30,7 +29,7 @@ export svnrepo
 svnconf=$PWD/svnconf
 export svnconf
 
-$PERL -w -e "
+"$PERL_PATH" -w -e "
 use SVN::Core;
 use SVN::Repos;
 \$SVN::Core::VERSION gt '1.1.0' or exit(42);
@@ -40,13 +39,12 @@ x=$?
 if test $x -ne 0
 then
 	if test $x -eq 42; then
-		err='Perl SVN libraries must be >= 1.1.0'
+		skip_all='Perl SVN libraries must be >= 1.1.0'
 	elif test $x -eq 41; then
-		err='svnadmin failed to create fsfs repository'
+		skip_all='svnadmin failed to create fsfs repository'
 	else
-		err='Perl SVN libraries not found or unusable, skipping test'
+		skip_all='Perl SVN libraries not found or unusable'
 	fi
-	say "$err"
 	test_done
 fi
 
@@ -131,7 +129,7 @@ stop_httpd () {
 }
 
 convert_to_rev_db () {
-	$PERL -w -- - "$@" <<\EOF
+	"$PERL_PATH" -w -- - "$@" <<\EOF
 use strict;
 @ARGV == 2 or die "Usage: convert_to_rev_db <input> <output>";
 open my $wr, '+>', $ARGV[1] or die "$!: couldn't open: $ARGV[1]";
@@ -159,7 +157,7 @@ EOF
 require_svnserve () {
     if test -z "$SVNSERVE_PORT"
     then
-        say 'skipping svnserve test. (set $SVNSERVE_PORT to enable)'
+	skip_all='skipping svnserve test. (set $SVNSERVE_PORT to enable)'
         test_done
     fi
 }

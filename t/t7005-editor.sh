@@ -13,7 +13,7 @@ test_expect_success 'determine default editor' '
 
 '
 
-if ! expr "$vi" : '^[a-z]*$' >/dev/null
+if ! expr "$vi" : '[a-z]*$' >/dev/null
 then
 	vi=
 fi
@@ -40,7 +40,7 @@ test_expect_success setup '
 	test_commit "$msg" &&
 	echo "$msg" >expect &&
 	git show -s --format=%s > actual &&
-	diff actual expect
+	test_cmp actual expect
 
 '
 
@@ -88,7 +88,7 @@ do
 		git --exec-path=. commit --amend &&
 		git show -s --pretty=oneline |
 		sed -e "s/^[0-9a-f]* //" >actual &&
-		diff actual expect
+		test_cmp actual expect
 	'
 done
 
@@ -110,17 +110,17 @@ do
 		git --exec-path=. commit --amend &&
 		git show -s --pretty=oneline |
 		sed -e "s/^[0-9a-f]* //" >actual &&
-		diff actual expect
+		test_cmp actual expect
 	'
 done
 
-if ! echo 'echo space > "$1"' > "e space.sh"
+if echo 'echo space > "$1"' > "e space.sh"
 then
-	say "Skipping; FS does not support spaces in filenames"
-	test_done
+	# FS supports spaces in filenames
+	test_set_prereq SPACES_IN_FILENAMES
 fi
 
-test_expect_success 'editor with a space' '
+test_expect_success SPACES_IN_FILENAMES 'editor with a space' '
 
 	chmod a+x "e space.sh" &&
 	GIT_EDITOR="./e\ space.sh" git commit -b --amend &&
@@ -129,7 +129,7 @@ test_expect_success 'editor with a space' '
 '
 
 unset GIT_EDITOR
-test_expect_success 'core.editor with a space' '
+test_expect_success SPACES_IN_FILENAMES 'core.editor with a space' '
 
 	git config core.editor \"./e\ space.sh\" &&
 	git commit --amend &&

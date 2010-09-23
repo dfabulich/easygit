@@ -7,7 +7,7 @@ test_description='test smart pushing over http via http-backend'
 . ./test-lib.sh
 
 if test -n "$NO_CURL"; then
-	say 'skipping test, git built without http support'
+	skip_all='skipping test, git built without http support'
 	test_done
 fi
 
@@ -34,8 +34,34 @@ test_expect_success 'setup remote repository' '
 	mv test_repo.git "$HTTPD_DOCUMENT_ROOT_PATH"
 '
 
-test_expect_success 'clone remote repository' '
+cat >exp <<EOF
+GET  /smart/test_repo.git/info/refs?service=git-upload-pack HTTP/1.1 200
+POST /smart/test_repo.git/git-upload-pack HTTP/1.1 200
+EOF
+test_expect_success 'no empty path components' '
+	# In the URL, add a trailing slash, and see if git appends yet another
+	# slash.
 	cd "$ROOT_PATH" &&
+	git clone $HTTPD_URL/smart/test_repo.git/ test_repo_clone &&
+
+	sed -e "
+		s/^.* \"//
+		s/\"//
+		s/ [1-9][0-9]*\$//
+		s/^GET /GET  /
+	" >act <"$HTTPD_ROOT_PATH"/access.log &&
+
+	# Clear the log, so that it does not affect the "used receive-pack
+	# service" test which reads the log too.
+	#
+	# We do this before the actual comparison to ensure the log is cleared.
+	echo > "$HTTPD_ROOT_PATH"/access.log &&
+
+	test_cmp exp act
+'
+
+test_expect_success 'clone remote repository' '
+	rm -rf test_repo_clone &&
 	git clone $HTTPD_URL/smart/test_repo.git test_repo_clone
 '
 
@@ -68,6 +94,7 @@ test_expect_success 'create and delete remote branch' '
 '
 
 cat >exp <<EOF
+
 GET  /smart/test_repo.git/info/refs?service=git-upload-pack HTTP/1.1 200
 POST /smart/test_repo.git/git-upload-pack HTTP/1.1 200
 GET  /smart/test_repo.git/info/refs?service=git-receive-pack HTTP/1.1 200
@@ -88,26 +115,8 @@ test_expect_success 'used receive-pack service' '
 	test_cmp exp act
 '
 
-test_expect_success 'non-fast-forward push fails' '
-	cd "$ROOT_PATH"/test_repo_clone &&
-	git checkout master &&
-	echo "changed" > path2 &&
-	git commit -a -m path2 --amend &&
-
-	HEAD=$(git rev-parse --verify HEAD) &&
-	!(git push -v origin >output 2>&1) &&
-	(cd "$HTTPD_DOCUMENT_ROOT_PATH"/test_repo.git &&
-	 test $HEAD != $(git rev-parse --verify HEAD))
-'
-
-test_expect_success 'non-fast-forward push show ref status' '
-	grep "^ ! \[rejected\][ ]*master -> master (non-fast-forward)$" output
-'
-
-test_expect_success 'non-fast-forward push shows help message' '
-	grep "To prevent you from losing history, non-fast-forward updates were rejected" \
-		output
-'
+test_http_push_nonff "$HTTPD_DOCUMENT_ROOT_PATH"/test_repo.git \
+	"$ROOT_PATH"/test_repo_clone master
 
 test_expect_success 'push fails for non-fast-forward refs unmatched by remote helper' '
 	# create a dissimilarly-named remote ref so that git is unable to match the
@@ -119,7 +128,7 @@ test_expect_success 'push fails for non-fast-forward refs unmatched by remote he
 
 	# push master too; this ensures there is at least one '"'push'"' command to
 	# the remote helper and triggers interaction with the helper.
-	!(git push -v origin +master master:retsam >output 2>&1) &&
+	test_must_fail git push -v origin +master master:retsam >output 2>&1 &&
 
 	grep "^ + [a-f0-9]*\.\.\.[a-f0-9]* *master -> master (forced update)$" output &&
 	grep "^ ! \[rejected\] *master -> retsam (non-fast-forward)$" output &&

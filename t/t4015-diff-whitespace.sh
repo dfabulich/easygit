@@ -352,6 +352,48 @@ test_expect_success 'check tabs and spaces as indentation (indent-with-non-tab: 
 
 '
 
+test_expect_success 'check tabs as indentation (tab-in-indent: off)' '
+
+	git config core.whitespace "-tab-in-indent" &&
+	echo "	foo ();" > x &&
+	git diff --check
+
+'
+
+test_expect_success 'check tabs as indentation (tab-in-indent: on)' '
+
+	git config core.whitespace "tab-in-indent" &&
+	echo "	foo ();" > x &&
+	test_must_fail git diff --check
+
+'
+
+test_expect_success 'check tabs and spaces as indentation (tab-in-indent: on)' '
+
+	git config core.whitespace "tab-in-indent" &&
+	echo "	                foo ();" > x &&
+	test_must_fail git diff --check
+
+'
+
+test_expect_success 'check tab-in-indent and indent-with-non-tab conflict' '
+
+	git config core.whitespace "tab-in-indent,indent-with-non-tab" &&
+	echo "foo ();" > x &&
+	test_must_fail git diff --check
+
+'
+
+test_expect_success 'check tab-in-indent excluded from wildcard whitespace attribute' '
+
+	git config --unset core.whitespace &&
+	echo "x whitespace" > .gitattributes &&
+	echo "	  foo ();" > x &&
+	git diff --check &&
+	rm -f .gitattributes
+
+'
+
 test_expect_success 'line numbers in --check output are correct' '
 
 	echo "" > x &&
@@ -394,6 +436,43 @@ test_expect_success 'whitespace-only changes not reported' '
 	echo >x "hello  world" &&
 	git diff -b >actual &&
 	test_cmp expect actual
+'
+
+cat <<EOF >expect
+diff --git a/x b/z
+similarity index NUM%
+rename from x
+rename to z
+index 380c32a..a97b785 100644
+EOF
+test_expect_success 'whitespace-only changes reported across renames' '
+	git reset --hard &&
+	for i in 1 2 3 4 5 6 7 8 9; do echo "$i$i$i$i$i$i"; done >x &&
+	git add x &&
+	git commit -b -m "base" &&
+	sed -e "5s/^/ /" x >z &&
+	git rm x &&
+	git add z &&
+	git diff -w -M --cached |
+	sed -e "/^similarity index /s/[0-9][0-9]*/NUM/" >actual &&
+	test_cmp expect actual
+'
+
+cat >expected <<\EOF
+diff --git a/empty b/void
+similarity index 100%
+rename from empty
+rename to void
+EOF
+
+test_expect_success 'rename empty' '
+	git reset --hard &&
+	>empty &&
+	git add empty &&
+	git commit -b -m empty &&
+	git mv empty void &&
+	git diff -w --cached -M >current &&
+	test_cmp expected current
 '
 
 test_expect_success 'combined diff with autocrlf conversion' '

@@ -66,10 +66,11 @@ EOF
 "
 
 commit_file sm1 &&
-cd sm1 &&
-git reset --hard HEAD~2 >/dev/null &&
-head3=$(git rev-parse --verify HEAD | cut -c1-7) &&
-cd ..
+head3=$(
+	cd sm1 &&
+	git reset --hard HEAD~2 >/dev/null &&
+	git rev-parse --verify HEAD | cut -c1-7
+)
 
 test_expect_success 'modified submodule(backward)' "
     git submodule summary >actual &&
@@ -226,6 +227,13 @@ EOF
 
 test_expect_success 'fail when using --files together with --cached' "
     test_must_fail git submodule summary --files --cached
+"
+
+test_expect_success 'should not fail in an empty repo' "
+    git init xyzzy &&
+    cd xyzzy &&
+    git submodule summary >output 2>&1 &&
+    test_cmp output /dev/null
 "
 
 test_done

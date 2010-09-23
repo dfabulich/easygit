@@ -1,14 +1,35 @@
 #!/bin/sh
 #
 # Copyright (c) 2005 Junio C Hamano
-# [Modified to not require a build of git in the current project, and to
-#  make 'git' symlink to eg].)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/ .
 
-if test ! -d "gitpath"; then
-	mkdir gitpath
-	ln -s $(type -p eg) gitpath/git
+
+# SPECIAL FOR EG: Do not require a build of git in the current project, and
+# make 'git' symlink to eg -- but only if we're not being called recursively.
+if ! type -p git | grep -q gitpath; then
+	if test ! -d "gitpath"; then
+		mkdir gitpath
+		ln -s $(type -p eg) gitpath/git
+	fi
+	if [ -d $(dirname $(which git))/templates ]; then
+		GIT_EXEC_PATH=$(dirname $(which git))
+		GIT_TEMPLATE_DIR=$GIT_EXEC_PATH/templates/blt
+		export GIT_EXEC_PATH GIT_TEMPLATE_DIR
+	fi
+	export PATH=$(pwd)/gitpath:$PATH
 fi
-export PATH=$(pwd)/gitpath:$PATH
 
 # if --tee was passed, write the output not only to the terminal, but
 # additionally to the file test-results/$BASENAME.out, too.
@@ -61,12 +82,15 @@ unset GIT_OBJECT_DIRECTORY
 unset GIT_CEILING_DIRECTORIES
 unset SHA1_FILE_DIRECTORIES
 unset SHA1_FILE_DIRECTORY
+unset GIT_NOTES_REF
+unset GIT_NOTES_DISPLAY_REF
+unset GIT_NOTES_REWRITE_REF
+unset GIT_NOTES_REWRITE_MODE
 GIT_MERGE_VERBOSITY=5
 export GIT_MERGE_VERBOSITY
 export GIT_AUTHOR_EMAIL GIT_AUTHOR_NAME
 export GIT_COMMITTER_EMAIL GIT_COMMITTER_NAME
 export EDITOR
-GIT_TEST_CMP=${GIT_TEST_CMP:-diff -u}
 
 # Protect ourselves from common misconfiguration to export
 # CDPATH into the environment
@@ -119,14 +143,13 @@ do
 	-v|--v|--ve|--ver|--verb|--verbo|--verbos|--verbose)
 		verbose=t; shift ;;
 	-q|--q|--qu|--qui|--quie|--quiet)
-		quiet=t; shift ;;
+		# Ignore --quiet under a TAP::Harness. Saying how many tests
+		# passed without the ok/not ok details is always an error.
+		test -z "$HARNESS_ACTIVE" && quiet=t; shift ;;
 	--with-dashes)
 		with_dashes=t; shift ;;
 	--no-color)
 		color=; shift ;;
-	--no-python)
-		# noop now...
-		shift ;;
 	--va|--val|--valg|--valgr|--valgri|--valgrin|--valgrind)
 		valgrind=t; verbose=t; shift ;;
 	--tee)
@@ -152,7 +175,7 @@ if test -n "$color"; then
 			*) test -n "$quiet" && return;;
 		esac
 		shift
-		printf "* %s" "$*"
+		printf "%s" "$*"
 		tput sgr0
 		echo
 		)
@@ -161,7 +184,7 @@ else
 	say_color() {
 		test -z "$1" && test -n "$quiet" && return
 		shift
-		echo "* $*"
+		echo "$*"
 	}
 fi
 
@@ -197,6 +220,8 @@ test_count=0
 test_fixed=0
 test_broken=0
 test_success=0
+
+test_external_has_tap=0
 
 die () {
 	code=$?
@@ -245,6 +270,10 @@ q_to_nul () {
 
 q_to_cr () {
 	tr Q '\015'
+}
+
+q_to_tab () {
+	tr Q '\011'
 }
 
 append_cr () {
@@ -318,12 +347,35 @@ test_set_prereq () {
 satisfied=" "
 
 test_have_prereq () {
-	case $satisfied in
-	*" $1 "*)
-		: yes, have it ;;
-	*)
-		! : nope ;;
-	esac
+	# prerequisites can be concatenated with ','
+	save_IFS=$IFS
+	IFS=,
+	set -- $*
+	IFS=$save_IFS
+
+	total_prereq=0
+	ok_prereq=0
+	missing_prereq=
+
+	for prerequisite
+	do
+		total_prereq=$(($total_prereq + 1))
+		case $satisfied in
+		*" $prerequisite "*)
+			ok_prereq=$(($ok_prereq + 1))
+			;;
+		*)
+			# Keep a list of missing prerequisites
+			if test -z "$missing_prereq"
+			then
+				missing_prereq=$prerequisite
+			else
+				missing_prereq="$prerequisite,$missing_prereq"
+			fi
+		esac
+	done
+
+	test $total_prereq = $ok_prereq
 }
 
 # You are not expected to call test_ok_ and test_failure_ directly, use
@@ -331,25 +383,25 @@ test_have_prereq () {
 
 test_ok_ () {
 	test_success=$(($test_success + 1))
-	say_color "" "  ok $test_count: $@"
+	say_color "" "ok $test_count - $@"
 }
 
 test_failure_ () {
 	test_failure=$(($test_failure + 1))
-	say_color error "FAIL $test_count: $1"
+	say_color error "not ok - $test_count $1"
 	shift
-	echo "$@" | sed -e 's/^/	/'
+	echo "$@" | sed -e 's/^/#	/'
 	test "$immediate" = "" || { GIT_EXIT_OK=t; exit 1; }
 }
 
 test_known_broken_ok_ () {
 	test_fixed=$(($test_fixed+1))
-	say_color "" "  FIXED $test_count: $@"
+	say_color "" "ok $test_count - $@ # TODO known breakage"
 }
 
 test_known_broken_failure_ () {
 	test_broken=$(($test_broken+1))
-	say_color skip "  still broken $test_count: $@"
+	say_color skip "not ok $test_count - $@ # TODO known breakage"
 }
 
 test_debug () {
@@ -357,8 +409,13 @@ test_debug () {
 }
 
 test_run_ () {
+	test_cleanup=:
 	eval >&3 2>&4 "$1"
-	eval_ret="$?"
+	eval_ret=$?
+	eval >&3 2>&4 "$test_cleanup"
+	if test "$verbose" = "t" && test -n "$HARNESS_ACTIVE"; then
+		echo ""
+	fi
 	return 0
 }
 
@@ -370,6 +427,7 @@ test_skip () {
 		case $this_test.$test_count in
 		$skp)
 			to_skip=t
+			break
 		esac
 	done
 	if test -z "$to_skip" && test -n "$prereq" &&
@@ -379,8 +437,14 @@ test_skip () {
 	fi
 	case "$to_skip" in
 	t)
+		of_prereq=
+		if test "$missing_prereq" != "$prereq"
+		then
+			of_prereq=" of $prereq"
+		fi
+
 		say_color skip >&3 "skipping test: $@"
-		say_color skip "skip $test_count: $1"
+		say_color skip "ok $test_count # skip $1 (missing $missing_prereq${of_prereq})"
 		: true
 		;;
 	*)
@@ -446,7 +510,7 @@ test_expect_code () {
 # test_external runs external test scripts that provide continuous
 # test output about their progress, and succeeds/fails on
 # zero/non-zero exit code.  It outputs the test output on stdout even
-# in non-verbose mode, and announces the external script with "* run
+# in non-verbose mode, and announces the external script with "# run
 # <n>: ..." before running it.  When providing relative paths, keep in
 # mind that all scripts run in "trash directory".
 # Usage: test_external description command arguments...
@@ -461,16 +525,29 @@ test_external () {
 	then
 		# Announce the script to reduce confusion about the
 		# test output that follows.
-		say_color "" " run $test_count: $descr ($*)"
+		say_color "" "# run $test_count: $descr ($*)"
+		# Export TEST_DIRECTORY, TRASH_DIRECTORY and GIT_TEST_LONG
+		# to be able to use them in script
+		export TEST_DIRECTORY TRASH_DIRECTORY GIT_TEST_LONG
 		# Run command; redirect its stderr to &4 as in
 		# test_run_, but keep its stdout on our stdout even in
 		# non-verbose mode.
 		"$@" 2>&4
 		if [ "$?" = 0 ]
 		then
-			test_ok_ "$descr"
+			if test $test_external_has_tap -eq 0; then
+				test_ok_ "$descr"
+			else
+				say_color "" "# test_external test $descr was ok"
+				test_success=$(($test_success + 1))
+			fi
 		else
-			test_failure_ "$descr" "$@"
+			if test $test_external_has_tap -eq 0; then
+				test_failure_ "$descr" "$@"
+			else
+				say_color error "# test_external test $descr failed: $@"
+				test_failure=$(($test_failure + 1))
+			fi
 		fi
 	fi
 }
@@ -486,21 +563,64 @@ test_external_without_stderr () {
 	[ -f "$stderr" ] || error "Internal error: $stderr disappeared."
 	descr="no stderr: $1"
 	shift
-	say >&3 "expecting no stderr from previous command"
+	say >&3 "# expecting no stderr from previous command"
 	if [ ! -s "$stderr" ]; then
 		rm "$stderr"
-		test_ok_ "$descr"
+
+		if test $test_external_has_tap -eq 0; then
+			test_ok_ "$descr"
+		else
+			say_color "" "# test_external_without_stderr test $descr was ok"
+			test_success=$(($test_success + 1))
+		fi
 	else
 		if [ "$verbose" = t ]; then
-			output=`echo; echo Stderr is:; cat "$stderr"`
+			output=`echo; echo "# Stderr is:"; cat "$stderr"`
 		else
 			output=
 		fi
 		# rm first in case test_failure exits.
 		rm "$stderr"
-		test_failure_ "$descr" "$@" "$output"
+		if test $test_external_has_tap -eq 0; then
+			test_failure_ "$descr" "$@" "$output"
+		else
+			say_color error "# test_external_without_stderr test $descr failed: $@: $output"
+			test_failure=$(($test_failure + 1))
+		fi
 	fi
 }
+
+# debugging-friendly alternatives to "test [-f|-d|-e]"
+# The commands test the existence or non-existence of $1. $2 can be
+# given to provide a more precise diagnosis.
+test_path_is_file () {
+	if ! [ -f "$1" ]
+	then
+		echo "File $1 doesn't exist. $*"
+		false
+	fi
+}
+
+test_path_is_dir () {
+	if ! [ -d "$1" ]
+	then
+		echo "Directory $1 doesn't exist. $*"
+		false
+	fi
+}
+
+test_path_is_missing () {
+	if [ -e "$1" ]
+	then
+		echo "Path exists:"
+		ls -ld "$1"
+		if [ $# -ge 1 ]; then
+			echo "$*"
+		fi
+		false
+	fi
+}
+
 
 # This is not among top-level (test_expect_success | test_expect_failure)
 # but is a prefix that can be used in the test script, like:
@@ -516,7 +636,42 @@ test_external_without_stderr () {
 
 test_must_fail () {
 	"$@"
-	test $? -gt 0 -a $? -le 129 -o $? -gt 192
+	exit_code=$?
+	if test $exit_code = 0; then
+		echo >&2 "test_must_fail: command succeeded: $*"
+		return 1
+	elif test $exit_code -gt 129 -a $exit_code -le 192; then
+		echo >&2 "test_must_fail: died by signal: $*"
+		return 1
+	elif test $exit_code = 127; then
+		echo >&2 "test_must_fail: command not found: $*"
+		return 1
+	fi
+	return 0
+}
+
+# Similar to test_must_fail, but tolerates success, too.  This is
+# meant to be used in contexts like:
+#
+#	test_expect_success 'some command works without configuration' '
+#		test_might_fail git config --unset all.configuration &&
+#		do something
+#	'
+#
+# Writing "git config --unset all.configuration || :" would be wrong,
+# because we want to notice if it fails due to segv.
+
+test_might_fail () {
+	"$@"
+	exit_code=$?
+	if test $exit_code -gt 129 -a $exit_code -le 192; then
+		echo >&2 "test_might_fail: died by signal: $*"
+		return 1
+	elif test $exit_code = 127; then
+		echo >&2 "test_might_fail: command not found: $*"
+		return 1
+	fi
+	return 0
 }
 
 # test_cmp is a helper function to compare actual and expected output.
@@ -536,48 +691,82 @@ test_cmp() {
 	$GIT_TEST_CMP "$@"
 }
 
+# This function can be used to schedule some commands to be run
+# unconditionally at the end of the test to restore sanity:
+#
+#	test_expect_success 'test core.capslock' '
+#		git config core.capslock true &&
+#		test_when_finished "git config --unset core.capslock" &&
+#		hello world
+#	'
+#
+# That would be roughly equivalent to
+#
+#	test_expect_success 'test core.capslock' '
+#		git config core.capslock true &&
+#		hello world
+#		git config --unset core.capslock
+#	'
+#
+# except that the greeting and config --unset must both succeed for
+# the test to pass.
+
+test_when_finished () {
+	test_cleanup="{ $*
+		} && (exit \"\$eval_ret\"); eval_ret=\$?; $test_cleanup"
+}
+
 # Most tests can use the created repository, but some may need to create more.
 # Usage: test_create_repo <directory>
 test_create_repo () {
 	test "$#" = 1 ||
 	error "bug in the test script: not 1 parameter to test-create-repo"
-	owd=`pwd`
 	repo="$1"
 	mkdir -p "$repo"
-	cd "$repo" || error "Cannot setup test environment"
-	git init >&3 2>&4 ||
-	error "cannot run git init -- have you built things yet?"
-	mv .git/hooks .git/hooks-disabled
-	cd "$owd"
+	(
+		cd "$repo" || error "Cannot setup test environment"
+		git init --template="$GIT_TEMPLATE_DIR" >&3 2>&4 ||
+		error "cannot run git init -- have you built things yet?"
+		mv .git/hooks .git/hooks-disabled
+	) || exit
 }
 
 test_done () {
 	GIT_EXIT_OK=t
-	test_results_dir="$TEST_DIRECTORY/test-results"
-	mkdir -p "$test_results_dir"
-	test_results_path="$test_results_dir/${0%.sh}-$$"
 
-	echo "total $test_count" >> $test_results_path
-	echo "success $test_success" >> $test_results_path
-	echo "fixed $test_fixed" >> $test_results_path
-	echo "broken $test_broken" >> $test_results_path
-	echo "failed $test_failure" >> $test_results_path
-	echo "" >> $test_results_path
+	if test -z "$HARNESS_ACTIVE"; then
+		test_results_dir="$TEST_DIRECTORY/test-results"
+		mkdir -p "$test_results_dir"
+		test_results_path="$test_results_dir/${0%.sh}-$$.counts"
+
+		echo "total $test_count" >> $test_results_path
+		echo "success $test_success" >> $test_results_path
+		echo "fixed $test_fixed" >> $test_results_path
+		echo "broken $test_broken" >> $test_results_path
+		echo "failed $test_failure" >> $test_results_path
+		echo "" >> $test_results_path
+	fi
 
 	if test "$test_fixed" != 0
 	then
-		say_color pass "fixed $test_fixed known breakage(s)"
+		say_color pass "# fixed $test_fixed known breakage(s)"
 	fi
 	if test "$test_broken" != 0
 	then
-		say_color error "still have $test_broken known breakage(s)"
+		say_color error "# still have $test_broken known breakage(s)"
 		msg="remaining $(($test_count-$test_broken)) test(s)"
 	else
 		msg="$test_count test(s)"
 	fi
 	case "$test_failure" in
 	0)
-		say_color pass "passed all $msg"
+		# Maybe print SKIP message
+		[ -z "$skip_all" ] || skip_all=" # SKIP $skip_all"
+
+		if test $test_external_has_tap -eq 0; then
+			say_color pass "# passed all $msg"
+			say "1..$test_count$skip_all"
+		fi
 
 		test -d "$remove_trash" &&
 		cd "$(dirname "$remove_trash")" &&
@@ -586,21 +775,45 @@ test_done () {
 		exit 0 ;;
 
 	*)
-		say_color error "failed $test_failure among $msg"
+		if test $test_external_has_tap -eq 0; then
+			say_color error "# failed $test_failure among $msg"
+			say "1..$test_count"
+		fi
+
 		exit 1 ;;
 
 	esac
 }
 
+log_cleanup () {
+	sed -e 's/\(^commit [0-9a-f]*\) ([^ ]*)/\1/'
+}
+
 # Test the binaries we have just built.  The tests are kept in
 # t/ subdirectory and are run in 'trash directory' subdirectory.
-TEST_DIRECTORY=$(pwd)
+if test -z "$TEST_DIRECTORY"
+then
+        # We allow tests to override this, in case they want to run tests
+        # outside of t/, e.g. for running tests on the test library
+        # itself.
+        TEST_DIRECTORY=$(pwd)
+fi
 unset GIT_CONFIG
 GIT_CONFIG_NOSYSTEM=1
 GIT_CONFIG_NOGLOBAL=1
 export PATH GIT_CONFIG_NOSYSTEM GIT_CONFIG_NOGLOBAL
 
-. ./GIT-BUILD-OPTIONS
+. "$TEST_DIRECTORY"/GIT-BUILD-OPTIONS
+
+if test -z "$GIT_TEST_CMP"
+then
+	if test -n "$GIT_TEST_CMP_USE_COPIED_CONTEXT"
+	then
+		GIT_TEST_CMP="diff -c"
+	else
+		GIT_TEST_CMP="diff -u"
+	fi
+fi
 
 # Test repository
 test="trash directory.$(basename "$0" .sh)"
@@ -621,22 +834,17 @@ test_create_repo "$test"
 # in subprocesses like git equals our $PWD (for pathname comparisons).
 cd -P "$test" || exit 1
 
+HOME=$(pwd)
+export HOME
+
 this_test=${0##*/}
 this_test=${this_test%%-*}
 for skp in $GIT_SKIP_TESTS
 do
-	to_skip=
-	for skp in $GIT_SKIP_TESTS
-	do
-		case "$this_test" in
-		$skp)
-			to_skip=t
-		esac
-	done
-	case "$to_skip" in
-	t)
+	case "$this_test" in
+	$skp)
 		say_color skip >&3 "skipping test $this_test altogether"
-		say_color skip "skip all tests in $this_test"
+		skip_all="skip all tests in $this_test"
 		test_done
 	esac
 done
@@ -690,3 +898,7 @@ test -z "$NO_PYTHON" && test_set_prereq PYTHON
 # test whether the filesystem supports symbolic links
 ln -s x y 2>/dev/null && test -h y 2>/dev/null && test_set_prereq SYMLINKS
 rm -f y
+
+# When the tests are run as root, permission tests will report that
+# things are writable when they shouldn't be.
+test -w / || test_set_prereq SANITY

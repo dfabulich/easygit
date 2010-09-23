@@ -111,17 +111,18 @@ test_expect_success 'remove remote' '
 test_expect_success 'remove remote protects non-remote branches' '
 (
 	cd test &&
-	(cat >expect1 <<EOF
+	{ cat >expect1 <<EOF
 Note: A non-remote branch was not removed; to delete it, use:
   git branch -d master
 EOF
-    cat >expect2 <<EOF
+	} &&
+	{ cat >expect2 <<EOF
 Note: Non-remote branches were not removed; to delete them, use:
   git branch -d foobranch
   git branch -d master
 EOF
-) &&
-	git tag footag
+	} &&
+	git tag footag &&
 	git config --add remote.oops.fetch "+refs/*:refs/*" &&
 	git remote rm oops 2>actual1 &&
 	git branch foobranch &&
@@ -320,6 +321,69 @@ test_expect_success 'add alt && prune' '
 	 git rev-parse --verify refs/remotes/origin/side2)
 '
 
+cat >test/expect <<\EOF
+some-tag
+EOF
+
+test_expect_success 'add with reachable tags (default)' '
+	(cd one &&
+	 >foobar &&
+	 git add foobar &&
+	 git commit -m "Foobar" &&
+	 git tag -a -m "Foobar tag" foobar-tag &&
+	 git reset --hard HEAD~1 &&
+	 git tag -a -m "Some tag" some-tag) &&
+	(mkdir add-tags &&
+	 cd add-tags &&
+	 git init &&
+	 git remote add -f origin ../one &&
+	 git tag -l some-tag >../test/output &&
+	 git tag -l foobar-tag >>../test/output &&
+	 test_must_fail git config remote.origin.tagopt) &&
+	test_cmp test/expect test/output
+'
+
+cat >test/expect <<\EOF
+some-tag
+foobar-tag
+--tags
+EOF
+
+test_expect_success 'add --tags' '
+	(rm -rf add-tags &&
+	 mkdir add-tags &&
+	 cd add-tags &&
+	 git init &&
+	 git remote add -f --tags origin ../one &&
+	 git tag -l some-tag >../test/output &&
+	 git tag -l foobar-tag >>../test/output &&
+	 git config remote.origin.tagopt >>../test/output) &&
+	test_cmp test/expect test/output
+'
+
+cat >test/expect <<\EOF
+--no-tags
+EOF
+
+test_expect_success 'add --no-tags' '
+	(rm -rf add-tags &&
+	 mkdir add-no-tags &&
+	 cd add-no-tags &&
+	 git init &&
+	 git remote add -f --no-tags origin ../one &&
+	 git tag -l some-tag >../test/output &&
+	 git tag -l foobar-tag >../test/output &&
+	 git config remote.origin.tagopt >>../test/output) &&
+	(cd one &&
+	 git tag -d some-tag foobar-tag) &&
+	test_cmp test/expect test/output
+'
+
+test_expect_success 'reject --no-no-tags' '
+	(cd add-no-tags &&
+	 test_must_fail git remote add -f --no-no-tags neworigin ../one)
+'
+
 cat > one/expect << EOF
   apis/master
   apis/side
@@ -372,7 +436,7 @@ test_expect_success 'update --prune' '
 	 git branch -m side2 side3) &&
 	(cd test &&
 	 git remote update --prune &&
-	 (cd ../one && git branch -m side3 side2)
+	 (cd ../one && git branch -m side3 side2) &&
 	 git rev-parse refs/remotes/origin/side3 &&
 	 test_must_fail git rev-parse refs/remotes/origin/side2)
 '
@@ -534,44 +598,123 @@ test_expect_success 'show empty remote' '
 	)
 '
 
+test_expect_success 'remote set-branches requires a remote' '
+	test_must_fail git remote set-branches &&
+	test_must_fail git remote set-branches --add
+'
+
+test_expect_success 'remote set-branches' '
+	echo "+refs/heads/*:refs/remotes/scratch/*" >expect.initial &&
+	sort <<-\EOF >expect.add &&
+	+refs/heads/*:refs/remotes/scratch/*
+	+refs/heads/other:refs/remotes/scratch/other
+	EOF
+	sort <<-\EOF >expect.replace &&
+	+refs/heads/maint:refs/remotes/scratch/maint
+	+refs/heads/master:refs/remotes/scratch/master
+	+refs/heads/next:refs/remotes/scratch/next
+	EOF
+	sort <<-\EOF >expect.add-two &&
+	+refs/heads/maint:refs/remotes/scratch/maint
+	+refs/heads/master:refs/remotes/scratch/master
+	+refs/heads/next:refs/remotes/scratch/next
+	+refs/heads/pu:refs/remotes/scratch/pu
+	+refs/heads/t/topic:refs/remotes/scratch/t/topic
+	EOF
+	sort <<-\EOF >expect.setup-ffonly &&
+	refs/heads/master:refs/remotes/scratch/master
+	+refs/heads/next:refs/remotes/scratch/next
+	EOF
+	sort <<-\EOF >expect.respect-ffonly &&
+	refs/heads/master:refs/remotes/scratch/master
+	+refs/heads/next:refs/remotes/scratch/next
+	+refs/heads/pu:refs/remotes/scratch/pu
+	EOF
+
+	git clone .git/ setbranches &&
+	(
+		cd setbranches &&
+		git remote rename origin scratch &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.initial &&
+
+		git remote set-branches scratch --add other &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.add &&
+
+		git remote set-branches scratch maint master next &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.replace &&
+
+		git remote set-branches --add scratch pu t/topic &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.add-two &&
+
+		git config --unset-all remote.scratch.fetch &&
+		git config remote.scratch.fetch \
+			refs/heads/master:refs/remotes/scratch/master &&
+		git config --add remote.scratch.fetch \
+			+refs/heads/next:refs/remotes/scratch/next &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.setup-ffonly &&
+
+		git remote set-branches --add scratch pu &&
+		git config --get-all remote.scratch.fetch >config-result &&
+		sort <config-result >../actual.respect-ffonly
+	) &&
+	test_cmp expect.initial actual.initial &&
+	test_cmp expect.add actual.add &&
+	test_cmp expect.replace actual.replace &&
+	test_cmp expect.add-two actual.add-two &&
+	test_cmp expect.setup-ffonly actual.setup-ffonly &&
+	test_cmp expect.respect-ffonly actual.respect-ffonly
+'
+
+test_expect_success 'remote set-branches with --mirror' '
+	echo "+refs/*:refs/*" >expect.initial &&
+	echo "+refs/heads/master:refs/heads/master" >expect.replace &&
+	git clone --mirror .git/ setbranches-mirror &&
+	(
+		cd setbranches-mirror &&
+		git remote rename origin scratch &&
+		git config --get-all remote.scratch.fetch >../actual.initial &&
+
+		git remote set-branches scratch heads/master &&
+		git config --get-all remote.scratch.fetch >../actual.replace
+	) &&
+	test_cmp expect.initial actual.initial &&
+	test_cmp expect.replace actual.replace
+'
+
 test_expect_success 'new remote' '
-(
 	git remote add someremote foo &&
 	echo foo >expect &&
 	git config --get-all remote.someremote.url >actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url bar' '
-(
 	git remote set-url someremote bar &&
 	echo bar >expect &&
 	git config --get-all remote.someremote.url >actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url baz bar' '
-(
 	git remote set-url someremote baz bar &&
 	echo baz >expect &&
 	git config --get-all remote.someremote.url >actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url zot bar' '
-(
 	test_must_fail git remote set-url someremote zot bar &&
 	echo baz >expect &&
 	git config --get-all remote.someremote.url >actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push zot baz' '
-(
 	test_must_fail git remote set-url --push someremote zot baz &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -579,11 +722,9 @@ test_expect_success 'remote set-url --push zot baz' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push zot' '
-(
 	git remote set-url --push someremote zot &&
 	echo zot >expect &&
 	echo "YYY" >>expect &&
@@ -592,11 +733,9 @@ test_expect_success 'remote set-url --push zot' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push qux zot' '
-(
 	git remote set-url --push someremote qux zot &&
 	echo qux >expect &&
 	echo "YYY" >>expect &&
@@ -605,11 +744,9 @@ test_expect_success 'remote set-url --push qux zot' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push foo qu+x' '
-(
 	git remote set-url --push someremote foo qu+x &&
 	echo foo >expect &&
 	echo "YYY" >>expect &&
@@ -618,11 +755,9 @@ test_expect_success 'remote set-url --push foo qu+x' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push --add aaa' '
-(
 	git remote set-url --push --add someremote aaa &&
 	echo foo >expect &&
 	echo aaa >>expect &&
@@ -632,11 +767,9 @@ test_expect_success 'remote set-url --push --add aaa' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push bar aaa' '
-(
 	git remote set-url --push someremote bar aaa &&
 	echo foo >expect &&
 	echo bar >>expect &&
@@ -646,11 +779,9 @@ test_expect_success 'remote set-url --push bar aaa' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push --delete bar' '
-(
 	git remote set-url --push --delete someremote bar &&
 	echo foo >expect &&
 	echo "YYY" >>expect &&
@@ -659,11 +790,9 @@ test_expect_success 'remote set-url --push --delete bar' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --push --delete foo' '
-(
 	git remote set-url --push --delete someremote foo &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -671,11 +800,9 @@ test_expect_success 'remote set-url --push --delete foo' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --add bbb' '
-(
 	git remote set-url --add someremote bbb &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -684,12 +811,10 @@ test_expect_success 'remote set-url --add bbb' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --delete .*' '
-(
-	test_must_fail git remote set-url --delete someremote .* &&
+	test_must_fail git remote set-url --delete someremote .\* &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
 	echo bbb >>expect &&
@@ -697,11 +822,9 @@ test_expect_success 'remote set-url --delete .*' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --delete bbb' '
-(
 	git remote set-url --delete someremote bbb &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -709,11 +832,9 @@ test_expect_success 'remote set-url --delete bbb' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --delete baz' '
-(
 	test_must_fail git remote set-url --delete someremote baz &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -721,11 +842,9 @@ test_expect_success 'remote set-url --delete baz' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --add ccc' '
-(
 	git remote set-url --add someremote ccc &&
 	echo "YYY" >expect &&
 	echo baz >>expect &&
@@ -734,11 +853,9 @@ test_expect_success 'remote set-url --add ccc' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_expect_success 'remote set-url --delete baz' '
-(
 	git remote set-url --delete someremote baz &&
 	echo "YYY" >expect &&
 	echo ccc >>expect &&
@@ -746,7 +863,6 @@ test_expect_success 'remote set-url --delete baz' '
 	echo "YYY" >>actual &&
 	git config --get-all remote.someremote.url >>actual &&
 	cmp expect actual
-)
 '
 
 test_done

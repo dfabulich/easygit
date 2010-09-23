@@ -1,4 +1,5 @@
 SHELL_PATH='/bin/sh'
 TAR='tar'
+DIFF='diff'
 NO_CURL=''
 NO_PERL=''

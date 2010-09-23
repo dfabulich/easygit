@@ -32,6 +32,23 @@ test_expect_success setup '
 	git tag B
 '
 
+cat >expect <<EOF
+<tags/B
+>tags/C
+EOF
+
+test_expect_success '--left-right' '
+	git rev-list --left-right B...C > actual &&
+	git name-rev --stdin --name-only --refs="*tags/*" \
+		< actual > actual.named &&
+	test_cmp actual.named expect
+'
+
+test_expect_success '--count' '
+	git rev-list --count B...C > actual &&
+	test "$(cat actual)" = 2
+'
+
 test_expect_success '--cherry-pick foo comes up empty' '
 	test -z "$(git rev-list --left-right --cherry-pick B...C -- foo)"
 '
@@ -46,12 +63,24 @@ test_expect_success '--cherry-pick with independent, but identical branches' '
 	echo Hallo > foo &&
 	git add foo &&
 	test_tick &&
-	git commit -m "independent" &&
+	git commit -b -m "independent" &&
 	echo Bello > foo &&
 	test_tick &&
 	git commit -m "independent, too" foo &&
 	test -z "$(git rev-list --left-right --cherry-pick \
 		HEAD...master -- foo)"
+'
+
+cat >expect <<EOF
+1	2
+EOF
+
+# Insert an extra commit to break the symmetry
+test_expect_success '--count --left-right' '
+	git checkout branch &&
+	test_commit D &&
+	git rev-list --count --left-right B...D > actual &&
+	test_cmp expect actual
 '
 
 test_done

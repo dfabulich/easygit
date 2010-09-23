@@ -19,9 +19,9 @@ our \$site_name = '[localhost]';
 our \$site_header = '';
 our \$site_footer = '';
 our \$home_text = 'indextext.html';
-our @stylesheets = ('file:///$TEST_DIRECTORY/../gitweb/gitweb.css');
-our \$logo = 'file:///$TEST_DIRECTORY/../gitweb/git-logo.png';
-our \$favicon = 'file:///$TEST_DIRECTORY/../gitweb/git-favicon.png';
+our @stylesheets = ('file:///$TEST_DIRECTORY/../gitweb/static/gitweb.css');
+our \$logo = 'file:///$TEST_DIRECTORY/../gitweb/static/git-logo.png';
+our \$favicon = 'file:///$TEST_DIRECTORY/../gitweb/static/git-favicon.png';
 our \$projects_list = '';
 our \$export_ok = '';
 our \$strict_export = '';
@@ -76,7 +76,7 @@ gitweb_run () {
 . ./test-lib.sh
 
 if ! test_have_prereq PERL; then
-	say 'skipping gitweb tests, perl not available'
+	skip_all='skipping gitweb tests, perl not available'
 	test_done
 fi
 
@@ -86,7 +86,7 @@ if ! test_have_prereq gitweb; then
 fi
 
 perl -MEncode -e 'decode_utf8("", Encode::FB_CROAK)' >/dev/null 2>&1 || {
-    say 'skipping gitweb tests, perl version is too old'
+    skip_all='skipping gitweb tests, perl version is too old'
     test_done
 }
 

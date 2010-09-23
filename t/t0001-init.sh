@@ -167,10 +167,25 @@ test_expect_success 'init with --template (blank)' '
 	! test -f template-blank/.git/info/exclude
 '
 
+test_expect_success 'init with init.templatedir set' '
+	mkdir templatedir-source &&
+	echo Content >templatedir-source/file &&
+	(
+		test_config="${HOME}/.gitconfig" &&
+		git config -f "$test_config"  init.templatedir "${HOME}/templatedir-source" &&
+		mkdir templatedir-set &&
+		cd templatedir-set &&
+		unset GIT_CONFIG_NOGLOBAL &&
+		unset GIT_TEMPLATE_DIR &&
+		NO_SET_GIT_TEMPLATE_DIR=t &&
+		export NO_SET_GIT_TEMPLATE_DIR &&
+		git init
+	) &&
+	test_cmp templatedir-source/file templatedir-set/.git/file
+'
+
 test_expect_success 'init --bare/--shared overrides system/global config' '
 	(
-		HOME="`pwd`" &&
-		export HOME &&
 		test_config="$HOME"/.gitconfig &&
 		unset GIT_CONFIG_NOGLOBAL &&
 		git config -f "$test_config" core.bare false &&
@@ -186,8 +201,6 @@ test_expect_success 'init --bare/--shared overrides system/global config' '
 
 test_expect_success 'init honors global core.sharedRepository' '
 	(
-		HOME="`pwd`" &&
-		export HOME &&
 		test_config="$HOME"/.gitconfig &&
 		unset GIT_CONFIG_NOGLOBAL &&
 		git config -f "$test_config" core.sharedRepository 0666 &&
@@ -282,13 +295,27 @@ test_expect_success 'init notices EEXIST (2)' '
 	)
 '
 
-test_expect_success POSIXPERM 'init notices EPERM' '
+test_expect_success POSIXPERM,SANITY 'init notices EPERM' '
 	rm -fr newdir &&
 	(
 		mkdir newdir &&
 		chmod -w newdir &&
 		test_must_fail git init newdir/a/b
 	)
+'
+
+test_expect_success 'init creates a new bare directory with global --bare' '
+	rm -rf newdir &&
+	git --bare init newdir &&
+	test -d newdir/refs
+'
+
+test_expect_success 'init prefers command line to GIT_DIR' '
+	rm -rf newdir &&
+	mkdir otherdir &&
+	GIT_DIR=otherdir git --bare init newdir &&
+	test -d newdir/refs &&
+	! test -d otherdir/refs
 '
 
 test_done

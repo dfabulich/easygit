@@ -143,6 +143,58 @@ test_expect_success 'configuration headers and command line headers' '
 	grep "^ *S. E. Cipient <scipient@example.com>\$" patch7
 '
 
+test_expect_success 'command line To: header' '
+
+	git config --unset-all format.headers &&
+	git format-patch --to="R. E. Cipient <rcipient@example.com>" --stdout master..side | sed -e "/^\$/q" >patch8 &&
+	grep "^To: R. E. Cipient <rcipient@example.com>\$" patch8
+'
+
+test_expect_success 'configuration To: header' '
+
+	git config format.to "R. E. Cipient <rcipient@example.com>" &&
+	git format-patch --stdout master..side | sed -e "/^\$/q" >patch9 &&
+	grep "^To: R. E. Cipient <rcipient@example.com>\$" patch9
+'
+
+test_expect_success '--no-to overrides config.to' '
+
+	git config --replace-all format.to \
+		"R. E. Cipient <rcipient@example.com>" &&
+	git format-patch --no-to --stdout master..side |
+	sed -e "/^\$/q" >patch10 &&
+	! grep "^To: R. E. Cipient <rcipient@example.com>\$" patch10
+'
+
+test_expect_success '--no-to and --to replaces config.to' '
+
+	git config --replace-all format.to \
+		"Someone <someone@out.there>" &&
+	git format-patch --no-to --to="Someone Else <else@out.there>" \
+		--stdout master..side |
+	sed -e "/^\$/q" >patch11 &&
+	! grep "^To: Someone <someone@out.there>\$" patch11 &&
+	grep "^To: Someone Else <else@out.there>\$" patch11
+'
+
+test_expect_success '--no-cc overrides config.cc' '
+
+	git config --replace-all format.cc \
+		"C. E. Cipient <rcipient@example.com>" &&
+	git format-patch --no-cc --stdout master..side |
+	sed -e "/^\$/q" >patch12 &&
+	! grep "^Cc: C. E. Cipient <rcipient@example.com>\$" patch12
+'
+
+test_expect_success '--no-add-headers overrides config.headers' '
+
+	git config --replace-all format.headers \
+		"Header1: B. E. Cipient <rcipient@example.com>" &&
+	git format-patch --no-add-headers --stdout master..side |
+	sed -e "/^\$/q" >patch13 &&
+	! grep "^Header1: B. E. Cipient <rcipient@example.com>\$" patch13
+'
+
 test_expect_success 'multiple files' '
 
 	rm -rf patches/ &&
@@ -559,6 +611,58 @@ test_expect_success 'format-patch -- <path>' '
 
 test_expect_success 'format-patch --ignore-if-in-upstream HEAD' '
 	git format-patch --ignore-if-in-upstream HEAD
+'
+
+test_expect_success 'format-patch --signature' '
+	git format-patch --stdout --signature="my sig" -1 >output &&
+	grep "my sig" output
+'
+
+test_expect_success 'format-patch with format.signature config' '
+	git config format.signature "config sig" &&
+	git format-patch --stdout -1 >output &&
+	grep "config sig" output
+'
+
+test_expect_success 'format-patch --signature overrides format.signature' '
+	git config format.signature "config sig" &&
+	git format-patch --stdout --signature="overrides" -1 >output &&
+	! grep "config sig" output &&
+	grep "overrides" output
+'
+
+test_expect_success 'format-patch --no-signature ignores format.signature' '
+	git config format.signature "config sig" &&
+	git format-patch --stdout --signature="my sig" --no-signature \
+		-1 >output &&
+	! grep "config sig" output &&
+	! grep "my sig" output &&
+	! grep "^-- \$" output
+'
+
+test_expect_success 'format-patch --signature --cover-letter' '
+	git config --unset-all format.signature &&
+	git format-patch --stdout --signature="my sig" --cover-letter \
+		-1 >output &&
+	grep "my sig" output &&
+	test 2 = $(grep "my sig" output | wc -l)
+'
+
+test_expect_success 'format.signature="" supresses signatures' '
+	git config format.signature "" &&
+	git format-patch --stdout -1 >output &&
+	! grep "^-- \$" output
+'
+
+test_expect_success 'format-patch --no-signature supresses signatures' '
+	git config --unset-all format.signature &&
+	git format-patch --stdout --no-signature -1 >output &&
+	! grep "^-- \$" output
+'
+
+test_expect_success 'format-patch --signature="" supresses signatures' '
+	git format-patch --signature="" -1 >output &&
+	! grep "^-- \$" output
 '
 
 test_done
