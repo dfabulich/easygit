@@ -9,44 +9,6 @@ on each subcommand; for example, running
   eg help commit
 will explain how to commit and provide many examples of doing so.
 
-To Msysgit users [From Dan Fabulich]:
-  1) Msysgit users aren't supplied an ordinary git.exe executable on
-  the command-line, but a script called "git.cmd".  Out of the box,
-  "eg" can't find this script.
-
-  It's easy to update eg 0.99 to support a non-standard git executable
-  (for example: my $git_cmd = "git.cmd"), but that'll get you in
-  trouble...
-
-  2) ... because Perl's backtick (`) operator won't correctly detect
-  the return code of git in that case; it'll think that git.cmd always
-  returns 0.  This confuses eg's revision-detector code, etc.
-
-  The only workaround I've found is to make a copy of git.cmd and
-  change its behavior.  git.cmd terminates the script using "@exit /b
-  %ErrorLevel%"; I've made a copy called "gitx.cmd" that just uses
-  "@exit %ErrorLevel%" and I refer to "gitx.cmd" in eg; that works
-  perfectly.
-
-  3) eg assumes that you can set environment variables on the backtick
-  command-line like this: `GIT_PAGER_IN_USE=1 git log -1` ... that
-  works fine on UNIX but not on Windows.
-
-  I had to go through and comment out references to GIT_PAGER_IN_USE
-  to get "eg log" to work.  This disables color, but color is in a
-  wonky state on msysgit anyway, so I scarcely miss it.
-
-  I think there's another clever use of inline environment variables
-  in "eg revert"; it attempts to temporarily set GIT_INDEX_FILE when
-  reverting just unstaged changes.  I've never needed to do that, but
-  I'm sure I will someday :-p
-
-  I assume these inline variables are being used to make them
-  temporarily apply only to the child process?  Would it be harmful to
-  just set them as %ENV variables instead?
-(We should soon remove #3 from this README; I agree with Dan that we
-should just modify %ENV instead.)
-
 Note: bash-completion-eg.sh is NOT needed to run eg; it's here just for
 the people that have bash completion set up and want to use it with eg
 (google for bash_completion if you want to know more or how to make use of
