@@ -25,7 +25,7 @@ my $debug=0;
 # globals :-(
 my $outfh;
 my $version = "1.7.3.dev";
-my $eg_exec = abs_path($0);
+my $eg_exec = "perl ".abs_path($0);
 my $git_cmd = "git";  # Includes any global args, thus "git --exec-path=..."
 my $use_pager = -1;
 my %alias;
