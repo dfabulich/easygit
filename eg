@@ -137,13 +137,7 @@ sub new {
     if (!defined $self->{git_dir}) {
       # Couldn't find git repository.  That could be for any of three reasons:
 
-      # 1) Is 'git' even in the user's PATH?
-      my @paths_to_git = grep {-x "$_/git"} split(/:/, $ENV{PATH});
-      if (!@paths_to_git) {
-        die "Error: Cannot find git in your PATH!\n";
-      }
-
-      # 2) Does 'git' even work (possible bad installation)?
+      # Does 'git' even work (possible bad installation)?
       my ($ret, $output) =
         ExecUtil::execute_captured("$git_cmd --version", ignore_ret => 1);
       if ($ret != 0 || $output !~ /^git version .*$/) {
