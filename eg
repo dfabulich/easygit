@@ -3328,7 +3328,12 @@ sub run {
   my ($ret1, $ret2, $ret3);
   close(INPUT);  $ret1 = $? >> 8;
   close(OUTPUT); $ret2 = $? >> 8;
-  $ENV{"GIT_PAGER_IN_USE"} = $old_git_pager_in_use;
+  if (defined($old_git_pager_in_use)) {
+    $ENV{"GIT_PAGER_IN_USE"} = $old_git_pager_in_use;
+  } else {
+    delete $ENV{"GIT_PAGER_IN_USE"};
+  }
+  
 
   # Make sure we close the pipe from rev-list too; We use "$? && $!"
   # instead of "$?" because we don't care about the return value of the
@@ -5417,7 +5422,12 @@ sub run {
           $ENV{"GIT_INDEX_FILE"} = $tmp_index;
           $ret = ExecUtil::execute("$git_cmd checkout $revision " .
                                    "-- $cf", ignore_ret => 1);
-          $ENV{"GIT_INDEX_FILE"} = $old_git_index_file;
+          if (defined($old_git_index_file)) {
+            $ENV{"GIT_INDEX_FILE"} = $old_git_index_file;
+          } else {
+            delete $ENV{"GIT_INDEX_FILE"};
+          }
+          
           exit $ret if $ret;
 
           $ret = ExecUtil::execute("rm $tmp_index");
