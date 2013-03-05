@@ -7510,7 +7510,7 @@ sub commit_push_checks {
                                                   ignore_ret => 1);
   my @unmerged_files = `$git_cmd ls-files --unmerged`;
   $status{has_new_unknown_files} = ($output =~ /^Newly created unknown files:$/m);
-  $status{has_unstaged_changes}  = ($output =~ /^Changed but not updated/m);
+  $status{has_unstaged_changes}  = ($output =~ /^Changes not staged for commit/m);
   $status{has_staged_changes}    = ($output =~ /^Changes ready to be commit/m);
   $status{has_unmerged_changes}  = (scalar @unmerged_files > 0);
   $status{has_no_changes}        = !$status{has_unstaged_changes} &&
