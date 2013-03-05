@@ -162,10 +162,10 @@ sub new {
 sub help {
   my $self = shift;
   my $package_name = ref($self);
-  $package_name =~ s/_/-/;  # Packages use underscores, commands use dashes
+  $package_name =~ s/_/-/g;  # Packages use underscores, commands use dashes
 
   my $git_equiv = $self->{git_equivalent};
-  $git_equiv =~ s/_/-/;  # Packages use underscores, commands use dashes
+  $git_equiv =~ s/_/-/g;  # Packages use underscores, commands use dashes
 
   if ($package_name eq "subcommand") {
     exit ExecUtil::execute("$git_cmd $self->{command} --help")
@@ -728,7 +728,7 @@ sub run {
       next if $command{$c}{unmodified_help} || $command{$c}{unmodified_behavior};
 
       my $real_c = $c;
-      $c =~ s/-/_/;  # Packages use underscores, commands use dashes
+      $c =~ s/-/_/g;  # Packages use underscores, commands use dashes
       next if !$c->can("new");
       my $obj = $c->new(initial_commit_error_msg => '');
 
@@ -1833,7 +1833,7 @@ sub run {
   if (@ARGV > 0) {
     my $orig_subcommand = shift @ARGV;
     my $subcommand = $orig_subcommand;
-    $subcommand =~ s/-/_/;  # Packages use underscores, commands use dashes
+    $subcommand =~ s/-/_/g;  # Packages use underscores, commands use dashes
     if (@ARGV != 0 && ($subcommand ne 'topic' || @ARGV != 1)) {
       die "Too many arguments to help.\n";
     }
@@ -6840,187 +6840,6 @@ Examples:
 # revert will get run with the right arguments
 
 ###########################################################################
-# update                                                                  #
-###########################################################################
-package update;
-@update::ISA = qw(subcommand);
-INIT {
-  $command{update} = {
-    new_command => 1,
-    extra => 1,
-    section => 'compatibility',
-    about => 'Use antiquated workflow for refreshing working copy, if safe'
-    };
-}
-
-sub new {
-  my $class = shift;
-  my $self = $class->SUPER::new(
-    git_repo_needed => 1,
-    git_equivalent => 'pull',
-    @_);
-  bless($self, $class);
-  $self->{'help'} = "
-Usage:
-  eg update
-
-Description:
-  Gets updates from the default remote repository if updating is safe, and
-  provides suggestions on proceeding otherwise.
-
-  eg update does not accept any options...other than --help.
-
-Examples:
-  Get any updates from the remote repository
-      \$ eg update
-";
-  $self->{'differences'} = '
-  eg update is unique to eg; it exists primarily to ease the transition for
-  cvs/svn users and to do something useful for them.  In particular, eg
-  update is used just to do fast-forward updates when there are no local
-  changes; if anything more than this is needed, eg advises users to run
-  other commands.
-
-  Here are the special cases eg update detects and provides tailored
-  messages for:
-    * User has local commits           => ask user to use eg pull instead
-    * User provides argument to update => tell user to use eg switch for
-                                          checking out an older revision or
-                                          eg revert to undo changes to a file
-    * User has locally deleted files   => tell user to use eg revert to
-                                          undo local changes (and that they do
-                                          not need to delete the file first as
-                                          they did with cvs)
-    * User has local modifications     => Tell user to stash or commit their
-                                          changes before pulling updates
-    * No default repository to contact => Tell user to run "eg remote add
-                                          origin REPOSITORY_URL"
-    * branch.BRANCH.merge not set and  => Warn user that we do not know which
-      more than one remote branch         branch to pull from and suggest eg
-      present                             pull or setting branch.BRANCH.merge
-';
-  return $self;
-}
-
-sub preprocess {
-  my $self = shift;
-
-  # Check for the --help arg
-  my $result=main::GetOptions("--help" => sub { $self->help() });
-
-  # Abort if the user specified any args other than --help
-  if (@ARGV) {
-    print STDERR <<EOF;
-Aborting: No arguments to update are allowed.  If you are trying to switch
-to a different revision, use eg switch.  If you are trying to undo the changes
-to a particular file, use eg revert.
-EOF
-    exit 1;
-  }
-
-  # Check if there are local changes
-  my $status = RepoUtil::commit_push_checks();
-  my $has_changes = $status->{has_staged_changes} ||
-    $status->{has_unstaged_changes} || $status->{has_unmerged_changes};
-  if ($has_changes) {
-    print STDERR <<EOF;
-Aborting: You have local changes, and pulling updates could put your
-working copy in a nonworking state.  Consider committing your changes
-before updating, or using eg stash to stash the changes away and reapply
-them after the update.
-EOF
-
-    if ($status->{output} =~ /^\s+deleted:/m) {
-      print STDERR "\n";
-      print STDERR <<EOF;
-NOTE: If you are trying to undo the changes in a file, just run
-  eg revert FILE
-This works whether or not the file has been deleted.
-EOF
-    }
-    
-    exit 1;
-  }
-
-  if ($debug) {
-    print "  >>Commands to determine where to update from:\n";
-  }
-
-  # Check if there is a default repository to pull from
-  # <This code mostly taken from pull, but "origin" serves as extra backup>
-  my $branch = RepoUtil::current_branch() || "HEAD";
-  my $repo = RepoUtil::get_default_push_pull_repository();
-  $self->{repository} = $repo;
-  $self->{local_branch} = $branch;
-
-  # Check if there is a default branch to pull
-  my $merge_branch = RepoUtil::get_config("branch.$branch.merge");
-  if (!$merge_branch) {
-    # Check if the remote repository has exactly 1 branch...if so, return it,
-    # otherwise throw an error
-    my ($quoted_repo) = Util::quote_args("$self->{repository}");
-    my ($ret, $output) = 
-      ExecUtil::execute_captured("$git_cmd ls-remote -h $quoted_repo");
-    if ($ret == 0) {
-      my @remote_refs = split('\n', $output);
-      if (@remote_refs == 1) {
-        # git ls-remote -h output changed at some point to include the sha1sum;
-        # we only want the refspec
-        if ($remote_refs[0] =~ /^[0-9a-f]+\s+(.*)/) {
-          $merge_branch = $1;
-        } else {
-          $merge_branch = $remote_refs[0];
-        }
-      }
-    }
-  }
-  if (!$merge_branch) {
-    print STDERR <<EOF;
-Error: It is not clear which remote branch to update from.
-You can either use eg pull instead, or run 
-  eg config branch.$branch.merge BRANCHANME
-EOF
-    exit 1;
-  }
-  $self->{merge_branch} = $merge_branch;
-}
-
-sub run {
-  my $self = shift;
-  my $package_name = ref($self);
-
-  # Get value to set ORIG_HEAD to (unless we are on the initial commit)
-  Util::push_debug(new_value => 0);
-  my ($retval, $orig_sha1sum) = 
-    ExecUtil::execute_captured("$git_cmd rev-parse HEAD", ignore_ret => 1);
-  my $has_orig_head = ($retval == 0);
-  Util::pop_debug();
-
-  # Do the fetch && reset, making sure to set ORIG_HEAD
-  my ($ret, $output) = 
-    ExecUtil::execute_captured("$git_cmd fetch $self->{repository} " .
-                               "$self->{merge_branch}:$self->{local_branch}",
-                               ignore_ret => 1);
-  if ($output =~ /\[rejected\].*\(non fast forward\)/) {
-    die "fatal: Cannot update because you have local commits; " .
-        "try 'eg pull' instead.\n";
-  } elsif ($ret != 0) {
-    die "Error updating (output = $output); please report the bug, and\n" .
-        "try using 'eg pull' instead.\n";
-  } else {
-    $ret = ExecUtil::execute_captured("$git_cmd reset --hard " .
-                                      "$self->{local_branch}");
-    if ($has_orig_head && $debug < 2) {
-      open(ORIG_HEAD, "> $self->{git_dir}/ORIG_HEAD");
-      print ORIG_HEAD $output;
-      close(ORIG_HEAD);
-    }
-    print "Updated the current branch.\n" if ($debug < 2);
-  }
-  return $ret;
-}
-
-###########################################################################
 # version                                                                 #
 ###########################################################################
 package version;
@@ -7062,7 +6881,140 @@ sub run {
   return $self->SUPER::run();
 }
 
+###########################################################################
+# update                                                                  #
+###########################################################################
+package update;
+@update::ISA = qw(subcommand);
 
+INIT {
+  $command{update} = {
+    new_command => 1,
+    section => 'collaboration',
+    about => 'Get updates from another repository and rebase them'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    git_repo_needed => 1,
+    git_equivalent => '',
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg update
+
+Description:
+  Get updates from another repository and rebase them.
+
+  TODO: Better description.
+";
+
+  return $self;
+}
+
+sub preprocess {
+  my $self = shift;
+
+  if (@ARGV) {
+    print STDERR <<EOF;
+Aborting: No arguments to update are allowed. If you just want to
+fetch changes, run 'eg fetch' or 'eg fetch <remote>'.
+EOF
+    exit 1;
+  }
+
+  my $status = RepoUtil::commit_push_checks();
+  my $has_uncommitted_changes = $status->{has_staged_changes} ||
+    $status->{has_unstaged_changes};
+
+  # we can't really automate this because a rebase conflict might
+  # interrupt unstashing.
+  if ($has_uncommitted_changes) {
+    print STDERR <<EOF;
+Aborting: You have uncommitted changes, so the rebase will fail. Please run
+'eg stash' to stash your unsaved changes, run 'eg update' again,
+and then run 'eg stash pop' to retrieve your changes from the stash.
+EOF
+    exit 1;
+  }
+
+  # Check if there is a default repository to pull from
+  # <This code mostly taken from pull, but "origin" serves as extra backup>
+  my $branch = RepoUtil::current_branch() || "HEAD";
+  my $repo = RepoUtil::get_default_push_pull_repository();
+  $self->{repository} = $repo;
+  $self->{local_branch} = $branch;
+
+  # Check if there is a default branch to pull
+  my $merge_branch = RepoUtil::get_config("branch.$branch.merge");
+  if (!$merge_branch) {
+    # Check if the remote repository has exactly 1 branch...if so, return it,
+    # otherwise throw an error
+    my ($quoted_repo) = Util::quote_args("$self->{repository}");
+    my ($ret, $output) = 
+      ExecUtil::execute_captured("$git_cmd ls-remote -h $quoted_repo");
+    if ($ret == 0) {
+      my @remote_refs = split('\n', $output);
+      if (@remote_refs == 1) {
+        # git ls-remote -h output changed at some point to include the sha1sum;
+        # we only want the refspec
+        if ($remote_refs[0] =~ /^[0-9a-f]+\s+(.*)/) {
+          $merge_branch = $1;
+        } else {
+          $merge_branch = $remote_refs[0];
+        }
+      }
+    }
+  }
+  if (!$merge_branch) {
+    print STDERR <<EOF;
+Error: It is not clear which remote branch to update from. Please run
+'eg track' to select a remote branch, e.g.
+  eg track origin/$branch
+EOF
+    exit 1;
+  }
+
+  if ($merge_branch =~ m|^refs/heads/(.*)$|) {
+    $self->{local_merge_branch} = $1;
+  } else {
+    die "Couldn't parse local merge branch $merge_branch. This is probably a " .
+    "bug.";
+  }
+
+  $self->{merge_branch} = $merge_branch;
+
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my ($ret, $output) = ExecUtil::execute_captured(
+      "$git_cmd fetch $self->{repository} $self->{merge_branch}",
+      ignore_ret => 1);
+
+  if ($ret != 0) {
+    print STDERR "Error fetching new updates:\n\n$output\n";
+    return 1;
+  }
+
+  ($ret, $output) = ExecUtil::execute_captured(
+      "$eg_exec rebase --preserve-merges " .
+      "$self->{repository}/$self->{local_merge_branch}",
+      ignore_ret => 1);
+
+  if ($ret != 0) {
+    print STDERR "Error rebasing:\n\n$output\n";
+    return 1;
+  }
+
+  return 0;
+
+}
 
 #*************************************************************************#
 #*************************************************************************#
@@ -7945,7 +7897,7 @@ sub launch {
   my $job=shift;
   $job = $alias{$job} || $job;
   my $orig_job = $job;
-  $job =~ s/-/_/;  # Packages must have underscores, commands often have dashes
+  $job =~ s/-/_/g;  # Packages must have underscores, commands often have dashes
 
   # Create the action to execute
   my $action;
