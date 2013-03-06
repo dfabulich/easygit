@@ -331,7 +331,8 @@ Description:
 
   Note that branches are local; creation of branches in a remote repository
   can be accomplished by first creating a local branch and then pushing the
-  new branch to the remote repository using eg push.
+  new branch to the remote repository using eg push. You can also use eg
+  push to delete remote branches.
 
 Examples
   List the available local branches
@@ -359,7 +360,7 @@ Examples
 
 Options:
   -d
-    Delete specified branch
+    Delete specified local branch
 
   -r
     List remote tracking branches (see 'eg help topic storage') for more
@@ -3932,7 +3933,7 @@ sub new {
   $self->{'help'} = "
 Usage:
   eg push [--bypass-modification-check] [--branch BRANCH] [--tag TAG]
-          [--all-branches] [--all-tags] [--mirror] REPOSITORY
+          [--all-branches] [--all-tags] [--mirror] [--delete] REPOSITORY
 
 Description:
   Push committed changes in the current repository to a published remote
@@ -3983,6 +3984,9 @@ Examples:
   Push the changes in just the stable branch
       \$ eg push --branch stable 
 
+  Delete a branch on the remote repository
+      \$ eg push --delete --branch experimental
+
 Options
   --bypass-modification-check, -b
     To prevent you from pushing an incomplete set of changes, push
@@ -4019,6 +4023,10 @@ Options
     both --all-branches and --all-tags, but it also means that tags and
     branches that do not exist in the local repository will be deleted from
     the remote repository.
+
+  --delete
+    Instead of uploading local commits, delete the specified branch(es) on the
+    remote server.
 ";
   $self->{'differences'} = "
   eg push is largely the same as git push, despite attempts to simplify in
@@ -4138,7 +4146,7 @@ sub preprocess {
   my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
   my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($all_branches, $matching_branches, $all_tags, $mirror) = (0, 0, 0, 0);
-  my ($thin, $repo) = (0, 0);
+  my ($thin, $repo, $delete) = (0, 0, 0);
   my @branches;
   my @tags;
   my $bypass_modification_check = 0;
@@ -4151,6 +4159,7 @@ sub preprocess {
     "--all-tags"          => \$all_tags,
     "tags"                => \$all_tags,
     "--mirror"            => \$mirror,
+    "--delete"            => \$delete,
     "--dry-run"           => sub { &$record_arg(@_) },
     "--porcelain"         => sub { &$record_arg(@_) },
     "--receive-pack=s"    => sub { &$record_args(@_) },
@@ -4169,7 +4178,7 @@ sub preprocess {
   my $repository = shift @ARGV;
   my @git_refspecs = @ARGV;
 
-  if (!$bypass_modification_check) {
+  if (!$bypass_modification_check && !$delete) {
     my $status = RepoUtil::commit_push_checks($package_name,
                                               {unknown => 1,
                                                changes => 1,
@@ -4183,6 +4192,7 @@ sub preprocess {
   push(@{$self->{args}}, "--all")    if $all_branches;
   push(@{$self->{args}}, "--tags")   if $all_tags;
   push(@{$self->{args}}, "--mirror") if $mirror;
+  push(@{$self->{args}}, "--delete") if $delete;
 
   my $default_specified = 0;
   $default_specified = 1  if $all_branches;
