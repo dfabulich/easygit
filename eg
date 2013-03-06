@@ -6993,14 +6993,23 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
+  my $l_m_b = $self->{local_merge_branch};
+
+  print "Fetching commits for this branch...\n";
   my ($ret, $output) = ExecUtil::execute_captured(
-      "$git_cmd fetch $self->{repository} $self->{merge_branch}",
+      "$git_cmd fetch "
+        . "$self->{repository} "
+        . "$l_m_b:refs/remotes/$self->{repository}/$l_m_b",
       ignore_ret => 1);
 
   if ($ret != 0) {
     print STDERR "Error fetching new updates:\n\n$output\n";
     return 1;
+  } else {
+    print "$output"; # output already has a newline
   }
+
+  print "Rebasing changes onto $self->{repository}/$self->{local_merge_branch}...\n";
 
   ($ret, $output) = ExecUtil::execute_captured(
       "$eg_exec rebase --preserve-merges " .
@@ -7008,9 +7017,11 @@ sub run {
       ignore_ret => 1);
 
   if ($ret != 0) {
-    print STDERR "Error rebasing:\n\n$output\n";
+    print STDERR "Error rebasing:\n$output\n";
     return 1;
   }
+
+  print "Done.\n";
 
   return 0;
 
