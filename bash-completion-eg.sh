@@ -208,6 +208,9 @@ _eg ()
 {
   local i c=1 command __git_dir
 
+  local cur words cword prev
+  _get_comp_words_by_ref -n =: cur words cword prev
+
   while [ $c -lt $COMP_CWORD ]; do
     i="${COMP_WORDS[c]}"
     case "$i" in
