@@ -3901,6 +3901,81 @@ sub run {
 }
 
 ###########################################################################
+# sync                                                                    #
+###########################################################################
+package sync;
+@sync::ISA = qw(subcommand);
+INIT {
+  $command{sync} = {
+    new_command => 1,
+    section => 'collaboration',
+    about => 'Download commits then upload local commits.'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    git_repo_needed => 1,
+    initial_commit_error_msg => "Error: No recorded commits to sync.",
+    git_equivalent => '',
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg sync
+
+Description:
+  Download commits from another repository then upload local commits.
+
+  This command is a simple alias for 'eg update' followed by 'eg push'
+  with no arguments.
+
+Options
+  --bypass-modification-check, -b
+    To prevent you from pushing an incomplete set of changes, push
+    typically checks whether you have new unknown files or modified files
+    present and aborts if so.  You can bypass these checks with this
+    option.
+
+";
+  return $self;
+}
+
+
+
+sub preprocess {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $bypass_modification_check = 0;
+  my $result = main::GetOptions(
+    "bypass-modification-check|b" => \$bypass_modification_check,
+    );
+
+  if (!$bypass_modification_check) {
+    my $status = RepoUtil::commit_push_checks($package_name,
+                                              {unknown => 1,
+                                               changes => 1,
+                                               unmerged_changes => 1});
+  } else {
+    # Record the set of unknown files we ignored with -b, so the -b flag
+    # isn't needed next time.
+    RepoUtil::record_ignored_unknowns();
+  }
+}
+
+sub run {
+  my $self = shift;
+
+  if (ExecUtil::execute("$eg_exec update", ignore_ret => 1) != 0) {
+    return 1;
+  }
+
+  return ExecUtil::execute("$git_cmd push", ignore_ret => 1);
+}
+
+###########################################################################
 # push                                                                    #
 ###########################################################################
 package push;
@@ -7565,7 +7640,7 @@ sub commit_push_checks {
                                 $check_for,
                                 \%status,
                                 \@new_unknown);
-  } elsif ($clean_check_type eq "push" || $clean_check_type eq "publish") {
+  } elsif ($clean_check_type eq "push" || $clean_check_type eq "publish" || $clean_check_type eq "sync") {
     push_error_message_checks($clean_check_type,
                               $check_for,
                               \%status,
