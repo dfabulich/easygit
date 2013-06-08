@@ -1964,19 +1964,8 @@ noting the merge and any file conflicts.  If you try to run this command
 without resolving all conflicts, the command will error out and tell you
 that some conflicts remain to be resolved.";
   my $abort_text = "
-If you had no uncommitted changes before the merge (or do not care about
-keeping those changes), you can run
-  eg reset --working-copy ORIG_HEAD
-
-If you had uncommitted changes before starting the merge, and have
-git-1.6.2 or later, you can try
-  eg ls-files --unmerged | awk {'print \$4'} | uniq | xargs eg stage
-  eg reset --merge ORIG_HEAD
-The first command will mark all unmerged files as ready for commit (who
-doesn't like having conflict markers in their files?), and the second
-command undoes all changes to staged files since ORIG_HEAD -- both the
-files that were successfully merged by git, and the files that you manually
-staged in the first command.";
+To abort your merge operation, simply run
+  eg merge --abort";
   return _conflict_resolution_message(op => "merge",
                                       show_empty_case => 0,
                                       continue_text => $completion_text,
