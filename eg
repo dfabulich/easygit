@@ -6515,6 +6515,24 @@ EOF
     Util::push_debug(new_value => 0);
     my $valid_ref = RepoUtil::valid_ref($ARGV[0]);
     Util::pop_debug();
+    if (!$valid_ref) {
+      # check for unique tracking name, like git checkout does
+      my @remote_branches =
+        split('\n', `$git_cmd for-each-ref --format '%(refname:short)' refs/remotes`);
+      my $found = 0;
+      foreach (@remote_branches) {
+        if (m!.*/$ARGV[0]!) {
+          if ($found) {
+            # Already found, so tracking name is not unique
+            $found = 0;
+            last;
+          } else {
+            $found = 1;
+          }
+        }
+      }
+      $valid_ref = $found;
+    }
     die "Invalid branch/revision reference: $ARGV[0]\n" if !$valid_ref;
   }
 
