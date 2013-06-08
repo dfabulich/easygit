@@ -6954,21 +6954,6 @@ EOF
     exit 1;
   }
 
-  my $status = RepoUtil::commit_push_checks();
-  my $has_uncommitted_changes = $status->{has_staged_changes} ||
-    $status->{has_unstaged_changes};
-
-  # we can't really automate this because a rebase conflict might
-  # interrupt unstashing.
-  if ($has_uncommitted_changes) {
-    print STDERR <<EOF;
-Aborting: You have uncommitted changes, so the rebase will fail. Please run
-'eg stash' to stash your unsaved changes, run 'eg update' again,
-and then run 'eg stash pop' to retrieve your changes from the stash.
-EOF
-    exit 1;
-  }
-
   # Check if there is a default repository to pull from
   # <This code mostly taken from pull, but "origin" serves as extra backup>
   my $branch = RepoUtil::current_branch() || "HEAD";
@@ -7036,6 +7021,23 @@ sub run {
     print "$output"; # output already has a newline
   }
 
+  my $status = RepoUtil::commit_push_checks();
+  my $has_uncommitted_changes = $status->{has_staged_changes} ||
+    $status->{has_unstaged_changes};
+
+  if ($has_uncommitted_changes) {
+    print "Stashing changes...\n";
+
+    my ($ret, $output) = ExecUtil::execute_captured(
+        "$git_cmd stash save -u eg update autostash",
+        ignore_ret => 1);
+
+    if ($ret != 0) {
+      print STDERR "Error stashing changes:\n\n$output\n";
+      return 1;
+    }
+  }
+
   print "Rebasing changes onto $self->{repository}/$self->{local_merge_branch}...\n";
 
   ($ret, $output) = ExecUtil::execute_captured(
@@ -7044,8 +7046,45 @@ sub run {
       ignore_ret => 1);
 
   if ($ret != 0) {
-    print STDERR "Error rebasing:\n$output\n";
-    return 1;
+    if ($has_uncommitted_changes) {
+      print STDERR "Error rebasing. Aborting and unstashing...\n";
+      ExecUtil::execute_captured("$git_cmd rebase --abort");
+      # apply and drop instead of pop, to guarantee drop
+      my ($ret, $output) = ExecUtil::execute_captured(
+          "$git_cmd stash apply",
+          ignore_ret => 1);
+      ExecUtil::execute_captured("$git_cmd stash drop");
+      if ($ret != 0) {
+        print STDERR "Error unstashing changes:\n\n$output\n";
+        return 1;
+      }
+      print STDERR <<EOF;
+Aborting: You have uncommitted changes, and the rebase will fail. Please run
+'eg stash -u' to stash your unsaved changes, run 'eg update' again,
+resolve the rebase conflicts with 'eg mergetool' and 'eg rebase --continue',
+and then run 'eg stash apply' to retrieve your changes from the stash, and
+finally 'eg stash drop' to delete your stash.
+EOF
+      return 1;
+    } else {
+      print STDERR "Error rebasing:\n$output\n";
+      return 1;
+    }
+  }
+
+  if ($has_uncommitted_changes) {
+    print "Rebase successful. Unstashing changes...\n";
+    # apply and drop instead of pop, to guarantee drop
+    my ($ret, $output) = ExecUtil::execute_captured(
+        "$git_cmd stash apply",
+        ignore_ret => 1);
+    ExecUtil::execute_captured("$git_cmd stash drop");
+    if ($ret != 0) {
+      print STDERR "Error unstashing changes:\n\n$output\n";
+      return 1;
+    } else {
+      print "$output"; # output already has a newline
+    }
   }
 
   print "Done.\n";
