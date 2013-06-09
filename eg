@@ -3629,6 +3629,7 @@ package pull;
 @pull::ISA = qw(subcommand);
 INIT {
   $command{pull} = {
+    extra => 1,
     section => 'collaboration',
     about => 'Get updates from another repository and merge them'
     };
