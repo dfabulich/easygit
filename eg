@@ -1243,6 +1243,10 @@ Options:
 
   --amend
     Amend the last commit on the current branch.
+
+  --sync
+    Automatically run 'eg sync' after successful commit to upload the
+    changes.
 ";
   $self->{'differences'} = '
   The "--staged" (and "-d" and "--dirty" aliases) are unique to eg commit;
@@ -1261,6 +1265,8 @@ Options:
   The "--all-known" alias for "-a" is known as "--all" to git-commit; I
   find the latter confusing and misleading and thus renamed to the former
   for eg commit.
+
+  The "--sync" option is unique to eg (as is the eg sync itself).
 
   To be precise about the behavior of a plain "eg commit":
      If the working copy is clean                -> warn user: nothing to commit
@@ -1293,11 +1299,12 @@ sub preprocess {
   # Parse options
   #
   $self->{args} = [];
+  $self->{sync} = 0;
   my $record_arg   = sub { push(@{$self->{args}}, "$_[0]$_[1]"); };
   my $record_args  = sub { push(@{$self->{args}}, "$_[0]$_[1]");
                            push(@{$self->{args}}, splice(@_, 2)); };
-  my ($all_known, $bypass_unknown, $staged, $amend,
-      $dry_run, $allow_empty, $include) = (0, 0, 0, 0, 0, 0, 0);
+  my ($all_known, $bypass_unknown, $staged, $amend, $sync,
+      $dry_run, $allow_empty, $include) = (0, 0, 0, 0, 0, 0, 0, 0);
   Getopt::Long::Configure("permute");
   my $result = main::GetOptions(
     "--help"                      => sub { $self->help() },
@@ -1325,7 +1332,9 @@ sub preprocess {
     "cleanup=s"                   => sub { &$record_args("--", @_) },
     "include|i=s"                 => sub { $include = 1;
                                            &$record_args("--", @_) },
+    "sync"                        => \$sync
     );
+  $self->{sync} = $sync;
   my ($opts, $revs, $files) = RepoUtil::parse_args([], @ARGV);
 
   #
@@ -1384,6 +1393,19 @@ EOF
 
   push(@{$self->{args}}, @{$self->{commit_flags}});
   unshift(@ARGV, @{$self->{args}});
+}
+
+sub run {
+  my $self = shift;
+  my $package_name = ref($self);
+
+  my $subcommand = 
+    $package_name eq "subcommand" ? $self->{'command'} : $package_name;
+
+  @ARGV = Util::quote_args(@ARGV);
+  my $ret = ExecUtil::execute("$git_cmd $subcommand @ARGV", ignore_ret => 1);
+  return $ret if ($ret != 0 || !$self->{sync});
+  return ExecUtil::execute("$eg_exec sync", ignore_ret => 1);
 }
 
 ###########################################################################
