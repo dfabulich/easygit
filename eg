@@ -3904,6 +3904,69 @@ sub run {
 }
 
 ###########################################################################
+# trim                                                                    #
+###########################################################################
+package trim;
+@trim::ISA = qw(subcommand);
+INIT {
+  $command{trim} = {
+    new_command => 1,
+    extra => 1,
+    section => 'projects',
+    about => 'Delete unneeded local branch references.'
+    };
+}
+
+sub new {
+  my $class = shift;
+  my $self = $class->SUPER::new(
+    git_repo_needed => 1,
+    git_equivalent => '',
+    @_);
+  bless($self, $class);
+  $self->{'help'} = "
+Usage:
+  eg trim
+
+Description:
+  Delete local references to branches that have already merged to the
+  master branch. This command will not delete any remote branches.
+
+  eg trim takes no arguments.
+
+";
+  $self->{'differences'} = '
+    eg trim is unique to eg.
+  ';
+  return $self;
+}
+
+
+sub run {
+  my $self = shift;
+
+  my ($ret, $output) = ExecUtil::execute_captured(
+      "$git_cmd branch --merged master",
+      ignore_ret => 1);
+
+  if ($ret != 0) {
+    print STDERR "Error enumerating branches:\n\n$output\n";
+    return 1;
+  }
+
+  @branches = grep { !m/(\*|^\s*master$)/ } split('\n', $output);
+
+  $ret = 0;
+  foreach (@branches) {
+    if (ExecUtil::execute("$git_cmd branch -d $_", ignore_ret => 1) != 0) {
+      $ret = 1;
+    }
+  }
+
+  return $ret;
+}
+
+###########################################################################
 # sync                                                                    #
 ###########################################################################
 package sync;
