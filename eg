@@ -4187,17 +4187,12 @@ Options
   eg push is largely the same as git push, despite attempts to simplify in
   a number of areas:
 
-    (1) push.default=tracking is the default if push.default is unset (git
-        uses push.default=matching if push.default is unset).  This seems
-        to match the intuition of most former cvs/svn users, though it is
-        my one dangerous default change for existing git users.  Tough
-        call, since the 'safe' defaults for each group are unsafe and/or
-        confusing for the other.  A new --matching-branches flag is added
-        to get the old behavior (the plain ':' refspec from git does the
-        same, but --matching-branches is more self-documenting and also
-        predates the ':' refspec).
+    (1) --set-upstream is set by default.
 
-    (2) eg prevents pushing into a bare repository as a push-side check
+    (2) If no default branch can be determined, push the current branch by
+        name.
+
+    (3) eg prevents pushing into a bare repository as a push-side check
         rather than a receive-side check (when it can determine that the
         remote repository is bare -- i.e. if the repository url is for a
         locally mounted filesystem or uses ssh).  eg also allows the check
@@ -4212,13 +4207,13 @@ Options
         for ssh-accessed repositories if users have ssh setup to not need a
         password (kerberos, ssh-keys, etc.).
 
-    (3) eg performs checks for uncommitted changes and newly created
+    (4) eg performs checks for uncommitted changes and newly created
         unknown files and warns/aborts if such exist when the user pushes
         (most former cvs/svn users are not yet familiar with the fact that
         only committed stuff gets pushed/pulled).  As with eg commit, such
         checks can be overridden with the -b flag.
 
-    (4) eg provides extra --tag and --branch flags to make command lines
+    (5) eg provides extra --tag and --branch flags to make command lines
         more self-documenting and to avoid excessively early introduction
         of refspecs (a very confusing topic for new users).  However,
         refspecs still work with eg push, and users can learn about them by
@@ -4301,7 +4296,7 @@ sub preprocess {
   my $record_arg   = sub { push(@{$self->{args}}, "--$_[0]"); };
   my $record_args  = sub { $_[0] = "--$_[0]"; push(@{$self->{args}}, @_);  };
   my ($all_branches, $matching_branches, $all_tags, $mirror) = (0, 0, 0, 0);
-  my ($thin, $repo, $delete) = (0, 0, 0);
+  my ($thin, $repo, $delete, $set_upstream) = (0, 0, 0, 0);
   my @branches;
   my @tags;
   my $bypass_modification_check = 0;
@@ -4323,7 +4318,7 @@ sub preprocess {
     "thin"                => sub { &$record_arg(@_) },
     "no-thin"             => sub { &$record_arg(@_) },
     "verbose|v"           => sub { &$record_arg(@_) },
-    "set-upstream|u"      => sub { &$record_arg(@_) },
+    "set-upstream|u"      => \$set_upstream,
     "bypass-modification-check|b" => \$bypass_modification_check,
     );
   die "Cannot specify individual branches and request all branches too!\n"
@@ -4433,25 +4428,34 @@ EOF
         defined(RepoUtil::get_config("remote.$remote_chk.mirror"))) {
       $default_known = 1;
     }
-    # 2 - push.default option
-    if (defined(RepoUtil::get_config("push.default"))) {
+    # 2 - push.default option is current
+    my $push_default = RepoUtil::get_config("push.default");
+    if ($push_default eq "current") {
       $default_known = 1;
     }
+
+    my $branch = RepoUtil::current_branch();
     # 3 - branch.$branch.merge option
     if (!$default_known) {
-      my $branch = RepoUtil::current_branch();
-      $push_branch = RepoUtil::get_config("branch.$branch.merge");
+      my $push_branch = RepoUtil::get_config("branch.$branch.merge");
       if (defined $push_branch) {
         $push_branch =~ s#refs/heads/##;
         push(@{$self->{args}}, "$branch:$push_branch");
         $default_known = 1;
       }
     }
-    # 4 - the only branch that exists at the remote end
+    # 4 - the current branch
     if (!$default_known && defined $repository) {
-      my $only_branch = RepoUtil::get_only_branch($repository, "push");
-      push(@{$self->{args}}, $only_branch);
+      push(@{$self->{args}}, $branch);
     }
+  }
+
+  if (!$set_upstream) {
+    my $branch = RepoUtil::current_branch();
+    $set_upstream = !RepoUtil::get_config("branch.$branch.merge");
+  }
+  if ($set_upstream) {
+      push(@{$self->{args}}, "--set-upstream");
   }
 
   #
