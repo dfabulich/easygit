@@ -3647,6 +3647,8 @@ Usage:
 Description:
   Pull changes from another repository and merge them into the local
   repository.  If there are no conflicts, the result will be committed.
+  Compare with 'eg update' which is the recommended way to download
+  commits.
 
   See 'eg help topic remote-urls' for valid syntax for remote repositories.
   If you frequently pull from the same repository, you may want to set up a
@@ -3940,6 +3942,9 @@ Options
     option.
 
 ";
+  $self->{'differences'} = '
+    eg sync is unique to eg, inspired by the Github GUI and legit.
+  ';
   return $self;
 }
 
@@ -3984,7 +3989,7 @@ package push;
 INIT {
   $command{push} = {
     section => 'collaboration',
-    about => 'Push local commits to a published repository'
+    about => 'Upload local commits to a published repository'
     };
 }
 
@@ -6984,7 +6989,7 @@ INIT {
   $command{update} = {
     new_command => 1,
     section => 'collaboration',
-    about => 'Get updates from another repository and rebase them'
+    about => 'Download commits from remote repository and rebase onto them'
     };
 }
 
@@ -6995,14 +7000,52 @@ sub new {
     git_equivalent => '',
     @_);
   bless($self, $class);
-  $self->{'help'} = "
+  $self->{'help'} = <<END;
 Usage:
   eg update
 
 Description:
-  Get updates from another repository and rebase them.
+  Download commits from the default remote repository, rewriting
+  ('rebasing') local unpublished commits on top of the new remote commits.
+  See 'eg help rebase' for more details about rebasing.
 
-  TODO: Better description.
+  In addition, eg update will automatically stash uncommitted changes with
+  'eg stash -u' before running rebase. If the rebase succeeds, eg update
+  will automatically 'eg stash pop' the automatic stash; if the rebase
+  fails, eg update will abort the rebase, pop the stash, and prompt the
+  user to stash or commit changes manually.
+
+  eg update takes no arguments, but instead downloads commits from the
+  current branch's default "tracking" branch. Use eg track to change the
+  default branch from which to download.
+END
+  $self->{'differences'} = "
+  eg update is unique to eg, intended as a replacement for git pull.
+
+  By default, git pull creates a merge commit when it runs. If you need to
+  pull frequently, you can quickly clutter your log with merge commits,
+  making it more difficult to use eg bisect to find bugs.
+
+  git pull can take a --rebase option to rewrite local unpublished
+  commits instead of merging them. 'git pull --rebase' is equivalent to
+  running git fetch followed by git rebase; that's very close to what
+  eg update does.
+
+  But 'eg update' also passes additional non-standard arguments to fetch
+  and rebase.
+    (1) eg update passes the '--prune' option to git fetch, which cleans
+      up local references to deleted remote branches.
+    (2) eg update passes the '--preserve-merges' option to git rebase,
+      ensuring that real merge commits will be preserved.
+
+  And, of course, eg update automatically stashes uncommitted changes.
+  This concept was inspired by the Github GUI and legit, but their 
+  implententation tends to leave 'orphaned' stashes hanging around. eg
+  update protects against orphaned stashes, by refusing to automatically
+  stash if the rebase fails, and by dropping the stash afterwards, even if
+  there's a stash conflict. (eg stash pop will normally not delete a stash
+  if it has a conflict when applying; users might then forget to delete
+  the orphaned stash after resolving conflicts.)
 ";
 
   return $self;
