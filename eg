@@ -386,8 +386,13 @@ sub run {
   my $self = shift;
   my $package_name = ref($self);
 
-  if (!scalar(@ARGV) || (scalar(@ARGV) == 1 && $ARGV[0] eq "--show-merged")) {
-    my $show_merged = (scalar(@ARGV) == 1 && $ARGV[0] eq "--show-merged");
+  if (!scalar(@ARGV) || (scalar(@ARGV) == 1 && $ARGV[0] eq "--show-merged")
+    || (scalar(@ARGV) == 1 && $ARGV[0] eq "-r")
+    || (scalar(@ARGV) == 2 && $ARGV[0] eq "--show-merged" && $ARGV[1] eq "-r")
+    || (scalar(@ARGV) == 2 && $ARGV[1] eq "--show-merged" && $ARGV[0] eq "-r")
+  ) {
+    my $show_merged = (scalar(@ARGV) > 0 && $ARGV[0] eq "--show-merged") || (scalar(@ARGV) > 1 && $ARGV[1] eq "--show-merged");
+    my $show_remote = (scalar(@ARGV) > 0 && $ARGV[0] eq "-r") || (scalar(@ARGV) > 1 && $ARGV[1] eq "-r");
     my ($ret, $output) = ExecUtil::execute_captured("$git_cmd for-each-ref "
       ." --format='%(committerdate:raw)%09%(refname:short)%09%(objectname:short)%09%(objectname)"
       ."%09%(contents:subject)'", ignore_ret => 1);
@@ -418,7 +423,7 @@ sub run {
     foreach (@branches) {
       $_->{"independent"} = $independents{$_->{"sha"}};
     }
-    my @local_branches;
+    my (@local_branches, @remote_branches);
     my %local_branch_set;
     foreach (@branches) {
       my ($remote, $name) = split '/', $_->{"name"};
@@ -427,12 +432,44 @@ sub run {
         push(@local_branches, $_);
         $local_branch_set{$name} = 1;
       } else {
+        push(@remote_branches, $_);
         if (!%latest_remote_branches || !defined($latest_remote_branches{$name}) || $latest_remote_branches{$name}->{"date"} < $_->{"date"}) {
           $latest_remote_branches{$name} = $_;
         }
       }
     }
 
+    $hidden_branch_count = 0;
+
+    if ($show_remote) {
+      $max_remote_branch_name_length = 0;
+      foreach (@remote_branches) {
+        my $name = $_->{'name'};
+        my $len = length($name);
+        $max_remote_branch_name_length = $len if ($len > $max_remote_branch_name_length);
+      }
+      foreach (@remote_branches) {
+        %branch = %$_;
+        if (!$show_merged && !$branch{'independent'}) {
+          $hidden_branch_count++;
+          next;
+        }
+        print $branch{'name'};
+        my $padding = $max_remote_branch_name_length - length($branch{'name'});
+        for (my $i = 0; $i <= $padding; $i++) {
+          print " ";
+        }
+        if (!$branch{'independent'}) {
+          print "(merged) ";
+        }
+        print $branch{'shortsha'};
+        print "\n";
+      }
+      if ($hidden_branch_count) {
+        print "# $hidden_branch_count merged branches hidden. Use eg branch -r --show-merged to see them.\n";
+      }
+      return 0;
+    }
     $current_branch = RepoUtil::current_branch();
 
     $max_local_branch_name_length = 0;
@@ -441,8 +478,6 @@ sub run {
       my $len = length($name);
       $max_local_branch_name_length = $len if ($len > $max_local_branch_name_length);
     }
-
-    $hidden_branch_count = 0;
 
     sub print_local_branch {
       my %branch = %$_;
