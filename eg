@@ -4225,7 +4225,7 @@ sub run {
     return 1;
   }
 
-  return ExecUtil::execute("$git_cmd push", ignore_ret => 1);
+  return ExecUtil::execute("$eg_exec push", ignore_ret => 1);
 }
 
 ###########################################################################
