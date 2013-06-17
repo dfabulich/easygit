@@ -439,7 +439,6 @@ sub run {
     foreach (@local_branches) {
       my $name = $_->{'name'};
       my $len = length($name);
-      $len += 2 if ($name eq $current_branch);
       $max_local_branch_name_length = $len if ($len > $max_local_branch_name_length);
     }
 
@@ -466,15 +465,17 @@ sub run {
       } else {
         push(@badges, "unpublished");
       }
-      if ($branch{"independent"}) {
-        #push(@badges, "unmerged");
-      } else {
-        #push(@badges, "merged");
+      if (!$branch{"independent"}) {
+        push(@badges, "merged");
       }
 
-      print "$branch{'name'}";
+      if ($branch{'name'} eq $current_branch) {
+        print "*";
+      } else {
+        print " ";
+      }
+      print " $branch{'name'}";
       my $padding = $max_local_branch_name_length - length($branch{'name'});
-      $padding -= 2 if ($branch{'name'} eq $current_branch);
       for (my $i = 0; $i < $padding; $i++) {
         print " ";
       }
@@ -486,7 +487,6 @@ sub run {
 
     foreach (@local_branches) {
       if ($_->{"name"} eq $current_branch) {
-        print "* ";
         print_local_branch($_);
         last;
       }
