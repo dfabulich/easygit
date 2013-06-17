@@ -369,10 +369,15 @@ Options:
 
   -s
     After creating the new branch, switch to it
+
+  --show-merged
+    The branch list automatically hides merged branches. Use --show-merged to
+    show them.
 ";
   $self->{'differences'} = '
-  eg branch is identical to git branch other than adding a new -s option for
-  switching to a branch immediately after creating it.
+  eg branch adds a new -s option for switching to a branch immediately after
+  creating it, and enhances the display of local branches to hide merged
+  branches by default.
 ';
   return $self;
 }
@@ -380,6 +385,128 @@ Options:
 sub run {
   my $self = shift;
   my $package_name = ref($self);
+
+  if (!scalar(@ARGV) || (scalar(@ARGV) == 1 && $ARGV[0] eq "--show-merged")) {
+    my $show_merged = (scalar(@ARGV) == 1 && $ARGV[0] eq "--show-merged");
+    my ($ret, $output) = ExecUtil::execute_captured("$git_cmd for-each-ref "
+      ." --format='%(committerdate:raw)%09%(refname:short)%09%(objectname:short)%09%(objectname)"
+      ."%09%(contents:subject)'", ignore_ret => 1);
+    if ($ret != 0) {
+      print STDERR "Error reading branches:\n\n$output\n";
+      return 1;
+    }
+    my @lines = split('\n', $output);
+    my @branches = [];
+    for (my $i = 0; $i < @lines; $i++) {
+      my @columns = split('\t', $lines[$i]);
+      my %branch;
+      ($branch{"date"}) = split(' ', $columns[0]);
+      $branch{"name"} = $columns[1];
+      $branch{"shortsha"} = $columns[2];
+      $branch{"sha"} = $columns[3];
+      $branch{"subject"} = $columns[4];
+      $branches[$i] = \%branch;
+    }
+    @revs = map { $_->{"sha"} } @branches;
+    ($ret, $output) = ExecUtil::execute_captured("$git_cmd merge-base"
+      ." --independent @revs", ignore_ret => 1);
+    if ($ret != 0) {
+      print STDERR "Error reading independent branches:\n\n$output\n";
+      return 1;
+    }
+    my %independents = map {$_ => 1} split('\n', $output);
+    foreach (@branches) {
+      $_->{"independent"} = $independents{$_->{"sha"}};
+    }
+    my @local_branches;
+    my %local_branch_set;
+    foreach (@branches) {
+      my ($remote, $name) = split '/', $_->{"name"};
+      if (!defined($name)) {
+        $name = $remote;
+        push(@local_branches, $_);
+        $local_branch_set{$name} = 1;
+      } else {
+        if (!%latest_remote_branches || !defined($latest_remote_branches{$name}) || $latest_remote_branches{$name}->{"date"} < $_->{"date"}) {
+          $latest_remote_branches{$name} = $_;
+        }
+      }
+    }
+
+    $current_branch = RepoUtil::current_branch();
+
+    $max_local_branch_name_length = 0;
+    foreach (@local_branches) {
+      my $name = $_->{'name'};
+      my $len = length($name);
+      $len += 2 if ($name eq $current_branch);
+      $max_local_branch_name_length = $len if ($len > $max_local_branch_name_length);
+    }
+
+    $hidden_branch_count = 0;
+
+    sub print_local_branch {
+      my %branch = %$_;
+      $lrb_ref = $latest_remote_branches{$branch{"name"}};
+      my $published = 0, $synced = 0;
+      if ($lrb_ref) {
+        %latest_remote_branch = %$lrb_ref;
+        $published = !!%latest_remote_branch;
+        $synced = $branch{"sha"} eq $latest_remote_branch{"sha"};
+      }
+
+      my @badges;
+      if ($published) {
+        push(@badges, "published");
+        if ($synced) {
+          push(@badges, "synced");
+        } else {
+          push(@badges, "unsynced");
+        }
+      } else {
+        push(@badges, "unpublished");
+      }
+      if ($branch{"independent"}) {
+        #push(@badges, "unmerged");
+      } else {
+        #push(@badges, "merged");
+      }
+
+      print "$branch{'name'}";
+      my $padding = $max_local_branch_name_length - length($branch{'name'});
+      $padding -= 2 if ($branch{'name'} eq $current_branch);
+      for (my $i = 0; $i < $padding; $i++) {
+        print " ";
+      }
+      print " (";
+      print join(", ", @badges);
+
+      print ") $branch{'shortsha'}\n";
+    }
+
+    foreach (@local_branches) {
+      if ($_->{"name"} eq $current_branch) {
+        print "* ";
+        print_local_branch($_);
+        last;
+      }
+    }
+
+    foreach (@local_branches) {
+      next if ($_->{"name"} eq $current_branch);
+      if (!$show_merged && $_->{"name"} ne "master" && !$_->{"independent"}) {
+        $hidden_branch_count++;
+        next;
+      }
+      print_local_branch($_);
+    }
+    if ($hidden_branch_count) {
+      print "# $hidden_branch_count merged branches hidden. Use eg branch --show-merged to see them.\n";
+    }
+    print "# These are all local branches; view remote branches with eg branch -r\n";
+
+    return 0;
+  }
 
   my $switch = 0;
   if (scalar(@ARGV) > 1 && $ARGV[0] eq "-s") {
