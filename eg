@@ -4557,7 +4557,7 @@ EOF
     }
     # 2 - push.default option is current
     my $push_default = RepoUtil::get_config("push.default");
-    if ($push_default eq "current") {
+    if (defined($push_default) && $push_default eq "current") {
       $default_known = 1;
     }
 
