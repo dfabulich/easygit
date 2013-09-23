@@ -4583,35 +4583,10 @@ EOF
   $default_specified = 1  if $matching_branches;
 
   if (!@branches && !@tags && !@git_refspecs && !$default_specified) {
-    # User hasn't specified what to push; default choices:
-    # 1 - remote.$remote.(push|mirror) options
-    my $default_known = 0;
-    if (defined(RepoUtil::get_config("remote.$remote_chk.push")) ||
-        defined(RepoUtil::get_config("remote.$remote_chk.mirror"))) {
-      $default_known = 1;
-    }
-    # 2 - push.default option is current
-    my $push_default = RepoUtil::get_config("push.default");
-    if (defined($push_default) && $push_default eq "current") {
-      $default_known = 1;
-    }
-
+    # User hasn't specified what to push
+    # push the current branch by default
     my $branch = RepoUtil::current_branch();
-    # 3 - branch.$branch.merge option
-    if (!$default_known) {
-      my $push_branch = RepoUtil::get_config("branch.$branch.merge");
-      if (defined $push_branch) {
-        $push_branch =~ s#refs/heads/##;
-        if ($delete) {
-          push(@{$self->{args}}, "$push_branch");
-        } else {
-          push(@{$self->{args}}, "$branch:$push_branch");
-        }
-        $default_known = 1;
-      }
-    }
-    # 4 - the current branch
-    if (!$default_known && defined $repository) {
+    if (defined $repository) {
       push(@{$self->{args}}, $branch);
     }
   }
