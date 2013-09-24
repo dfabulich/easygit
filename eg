@@ -378,6 +378,11 @@ Options:
   eg branch adds a new -s option for switching to a branch immediately after
   creating it, and enhances the display of local branches to hide merged
   branches by default.
+
+  It also adds the --no-track option when creating branches. Automatically
+  tracking the original branch makes it too easy to accidentally push to
+  the original branch, when users actually wanted to push to a new named
+  branch instead.
 ';
   return $self;
 }
@@ -550,7 +555,7 @@ sub run {
   }
 
   @ARGV = Util::quote_args(@ARGV);
-  my $ret = ExecUtil::execute("$git_cmd branch @ARGV", ignore_ret => 1);
+  my $ret = ExecUtil::execute("$git_cmd branch --no-track @ARGV", ignore_ret => 1);
   $ret = ExecUtil::execute("$git_cmd checkout $ARGV[0]", ignore_ret => 1)
     if ($switch && $ret == 0);
   return $ret;
