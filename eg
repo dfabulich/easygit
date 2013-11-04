@@ -438,7 +438,9 @@ sub run {
         $local_branch_set{$name} = 1;
       } else {
         push(@remote_branches, $_);
-        if (!%latest_remote_branches || !defined($latest_remote_branches{$name}) || $latest_remote_branches{$name}->{"date"} < $_->{"date"}) {
+        if (!%latest_remote_branches
+            || !defined($latest_remote_branches{$name})
+            || (defined($_->{"date"}) && $latest_remote_branches{$name}->{"date"} < $_->{"date"})) {
           $latest_remote_branches{$name} = $_;
         }
       }
