@@ -6511,7 +6511,7 @@ sub run {
   $self->{special_state} = RepoUtil::get_special_state($self->{git_dir});
 
   @ARGV = Util::quote_args(@ARGV);
-  return ExecUtil::execute("$git_cmd status @ARGV", ignore_ret => 1);
+  return ExecUtil::execute("$git_cmd -c status.displayCommentPrefix=true status @ARGV", ignore_ret => 1);
 }
 
 sub postprocess {
@@ -6573,7 +6573,7 @@ sub postprocess {
     } elsif ($cur_state < 0) {
       next if $line !~ m/^# (.+)/;
       push(@basic_info, $1);
-    } elsif ($line =~ m/^no changes added to commit/ ||
+    } elsif ($line =~ m/^no(?:thing|\s+changes) added to commit/ ||
              $line =~ m/^# Untracked files not listed/) {
       next;  # Skip this line
     } elsif ($line =~ m#^(?:\e\[.*?m)?diff --git a/#) {
